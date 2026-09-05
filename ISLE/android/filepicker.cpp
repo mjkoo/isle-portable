@@ -185,6 +185,27 @@ static char* GetImportedRoot()
 	return importedRoot;
 }
 
+static bool CallActivityBooleanMethod(const char* p_name)
+{
+	ActivityCall call;
+	if (!BeginActivityCall(&call, p_name, "()Z")) {
+		return false;
+	}
+
+	jboolean result = call.m_env->CallBooleanMethod(call.m_activity, call.m_method);
+	return EndActivityCall(&call) && result;
+}
+
+static bool HasImportedGameData()
+{
+	return CallActivityBooleanMethod("hasImportedGameData");
+}
+
+static bool RemoveImportedGameData()
+{
+	return CallActivityBooleanMethod("removeImportedGameData");
+}
+
 // isle.ini is small, it is the only record of where the game data went, and since it is
 // covered by the backup rules it is also what a restored install starts from. Write a
 // sibling and rename over the original rather than truncating the file we still need: an
@@ -273,16 +294,46 @@ bool Android_TryImportGameFiles(
 		);
 	}
 
-	const SDL_MessageBoxButtonData buttons[] = {
-		{SDL_MESSAGEBOX_BUTTON_RETURNKEY_DEFAULT, 1, "Select folder"},
-		{SDL_MESSAGEBOX_BUTTON_ESCAPEKEY_DEFAULT, 0, "Cancel"},
-	};
-	const SDL_MessageBoxData messageBox =
-		{SDL_MESSAGEBOX_INFORMATION, p_window, "LEGO® Island", message, SDL_arraysize(buttons), buttons, NULL};
+	// At most two rounds: removing the copied files takes the third button away, so the
+	// second prompt can only be answered with a pick or a cancel.
+	for (int prompt = 0; prompt < 2; prompt++) {
+		SDL_MessageBoxButtonData buttons[3];
+		int count = 0;
 
-	int button = 0;
-	if (!SDL_ShowMessageBox(&messageBox, &button) || button != 1) {
-		return false;
+		buttons[count++] = {SDL_MESSAGEBOX_BUTTON_RETURNKEY_DEFAULT, 1, "Select folder"};
+		if (HasImportedGameData()) {
+			buttons[count++] = {0, 2, "Remove copied files"};
+		}
+		buttons[count++] = {SDL_MESSAGEBOX_BUTTON_ESCAPEKEY_DEFAULT, 0, "Cancel"};
+
+		const SDL_MessageBoxData messageBox =
+			{SDL_MESSAGEBOX_INFORMATION, p_window, "LEGO® Island", message, count, buttons, NULL};
+
+		int button = 0;
+		if (!SDL_ShowMessageBox(&messageBox, &button)) {
+			return false;
+		}
+
+		if (button == 2) {
+			if (RemoveImportedGameData()) {
+				// diskpath may name an imported-<timestamp> root that no longer exists, and
+				// isle.ini is part of the backup set, so leaving it would follow the user to
+				// their next device. Put it back where a fresh install would look.
+				const char* defaultRoot = SDL_GetAndroidExternalStoragePath();
+				if (defaultRoot) {
+					SDL_free(*p_hdPath);
+					*p_hdPath = SDL_strdup(defaultRoot);
+					UpdateConfigDiskPath(p_iniPath, defaultRoot);
+				}
+			}
+			continue;
+		}
+
+		if (button != 1) {
+			return false;
+		}
+
+		break;
 	}
 
 	char* treeUri = ShowFolderDialog(p_window);

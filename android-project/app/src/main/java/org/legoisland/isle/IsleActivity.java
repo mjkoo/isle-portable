@@ -1,5 +1,7 @@
 package org.legoisland.isle;
 
+import android.widget.Toast;
+
 import org.libsdl.app.SDLActivity;
 
 public class IsleActivity extends SDLActivity {
@@ -31,5 +33,29 @@ public class IsleActivity extends SDLActivity {
      */
     public String getImportedRoot() {
         return mImport != null ? mImport.getImportedRoot() : null;
+    }
+
+    /**
+     * Whether a previous import left anything behind that removeImportedGameData could clear.
+     * Drives whether the import prompt offers the removal button at all.
+     *
+     * Called from native code (see ISLE/android/filepicker.cpp); kept by proguard-rules.pro.
+     */
+    public boolean hasImportedGameData() {
+        return GameImport.hasImportedData(getExternalFilesDir(null));
+    }
+
+    /**
+     * Deletes everything an import has copied in, so a bad or unwanted one can be undone
+     * without reinstalling. Never touches saves or isle.ini.
+     *
+     * Called from native code (see ISLE/android/filepicker.cpp); kept by proguard-rules.pro.
+     */
+    public boolean removeImportedGameData() {
+        boolean removed = GameImport.removeImportedData(getExternalFilesDir(null));
+        final String message = removed ? "Copied game files removed"
+                : "Some copied game files could not be removed";
+        runOnUiThread(() -> Toast.makeText(this, message, Toast.LENGTH_LONG).show());
+        return removed;
     }
 }

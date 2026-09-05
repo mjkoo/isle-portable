@@ -6,4 +6,6 @@
 -keep class org.legoisland.isle.IsleActivity {
     int importGameFiles(java.lang.String);
     java.lang.String getImportedRoot();
+    boolean hasImportedGameData();
+    boolean removeImportedGameData();
 }
