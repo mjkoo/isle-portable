@@ -28,13 +28,43 @@ static void SDLCALL OnFolderSelected(void* p_userdata, const char* const* p_file
 	SDL_UnlockMutex(result->m_mutex);
 }
 
+// A SAF session sits over the surface for as long as the user takes, and Android keeps
+// feeding touches through the whole time. Pump so the drivers make progress, then drop the
+// input that was just queued: nothing is drawing yet, and the game would otherwise receive
+// the entire burst at once the moment it starts.
+//
+// Only the input ranges are flushed. Lifecycle events are unaffected either way, since SDL
+// hands those straight to the event watchers rather than queueing them (see the comment on
+// SDL_AddEventWatch in isleapp.cpp), and leaving the 0x100 and 0x200 ranges alone keeps the
+// SDL_EVENT_QUIT that Android_OnDestroy queues on its way to SDL_AppEvent.
+static void DrainInputEvents()
+{
+	static const struct {
+		SDL_EventType m_first;
+		SDL_EventType m_last;
+	} ranges[] = {
+		{SDL_EVENT_KEYBOARD_FIRST, SDL_EVENT_KEYBOARD_LAST},
+		{SDL_EVENT_MOUSE_FIRST, SDL_EVENT_MOUSE_LAST},
+		{SDL_EVENT_JOYSTICK_FIRST, SDL_EVENT_JOYSTICK_LAST},
+		{SDL_EVENT_GAMEPAD_FIRST, SDL_EVENT_GAMEPAD_LAST},
+		{SDL_EVENT_FINGER_FIRST, SDL_EVENT_FINGER_LAST},
+		{SDL_EVENT_PINCH_FIRST, SDL_EVENT_PINCH_LAST},
+	};
+
+	SDL_PumpEvents();
+
+	for (const auto& range : ranges) {
+		SDL_FlushEvents(range.m_first, range.m_last);
+	}
+}
+
 static char* ShowFolderDialog(SDL_Window* p_window)
 {
 	FolderDialogResult result = {SDL_CreateMutex(), false, NULL};
 	SDL_ShowOpenFolderDialog(OnFolderSelected, &result, p_window, NULL, false);
 
 	for (;;) {
-		SDL_PumpEvents();
+		DrainInputEvents();
 		SDL_LockMutex(result.m_mutex);
 		bool done = result.m_done;
 		SDL_UnlockMutex(result.m_mutex);
@@ -180,6 +210,7 @@ bool Android_TryImportGameFiles(
 
 	char* importedRoot = ImportGameFiles(treeUri);
 	SDL_free(treeUri);
+	DrainInputEvents();
 
 	if (!importedRoot) {
 		return false;
