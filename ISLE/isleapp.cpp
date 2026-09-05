@@ -359,12 +359,13 @@ static void SaveGameStateForLifecycleEvent(const char* p_reason)
 		return;
 	}
 
+	// LegoGameState::Save reports success without writing anything until the player has
+	// registered, so this says what was requested rather than claiming a file was written.
+	SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Saving game state (%s)", p_reason);
+
 	if (GameState()->Save(0) != SUCCESS) {
 		SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Failed to save game state (%s)", p_reason);
-		return;
 	}
-
-	SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Saved game state (%s)", p_reason);
 }
 
 static bool SDLCALL LifecycleEventWatch(void* p_userdata, SDL_Event* p_event)
