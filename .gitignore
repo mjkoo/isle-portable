@@ -37,3 +37,6 @@ LEGO1.DLL
 
 # Flatpak build dir
 **/flatpak-build/
+
+# Local Android AVDs and adb state, created by the justfile's emulator recipes.
+/.android/
