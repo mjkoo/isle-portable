@@ -66,36 +66,60 @@ afterEvaluate {
     }
 }
 
-def aarDest = project.providers.provider { file("${projectDir}/libs/SDL3.aar") }
+def sdl3Dir = 'build/_deps/sdl3-src'
+def sdl3SrcDir = file("${androidProject}/${sdl3Dir}")
+def sdl3RevFile = file("${androidProject}/build/sdl3-rev.txt")
+def aarDest = file("${projectDir}/libs/SDL3.aar")
+
 tasks.register('downloadSDL3', Exec) {
     workingDir = androidProject
     commandLine 'cmake', '-P', 'downloadSDL3.cmake'
+
+    // downloadSDL3.cmake follows GIT_TAG "main", so the revision is only known once
+    // the fetch has happened. Record it, to give the archive build below something to
+    // key on. Noticing that main has moved is a separate problem and needs a pinned
+    // version; until then an existing checkout counts as current, which is what the
+    // hand-written check in ensureSDL3 assumed anyway.
+    outputs.file(sdl3RevFile)
+    outputs.upToDateWhen { sdl3SrcDir.directory }
+
+    doLast {
+        def rev = ['git', '-C', sdl3SrcDir.path, 'rev-parse', 'HEAD'].execute()
+        rev.waitFor()
+        sdl3RevFile.parentFile.mkdirs()
+        sdl3RevFile.text = rev.exitValue() == 0 ? rev.text.trim() : 'unknown'
+    }
 }
+
 tasks.register('compileSDL3AndroidArchive', Exec) {
     workingDir = androidProject
     dependsOn(downloadSDL3)
 
-    def sdl3Dir = "build/_deps/sdl3-src"
     commandLine 'python', "${sdl3Dir}/build-scripts/build-release.py",
             '--actions', 'download', 'android',
             '--fast', '--force',
             "--root=${sdl3Dir}", "--android-api=${android.defaultConfig.minSdk}"
 
+    // What the archive is built from and against. Declaring them is what lets Gradle
+    // answer "is it current?"; ensureSDL3 used to answer that by hand and only checked
+    // that some archive existed, so changing minSdk silently kept one built for the old
+    // API level.
+    inputs.property('androidApi', android.defaultConfig.minSdk)
+    inputs.file(sdl3RevFile)
+    outputs.file(aarDest)
+
     doLast {
         def aarFile = file("${androidProject}/${sdl3Dir}/build-android").listFiles().find {
             it.name.endsWith(".aar")
         }
-        aarDest.get().parentFile.mkdirs()
-        aarFile.renameTo(aarDest.get())
+        aarDest.parentFile.mkdirs()
+        aarFile.renameTo(aarDest)
     }
-}
-tasks.register('ensureSDL3') {
-    // if DOWNLOAD_DEPENDENCIES=OFF download the version appropriate
-    // 'devel android zip' and place the .aar at `aarDest`
-    if (aarDest.get().exists()) { return false }
-    dependsOn(compileSDL3AndroidArchive)
 }
 
 dependencies {
-    implementation files('libs/SDL3.aar').builtBy(ensureSDL3)
+    // Still unimplemented: with DOWNLOAD_DEPENDENCIES=OFF this should fetch the
+    // matching 'devel android zip' release instead of building SDL from source, and
+    // place its archive at aarDest.
+    implementation files(aarDest).builtBy(compileSDL3AndroidArchive)
 }
