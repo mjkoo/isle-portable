@@ -127,23 +127,46 @@ static void UpdateConfigDiskPath(const char* p_iniPath, const char* p_diskPath)
 	SDL_free(iniConfig);
 }
 
-bool Android_TryImportGameFiles(SDL_Window* p_window, const char* p_iniPath, char** p_hdPath)
+bool Android_TryImportGameFiles(
+	SDL_Window* p_window,
+	const char* p_iniPath,
+	char** p_hdPath,
+	const char* p_missingFile,
+	int p_attempt
+)
 {
+	const char* missing = p_missingFile ? p_missingFile : "a game file";
+	char message[1024];
+
+	if (p_attempt == 0) {
+		SDL_snprintf(
+			message,
+			sizeof(message),
+			"The game files could not be found or read (%s is missing).\n\n"
+			"If you have a copy of the LEGO® Island files on this device (in a regular folder such as Download), "
+			"you can select the folder containing them and they will be copied into this app's storage.",
+			missing
+		);
+	}
+	else {
+		// A retry only helps if the user picks a different folder, so say what was wrong with
+		// the last one rather than repeating the invitation.
+		SDL_snprintf(
+			message,
+			sizeof(message),
+			"The game files are still incomplete: %s was not found after copying.\n\n"
+			"Select the folder that contains the LEGO folder from your LEGO® Island installation, "
+			"rather than a folder inside it.",
+			missing
+		);
+	}
+
 	const SDL_MessageBoxButtonData buttons[] = {
 		{SDL_MESSAGEBOX_BUTTON_RETURNKEY_DEFAULT, 1, "Select folder"},
 		{SDL_MESSAGEBOX_BUTTON_ESCAPEKEY_DEFAULT, 0, "Cancel"},
 	};
-	const SDL_MessageBoxData messageBox = {
-		SDL_MESSAGEBOX_INFORMATION,
-		p_window,
-		"LEGO® Island",
-		"The game files could not be found or read.\n\n"
-		"If you have a copy of the LEGO® Island files on this device (in a regular folder such as Download), "
-		"you can select the folder containing them and they will be copied into this app's storage.",
-		SDL_arraysize(buttons),
-		buttons,
-		NULL
-	};
+	const SDL_MessageBoxData messageBox =
+		{SDL_MESSAGEBOX_INFORMATION, p_window, "LEGO® Island", message, SDL_arraysize(buttons), buttons, NULL};
 
 	int button = 0;
 	if (!SDL_ShowMessageBox(&messageBox, &button) || button != 1) {

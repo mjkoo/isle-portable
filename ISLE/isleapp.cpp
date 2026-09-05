@@ -1664,15 +1664,19 @@ void IsleApp::DisplayArgumentHelp(const char* p_execName)
 	SDL_Log("	--help			Show this help message");
 }
 
-MxResult IsleApp::VerifyFilesystem()
+#ifndef __EMSCRIPTEN__
+// Returns the first entry of g_files that cannot be found under ".", p_hdPath or p_cdPath, or
+// NULL when every file is present. p_attempts receives the paths tried for the file that is
+// reported missing, for the error message. No side effects, so it is safe to re-run: callers
+// must have set MxOmni::SetHD/SetCD first, since MapPathToFilesystem resolves against the
+// globbed file lists.
+static const char* FindMissingGameFile(const char* p_hdPath, const char* p_cdPath, MxString& p_attempts)
 {
-#ifdef __EMSCRIPTEN__
-	Emscripten_SetupFilesystem();
-#else
 	for (const char* file : g_files) {
-		const char* searchPaths[] = {".", m_hdPath, m_cdPath};
+		const char* searchPaths[] = {".", p_hdPath, p_cdPath};
 		bool found = false;
-		MxString attempts;
+
+		p_attempts = "";
 
 		for (const char* base : searchPaths) {
 			MxString path(base);
@@ -1684,43 +1688,95 @@ MxResult IsleApp::VerifyFilesystem()
 				break;
 			}
 
-			attempts += "\n";
-			attempts += path.GetData();
-			attempts += " (";
-			attempts += SDL_GetError();
-			attempts += ")";
+			p_attempts += "\n";
+			p_attempts += path.GetData();
+			p_attempts += " (";
+			p_attempts += SDL_GetError();
+			p_attempts += ")";
 		}
 
 		if (!found) {
-#ifdef ANDROID
-			if (Android_TryImportGameFiles(reinterpret_cast<SDL_Window*>(m_windowHandle), m_iniPath, &m_hdPath)) {
-				MxOmni::SetHD(m_hdPath);
-				MxOmni::SetCD(m_cdPath);
-				return VerifyFilesystem();
-			}
-#endif
-#ifdef IOS
-			if (IOS_TryImportGameFiles(reinterpret_cast<SDL_Window*>(m_windowHandle), m_hdPath)) {
-				MxOmni::SetHD(m_hdPath);
-				MxOmni::SetCD(m_cdPath);
-				return VerifyFilesystem();
-			}
-#endif
-
-			char buffer[1024];
-			SDL_snprintf(
-				buffer,
-				sizeof(buffer),
-				"\"LEGO® Island\" failed to start.\nPlease make sure the file %s is located in either diskpath or "
-				"cdpath.%s",
-				file,
-				attempts.GetData()
-			);
-
-			SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "%s", buffer);
-			SDL_strlcpy(g_startupError, buffer, sizeof(g_startupError));
-			return FAILURE;
+			return file;
 		}
+	}
+
+	return NULL;
+}
+
+#if defined(ANDROID) || defined(IOS)
+// Each round is a full user interaction: a prompt, a folder pick and a copy of hundreds of
+// megabytes, so a handful is already more patience than anyone has.
+static const int c_maxImportAttempts = 3;
+
+// One import attempt. Returns true when files were imported and the check is worth re-running.
+static bool TryImportGameFiles(
+	SDL_Window* p_window,
+	const char* p_iniPath,
+	char** p_hdPath,
+	const char* p_missingFile,
+	int p_attempt
+)
+{
+#ifdef ANDROID
+	return Android_TryImportGameFiles(p_window, p_iniPath, p_hdPath, p_missingFile, p_attempt);
+#else
+	// iOS imports into the configured diskpath, so it has no path to thread back and its
+	// prompt does not name the missing file yet. It still inherits the bound below.
+	return IOS_TryImportGameFiles(p_window, *p_hdPath);
+#endif
+}
+#endif
+#endif
+
+MxResult IsleApp::VerifyFilesystem()
+{
+#ifdef __EMSCRIPTEN__
+	Emscripten_SetupFilesystem();
+#else
+	MxString attempts;
+	const char* missing = FindMissingGameFile(m_hdPath, m_cdPath, attempts);
+
+#if defined(ANDROID) || defined(IOS)
+	for (int attempt = 0; missing != NULL && attempt < c_maxImportAttempts; attempt++) {
+		if (!TryImportGameFiles(
+				reinterpret_cast<SDL_Window*>(m_windowHandle),
+				m_iniPath,
+				&m_hdPath,
+				missing,
+				attempt
+			)) {
+			break;
+		}
+
+		MxOmni::SetHD(m_hdPath);
+		MxOmni::SetCD(m_cdPath);
+
+		const char* previous = missing;
+		missing = FindMissingGameFile(m_hdPath, m_cdPath, attempts);
+
+		// Both point into g_files, so this is an identity test: the import reported success
+		// and changed nothing that mattered. Prompting again would ask the same question and
+		// get the same answer, which is what the old unbounded self-recursion here did.
+		if (missing == previous) {
+			break;
+		}
+	}
+#endif
+
+	if (missing != NULL) {
+		char buffer[1024];
+		SDL_snprintf(
+			buffer,
+			sizeof(buffer),
+			"\"LEGO® Island\" failed to start.\nPlease make sure the file %s is located in either diskpath or "
+			"cdpath.%s",
+			missing,
+			attempts.GetData()
+		);
+
+		SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "%s", buffer);
+		SDL_strlcpy(g_startupError, buffer, sizeof(g_startupError));
+		return FAILURE;
 	}
 #endif
 

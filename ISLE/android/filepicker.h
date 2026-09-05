@@ -4,9 +4,17 @@
 #include <SDL3/SDL_video.h>
 
 // Asks the user to select the folder containing the game files and imports them
-// into the app's storage. On success, *p_hdPath is updated to the directory the
-// files were imported into (freeing the previous value) and the new diskpath is
+// into the app's storage. p_missingFile names the game file whose absence triggered
+// the prompt and p_attempt is the 0-based round, which together choose between the
+// first-run and the retry wording. On success, *p_hdPath is updated to the directory
+// the files were imported into (freeing the previous value) and the new diskpath is
 // persisted to the config at p_iniPath (or the default location if NULL).
-bool Android_TryImportGameFiles(SDL_Window* p_window, const char* p_iniPath, char** p_hdPath);
+bool Android_TryImportGameFiles(
+	SDL_Window* p_window,
+	const char* p_iniPath,
+	char** p_hdPath,
+	const char* p_missingFile,
+	int p_attempt
+);
 
 #endif // ANDROID_FILEPICKER_H
