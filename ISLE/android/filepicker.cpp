@@ -121,6 +121,10 @@ static char* ImportGameFiles(const char* p_treeUri)
 	return importedRoot;
 }
 
+// isle.ini is small, it is the only record of where the game data went, and since it is
+// covered by the backup rules it is also what a restored install starts from. Write a
+// sibling and rename over the original rather than truncating the file we still need: an
+// interrupted dump would otherwise leave an empty config behind.
 static void UpdateConfigDiskPath(const char* p_iniPath, const char* p_diskPath)
 {
 	char* iniConfig;
@@ -133,21 +137,35 @@ static void UpdateConfigDiskPath(const char* p_iniPath, const char* p_diskPath)
 
 	dictionary* dict = iniparser_load(iniConfig);
 	if (dict) {
-		FILE* iniFP = fopen(iniConfig, "wb");
+		char* iniTemp;
+		SDL_asprintf(&iniTemp, "%s.new", iniConfig);
+
+		FILE* iniFP = fopen(iniTemp, "wb");
 		if (iniFP) {
 			iniparser_set(dict, "isle:diskpath", p_diskPath);
 			iniparser_dump_ini(dict, iniFP);
+
+			bool written = fflush(iniFP) == 0;
 			fclose(iniFP);
-			SDL_Log("Updated diskpath to '%s' in config at '%s'", p_diskPath, iniConfig);
+
+			if (written && SDL_RenamePath(iniTemp, iniConfig)) {
+				SDL_Log("Updated diskpath to '%s' in config at '%s'", p_diskPath, iniConfig);
+			}
+			else {
+				SDL_LogError(
+					SDL_LOG_CATEGORY_APPLICATION,
+					"Failed to replace config at '%s': %s",
+					iniConfig,
+					written ? SDL_GetError() : strerror(errno)
+				);
+				SDL_RemovePath(iniTemp);
+			}
 		}
 		else {
-			SDL_LogError(
-				SDL_LOG_CATEGORY_APPLICATION,
-				"Failed to write config at '%s': %s",
-				iniConfig,
-				strerror(errno)
-			);
+			SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Failed to write config at '%s': %s", iniTemp, strerror(errno));
 		}
+
+		SDL_free(iniTemp);
 		iniparser_freedict(dict);
 	}
 	else {
