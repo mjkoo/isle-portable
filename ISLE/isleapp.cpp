@@ -411,6 +411,12 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv)
 
 	SDL_SetHint(SDL_HINT_MOUSE_TOUCH_EVENTS, "0");
 	SDL_SetHint(SDL_HINT_TOUCH_MOUSE_EVENTS, "0");
+#ifdef ANDROID
+	// SDL derives the activity orientation from the window's resizable flag and calls
+	// setRequestedOrientation(), which overrides android:screenOrientation from the manifest.
+	// Ask for landscape here so the game stays landscape whatever the display is doing.
+	SDL_SetHint(SDL_HINT_ORIENTATIONS, "LandscapeLeft LandscapeRight");
+#endif
 #ifdef __DJGPP__
 	SDL_SetHint("SDL_DOS_ALLOW_DIRECT_FRAMEBUFFER", "1");
 #endif
