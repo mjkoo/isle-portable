@@ -337,8 +337,9 @@ void IsleApp::SetupVideoFlags(
 static void ShowFatalError(const char* p_message)
 {
 	if (g_isle) {
-		delete g_isle;
+		IsleApp* isle = g_isle;
 		g_isle = NULL;
+		delete isle;
 	}
 	if (window) {
 		SDL_DestroyWindow(window);
@@ -373,10 +374,10 @@ static bool SDLCALL LifecycleEventWatch(void* p_userdata, SDL_Event* p_event)
 	switch (p_event->type) {
 	case SDL_EVENT_DID_ENTER_BACKGROUND:
 		// Deliberately not WILL_ENTER_BACKGROUND. On Android both fire back to back
-		// before the SDL thread blocks, and it is the WILL dispatch that delivers the
-		// queued focus loss that pauses the game, so DID saves an already paused game.
-		// On iOS, WILL is sceneWillResignActive:, which also fires for notification
-		// banners and the control centre.
+		// before the SDL thread blocks, so DID is still early enough, and by then the
+		// window events that SDL_OnApplicationWillEnterBackground queues ahead of WILL
+		// have been drained into SDL_AppEvent. On iOS, WILL is sceneWillResignActive:,
+		// which also fires for notification banners and the control centre.
 		SaveGameStateForLifecycleEvent("backgrounded");
 		break;
 	case SDL_EVENT_TERMINATING:
@@ -447,6 +448,11 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv)
 	// returns, so registering ours here puts it ahead in the list, where it still sees a
 	// live game. Do not move this registration out of SDL_AppInit, and keep it ahead of
 	// SetupWindow(), which can sit in the Android import prompt for minutes.
+	//
+	// This is deliberately never removed. SDL_Quit frees the watch list, and removing a
+	// watch from inside a dispatch would compact the list while the outer dispatch is
+	// still walking it, which saving can trigger: Save emits e_saveSlotWritten, and that
+	// SDL_PushEvent re-enters the watch list.
 	SDL_AddEventWatch(LifecycleEventWatch, NULL);
 #endif
 
