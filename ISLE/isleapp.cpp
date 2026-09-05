@@ -1704,8 +1704,11 @@ static const char* FindMissingGameFile(const char* p_hdPath, const char* p_cdPat
 }
 
 #if defined(ANDROID) || defined(IOS)
-// Each round is a full user interaction: a prompt, a folder pick and a copy of hundreds of
-// megabytes, so a handful is already more patience than anyone has.
+// The bound on the import loop, and the only one: this used to be an unbounded self-recursion.
+// Deliberately more than one, because picking the wrong folder is the common mistake and the
+// retry prompt names what is still missing, so a second go is the recovery path rather than a
+// repeat of the same question. Each round is a full user interaction - a prompt, a folder pick
+// and a copy of hundreds of megabytes - so a handful is already more patience than anyone has.
 static const int c_maxImportAttempts = 3;
 
 // One import attempt. Returns true when files were imported and the check is worth re-running.
@@ -1751,15 +1754,7 @@ MxResult IsleApp::VerifyFilesystem()
 		MxOmni::SetHD(m_hdPath);
 		MxOmni::SetCD(m_cdPath);
 
-		const char* previous = missing;
 		missing = FindMissingGameFile(m_hdPath, m_cdPath, attempts);
-
-		// Both point into g_files, so this is an identity test: the import reported success
-		// and changed nothing that mattered. Prompting again would ask the same question and
-		// get the same answer, which is what the old unbounded self-recursion here did.
-		if (missing == previous) {
-			break;
-		}
 	}
 #endif
 

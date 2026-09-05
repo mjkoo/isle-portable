@@ -336,8 +336,10 @@ bool Android_TryImportGameFiles(
 		int count = 0;
 
 		buttons[count++] = {SDL_MESSAGEBOX_BUTTON_RETURNKEY_DEFAULT, 1, "Select folder"};
+		// Terse on purpose: SDL lays the buttons out in one horizontal row with no wrapping,
+		// and a longer label here squeezes "Cancel" into three stacked lines.
 		if (HasImportedGameData()) {
-			buttons[count++] = {0, 2, "Remove copied files"};
+			buttons[count++] = {0, 2, "Remove copy"};
 		}
 		buttons[count++] = {SDL_MESSAGEBOX_BUTTON_ESCAPEKEY_DEFAULT, 0, "Cancel"};
 
