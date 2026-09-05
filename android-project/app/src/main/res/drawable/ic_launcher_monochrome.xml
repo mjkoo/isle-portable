@@ -1,0 +1,93 @@
+<!--
+  Themed-icon layer for the launcher. The system replaces these colours with a tint taken from
+  the user's wallpaper, so only the shape carries: ic_launcher_foreground draws the house body
+  as four coloured stripes with a separate window on top, which flattens into a featureless
+  block once everything is one colour. Here the stripes are a single body and the window is a
+  hole through it, so the silhouette still reads as a house.
+
+  The viewport and group transform match ic_launcher_foreground so the two layers register.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="180"
+    android:viewportHeight="180">
+  <group android:scaleX="0.47"
+      android:scaleY="0.47"
+      android:translateX="47.7"
+      android:translateY="47.7">
+    <!-- Sun -->
+    <path
+        android:pathData="M16.09,16.09m-16.09,0a16.09,16.09 0,1 1,32.18 0a16.09,16.09 0,1 1,-32.18 0"
+        android:fillColor="#ffffff"/>
+    <path
+        android:pathData="M9.23,38.09L9.23,65.53"
+        android:strokeLineJoin="round"
+        android:strokeWidth="9.15"
+        android:strokeColor="#ffffff"
+        android:strokeLineCap="round"/>
+    <path
+        android:pathData="m66.61,9.11l-27.44,0"
+        android:strokeLineJoin="round"
+        android:strokeWidth="9.15"
+        android:strokeColor="#ffffff"
+        android:strokeLineCap="round"/>
+    <path
+        android:pathData="M21.86,39.44 L29.29,61.95"
+        android:strokeLineJoin="round"
+        android:strokeWidth="9.15"
+        android:strokeColor="#ffffff"
+        android:strokeLineCap="round"/>
+    <path
+        android:pathData="m33.06,32.76 l19.56,13.39"
+        android:strokeLineJoin="round"
+        android:strokeWidth="9.15"
+        android:strokeColor="#ffffff"
+        android:strokeLineCap="round"/>
+    <path
+        android:pathData="m38.74,20.71 l22.48,7.51"
+        android:strokeLineJoin="round"
+        android:strokeWidth="9.15"
+        android:strokeColor="#ffffff"
+        android:strokeLineCap="round"/>
+    <!-- Antenna -->
+    <path
+        android:pathData="M131.19,7.33L131.19,55.6"
+        android:strokeLineJoin="round"
+        android:strokeWidth="4.57"
+        android:strokeColor="#ffffff"
+        android:strokeLineCap="round"/>
+    <path
+        android:pathData="m111.99,3.21 l38.38,29.26"
+        android:strokeLineJoin="round"
+        android:strokeWidth="4.57"
+        android:strokeColor="#ffffff"
+        android:strokeLineCap="round"/>
+    <path
+        android:pathData="m115.82,19.64 l30.2,23.02"
+        android:strokeLineJoin="round"
+        android:strokeWidth="4.57"
+        android:strokeColor="#ffffff"
+        android:strokeLineCap="round"/>
+    <!-- House body, with the window opening cut out of it -->
+    <path
+        android:pathData="M27.84,75.75L167.32,75.75L167.32,180L27.84,180Z M72.74,85.31L122.32,85.31L122.32,146.24L72.74,146.24Z"
+        android:fillType="evenOdd"
+        android:fillColor="#ffffff"/>
+    <!-- Window mullions, drawn back over the opening so it reads as a window -->
+    <path
+        android:pathData="M93.1,85.31L101.96,85.31L101.96,146.24L93.1,146.24Z"
+        android:fillColor="#ffffff"/>
+    <path
+        android:pathData="M72.74,109.83L122.32,109.83L122.32,116.22L72.74,116.22Z"
+        android:fillColor="#ffffff"/>
+    <!-- Roof -->
+    <path
+        android:pathData="M19.99,75.94H173.06L150.4,51.32h-7.63l-5.02,6.19h-7.47l-4.27,-8.06h-7.59l-4.57,8.06h-8l-4.69,-8.06h-7.44l-4.18,8.06h-8.45l-3.9,-8.06h-7.23l-4.36,8.06h-8.61l-5.45,-6.19h-6.08z"
+        android:strokeLineJoin="round"
+        android:strokeWidth="3.04929"
+        android:fillColor="#ffffff"
+        android:strokeColor="#ffffff"
+        android:strokeLineCap="butt"/>
+  </group>
+</vector>
