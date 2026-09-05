@@ -437,6 +437,18 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv)
 	// Create global app instance
 	g_isle = new IsleApp();
 
+#if defined(ANDROID) || defined(IOS) || defined(__EMSCRIPTEN__)
+	// SDL never queues the app lifecycle events; SDL_SendAppEvent hands them straight to
+	// the event watchers. SDL's own watcher does forward them into SDL_AppEvent, but it
+	// drains the event queue first, so on Android the SDL_EVENT_QUIT that Android_OnDestroy
+	// queues just before SDL_EVENT_TERMINATING has already deleted g_isle by the time
+	// SDL_AppEvent sees the terminate. SDL registers that watcher only after SDL_AppInit
+	// returns, so registering ours here puts it ahead in the list, where it still sees a
+	// live game. Do not move this registration out of SDL_AppInit, and keep it ahead of
+	// SetupWindow(), which can sit in the Android import prompt for minutes.
+	SDL_AddEventWatch(LifecycleEventWatch, NULL);
+#endif
+
 #ifdef __vita__
 	SceAppUtilInitParam appUtilInitParam = {0};
 	SceAppUtilBootParam appUtilBootParam = {0};
@@ -483,16 +495,6 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv)
 	// Get reference to window
 	*appstate = g_isle->GetWindowHandle();
 
-#if defined(ANDROID) || defined(IOS) || defined(__EMSCRIPTEN__)
-	// SDL never queues the app lifecycle events; SDL_SendAppEvent hands them straight to
-	// the event watchers. SDL's own watcher does forward them into SDL_AppEvent, but it
-	// drains the event queue first, so on Android the SDL_EVENT_QUIT that Android_OnDestroy
-	// queues just before SDL_EVENT_TERMINATING has already deleted g_isle by the time
-	// SDL_AppEvent sees the terminate. SDL registers that watcher only after SDL_AppInit
-	// returns, so registering ours here puts it ahead in the list, where it still sees a
-	// live game. Do not move this registration out of SDL_AppInit.
-	SDL_AddEventWatch(LifecycleEventWatch, NULL);
-#endif
 #ifdef __3DS__
 	N3DS_SetupAptHooks();
 #endif
