@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Auto Backup rules for Android 11 (API 30) and below; API 31+ uses
+  data_extraction_rules.xml instead, and both attributes are needed at minSdk 21.
+
+  The game data the user imports lands in the app-scoped external files dir and runs to
+  hundreds of megabytes, well past Auto Backup's 25 MB quota, so backing the directory up
+  wholesale means the system backs nothing up at all. Naming what to include flips the
+  default: once any <include> is present only those paths are backed up, so the imported
+  LEGO/ tree (and the imported-<timestamp>/ fallback root) drops out without an <exclude>.
+
+  Saves and isle.ini together are a few kilobytes. Game data is not backed up on purpose:
+  it is reimported from the user's own copy of the game.
+-->
+<full-backup-content>
+    <include domain="external" path="saves" />
+    <include domain="external" path="isle.ini" />
+</full-backup-content>

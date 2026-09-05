@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Auto Backup and device-to-device transfer rules for Android 12 (API 31) and above; see
+  backup_rules.xml for API 30 and below, and for why this lists includes rather than excludes.
+
+  device-transfer deliberately carries the same two entries as cloud-backup rather than the
+  game data. It has no 25 MB quota, so the imported tree would fit, but moving hundreds of
+  megabytes of the user's own copy of the game between devices is the wrong default: a
+  restored install lands on the existing import flow, which is how game data is meant to arrive.
+-->
+<data-extraction-rules>
+    <cloud-backup>
+        <include domain="external" path="saves" />
+        <include domain="external" path="isle.ini" />
+    </cloud-backup>
+    <device-transfer>
+        <include domain="external" path="saves" />
+        <include domain="external" path="isle.ini" />
+    </device-transfer>
+</data-extraction-rules>
