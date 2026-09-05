@@ -28,7 +28,6 @@ import java.util.ArrayList;
 import java.util.Deque;
 import java.util.List;
 import java.util.Locale;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
@@ -39,13 +38,19 @@ import java.util.concurrent.atomic.AtomicLong;
  *
  * The caller is the SDL thread, inside SDL_AppInit, so nothing is drawing yet and there is no
  * renderer to put a progress bar on. The work therefore runs on a worker thread with an Android
- * dialog over the surface, and the SDL thread simply waits: blocking it is safe because SDL runs
- * the game off the UI thread, so this is not the thread Android watches for ANRs.
+ * dialog over the surface.
+ *
+ * The SDL thread must not simply block until that finishes. It is not the thread Android watches
+ * for ANRs, but the UI thread can be waiting on it to service the surface teardown the file
+ * picker left behind, and until the SDL thread pumps its event queue the UI thread runs nothing
+ * at all - including the dialog this class posts to it. So the native side starts the import and
+ * then polls getStatus() while pumping, the same shape the folder dialog above it already uses.
  *
  * Reached only from IsleActivity, so unlike IsleActivity this class needs no proguard keep rule.
  */
 final class GameImport {
-    // Mirrored in ISLE/android/filepicker.h as AndroidImportStatus; keep the numbering in step.
+    // Mirrored in ISLE/android/filepicker.h as ImportStatus; keep the numbering in step.
+    static final int STATUS_RUNNING = -1;
     static final int STATUS_OK = 0;
     static final int STATUS_CANCELLED = 1;
     static final int STATUS_NO_SPACE = 2;
@@ -87,6 +92,7 @@ final class GameImport {
     private volatile int mTotalFiles;
     private volatile boolean mFinished;
 
+    private volatile int mStatus = STATUS_RUNNING;
     private String mImportedRoot;
     private String mFailureDetail;
 
@@ -105,60 +111,45 @@ final class GameImport {
         return mImportedRoot;
     }
 
+    /** The status of the import in flight, or STATUS_RUNNING until it has finished. */
+    int getStatus() {
+        return mStatus;
+    }
+
     /**
-     * Runs one import to completion. Blocks the calling thread, which must not be the UI thread.
+     * Starts one import and returns immediately. The caller polls getStatus() until it stops
+     * reporting STATUS_RUNNING, pumping its own event queue in between so the UI thread is free
+     * to run the progress dialog.
      */
-    int run(final String treeUri) {
-        if (Looper.myLooper() == Looper.getMainLooper()) {
-            // The worker would never get to run its UI posts, and this would deadlock.
-            Log.e(TAG, "importGameFiles must not be called on the UI thread");
-            return STATUS_INTERNAL_ERROR;
-        }
-
-        final CountDownLatch done = new CountDownLatch(1);
-        final int[] status = {STATUS_INTERNAL_ERROR};
-
+    void start(final String treeUri) {
         mHandler.post(this::showProgressDialog);
 
         Thread worker = new Thread(() -> {
+            int result;
             try {
-                status[0] = importTree(treeUri);
+                result = importTree(treeUri);
             }
             catch (Throwable t) {
                 Log.e(TAG, "Failed to import game files from " + treeUri, t);
-                status[0] = STATUS_INTERNAL_ERROR;
+                result = STATUS_INTERNAL_ERROR;
             }
-            finally {
-                final int result = status[0];
-                // Tear the dialog down before releasing the SDL thread, so nothing is left
-                // floating over the surface as the game starts creating its renderer.
-                mHandler.post(() -> {
-                    dismissProgressDialog();
-                    if (result == STATUS_OK || result == STATUS_CANCELLED) {
-                        done.countDown();
-                    }
-                    else {
-                        // Hold the SDL thread until the user has read what went wrong; native
-                        // is about to put its own message box on screen otherwise.
-                        showFailureDialog(result, done);
-                    }
-                });
-            }
+
+            final int status = result;
+            // Tear the dialog down before publishing the status, so nothing is left floating
+            // over the surface as the game starts creating its renderer.
+            mHandler.post(() -> {
+                dismissProgressDialog();
+                if (status == STATUS_OK || status == STATUS_CANCELLED) {
+                    mStatus = status;
+                }
+                else {
+                    // Keep reporting RUNNING until the user has read what went wrong, otherwise
+                    // native puts its own message box up on top of this one.
+                    showFailureDialog(status);
+                }
+            });
         }, "IsleGameImport");
         worker.start();
-
-        try {
-            done.await();
-        }
-        catch (InterruptedException e) {
-            // Not expected: the SDL thread is never interrupted. Do not leave the worker
-            // copying into a directory nobody is waiting for.
-            mCancelled.set(true);
-            Thread.currentThread().interrupt();
-            return STATUS_INTERNAL_ERROR;
-        }
-
-        return status[0];
     }
 
     // --- the work ---------------------------------------------------------------------
@@ -637,11 +628,11 @@ final class GameImport {
         mDialog = null;
     }
 
-    private void showFailureDialog(int status, final CountDownLatch done) {
+    private void showFailureDialog(final int status) {
         String detail = mFailureDetail != null ? mFailureDetail : "The game files could not be copied.";
         String title = status == STATUS_NO_SPACE ? "Not enough space" : "Copying game files failed";
 
-        DialogInterface.OnDismissListener release = dialog -> done.countDown();
+        DialogInterface.OnDismissListener release = dialog -> mStatus = status;
 
         try {
             new AlertDialog.Builder(mActivity)
@@ -653,9 +644,9 @@ final class GameImport {
         }
         catch (RuntimeException e) {
             // No window to show it in. Log it and let the game get on with reporting its own
-            // failure rather than leaving the SDL thread parked forever.
+            // failure rather than leaving the caller polling forever.
             Log.e(TAG, detail, e);
-            done.countDown();
+            mStatus = status;
         }
     }
 

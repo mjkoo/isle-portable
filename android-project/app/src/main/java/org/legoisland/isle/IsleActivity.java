@@ -12,20 +12,33 @@ public class IsleActivity extends SDLActivity {
     }
 
     /**
-     * Copies the game files from the document tree the user selected into the app's external
-     * files directory, so they are owned and readable by this app. Blocks until the copy has
-     * finished, been cancelled, or failed; returns one of GameImport's STATUS_ constants,
-     * which ISLE/android/filepicker.h mirrors.
+     * Starts copying the game files from the document tree the user selected into the app's
+     * external files directory, so they are owned and readable by this app. Returns immediately;
+     * the caller polls getGameFileImportStatus().
+     *
+     * Deliberately not a single blocking call. The SDL thread that calls this has to keep
+     * pumping its event queue for the UI thread to run at all, so it cannot sit inside JNI for
+     * the length of a copy.
      *
      * Called from native code (see ISLE/android/filepicker.cpp); kept by proguard-rules.pro.
      */
-    public int importGameFiles(String treeUri) {
+    public void startGameFileImport(String treeUri) {
         mImport = new GameImport(this);
-        return mImport.run(treeUri);
+        mImport.start(treeUri);
     }
 
     /**
-     * The directory the last successful importGameFiles copied into, or null. Deliberately
+     * One of GameImport's STATUS_ constants, which ISLE/android/filepicker.h mirrors, or
+     * STATUS_RUNNING while the import is still in flight.
+     *
+     * Called from native code (see ISLE/android/filepicker.cpp); kept by proguard-rules.pro.
+     */
+    public int getGameFileImportStatus() {
+        return mImport != null ? mImport.getStatus() : GameImport.STATUS_INTERNAL_ERROR;
+    }
+
+    /**
+     * The directory the last successful import copied into, or null. Deliberately
      * separate from the status: inferring success from the path is what let an import that
      * copied nothing report the directory diskpath already named and count as progress.
      *

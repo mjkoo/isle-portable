@@ -4,7 +4,8 @@
 #
 # A missing entry here fails only in release, where minifyEnabled is on.
 -keep class org.legoisland.isle.IsleActivity {
-    int importGameFiles(java.lang.String);
+    void startGameFileImport(java.lang.String);
+    int getGameFileImportStatus();
     java.lang.String getImportedRoot();
     boolean hasImportedGameData();
     boolean removeImportedGameData();

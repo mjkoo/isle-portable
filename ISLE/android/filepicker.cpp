@@ -80,6 +80,7 @@ static char* ShowFolderDialog(SDL_Window* p_window)
 
 // Mirrors GameImport's STATUS_ constants; keep the numbering in step.
 enum ImportStatus {
+	e_importRunning = -1,
 	e_importOk = 0,
 	e_importCancelled = 1,
 	e_importNoSpace = 2,
@@ -137,22 +138,56 @@ static bool EndActivityCall(ActivityCall* p_call)
 	return !threw;
 }
 
-static ImportStatus ImportGameFiles(const char* p_treeUri)
+static bool StartImportGameFiles(const char* p_treeUri)
 {
 	ActivityCall call;
-	if (!BeginActivityCall(&call, "importGameFiles", "(Ljava/lang/String;)I")) {
-		return e_importInternalError;
+	if (!BeginActivityCall(&call, "startGameFileImport", "(Ljava/lang/String;)V")) {
+		return false;
 	}
 
 	jstring treeUri = call.m_env->NewStringUTF(p_treeUri);
-	jint status = call.m_env->CallIntMethod(call.m_activity, call.m_method, treeUri);
+	call.m_env->CallVoidMethod(call.m_activity, call.m_method, treeUri);
 	call.m_env->DeleteLocalRef(treeUri);
 
+	return EndActivityCall(&call);
+}
+
+static ImportStatus GetImportStatus()
+{
+	ActivityCall call;
+	if (!BeginActivityCall(&call, "getGameFileImportStatus", "()I")) {
+		return e_importInternalError;
+	}
+
+	jint status = call.m_env->CallIntMethod(call.m_activity, call.m_method);
 	if (!EndActivityCall(&call)) {
 		return e_importInternalError;
 	}
 
 	return static_cast<ImportStatus>(status);
+}
+
+// Runs the import to completion. Deliberately a start plus a poll rather than one blocking call:
+// the Android UI thread can be waiting on this one to service the surface teardown the file
+// picker left behind, and until we pump, nothing on the UI thread runs at all - not even the
+// import's own progress dialog. Pumping here also keeps lifecycle events flowing through a copy
+// that takes minutes. Same shape as ShowFolderDialog above.
+static ImportStatus ImportGameFiles(const char* p_treeUri)
+{
+	if (!StartImportGameFiles(p_treeUri)) {
+		return e_importInternalError;
+	}
+
+	for (;;) {
+		DrainInputEvents();
+
+		ImportStatus status = GetImportStatus();
+		if (status != e_importRunning) {
+			return status;
+		}
+
+		SDL_Delay(100);
+	}
 }
 
 // The directory the copy landed in. Kept separate from the status on purpose: taking a returned
