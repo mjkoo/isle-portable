@@ -78,44 +78,108 @@ static char* ShowFolderDialog(SDL_Window* p_window)
 	return result.m_path;
 }
 
-static char* ImportGameFiles(const char* p_treeUri)
+// Mirrors GameImport's STATUS_ constants; keep the numbering in step.
+enum ImportStatus {
+	e_importOk = 0,
+	e_importCancelled = 1,
+	e_importNoSpace = 2,
+	e_importNotGameFolder = 3,
+	e_importReadFailed = 4,
+	e_importWriteFailed = 5,
+	e_importInternalError = 6,
+};
+
+struct ActivityCall {
+	JNIEnv* m_env;
+	jobject m_activity;
+	jclass m_class;
+	jmethodID m_method;
+};
+
+// Resolves a method on the SDL activity. On success the caller must pass p_call to EndActivityCall.
+static bool BeginActivityCall(ActivityCall* p_call, const char* p_name, const char* p_signature)
 {
-	JNIEnv* env = static_cast<JNIEnv*>(SDL_GetAndroidJNIEnv());
-	jobject activity = static_cast<jobject>(SDL_GetAndroidActivity());
+	p_call->m_env = static_cast<JNIEnv*>(SDL_GetAndroidJNIEnv());
+	p_call->m_activity = static_cast<jobject>(SDL_GetAndroidActivity());
+	p_call->m_class = NULL;
+	p_call->m_method = NULL;
+
+	if (!p_call->m_env || !p_call->m_activity) {
+		SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "No JNI environment for IsleActivity.%s", p_name);
+		return false;
+	}
+
+	p_call->m_class = p_call->m_env->GetObjectClass(p_call->m_activity);
+	p_call->m_method = p_call->m_env->GetMethodID(p_call->m_class, p_name, p_signature);
+
+	if (!p_call->m_method) {
+		SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "IsleActivity.%s not found", p_name);
+		p_call->m_env->ExceptionClear();
+		p_call->m_env->DeleteLocalRef(p_call->m_class);
+		p_call->m_env->DeleteLocalRef(p_call->m_activity);
+		return false;
+	}
+
+	return true;
+}
+
+// Returns true when the call completed without a pending Java exception.
+static bool EndActivityCall(ActivityCall* p_call)
+{
+	bool threw = p_call->m_env->ExceptionCheck();
+	if (threw) {
+		p_call->m_env->ExceptionDescribe();
+		p_call->m_env->ExceptionClear();
+	}
+
+	p_call->m_env->DeleteLocalRef(p_call->m_class);
+	p_call->m_env->DeleteLocalRef(p_call->m_activity);
+	return !threw;
+}
+
+static ImportStatus ImportGameFiles(const char* p_treeUri)
+{
+	ActivityCall call;
+	if (!BeginActivityCall(&call, "importGameFiles", "(Ljava/lang/String;)I")) {
+		return e_importInternalError;
+	}
+
+	jstring treeUri = call.m_env->NewStringUTF(p_treeUri);
+	jint status = call.m_env->CallIntMethod(call.m_activity, call.m_method, treeUri);
+	call.m_env->DeleteLocalRef(treeUri);
+
+	if (!EndActivityCall(&call)) {
+		return e_importInternalError;
+	}
+
+	return static_cast<ImportStatus>(status);
+}
+
+// The directory the copy landed in. Kept separate from the status on purpose: taking a returned
+// path as proof of success is what let an import that copied nothing report the directory
+// diskpath already named, and count as progress.
+static char* GetImportedRoot()
+{
+	ActivityCall call;
+	if (!BeginActivityCall(&call, "getImportedRoot", "()Ljava/lang/String;")) {
+		return NULL;
+	}
+
+	jstring root = static_cast<jstring>(call.m_env->CallObjectMethod(call.m_activity, call.m_method));
 	char* importedRoot = NULL;
 
-	if (env && activity) {
-		jclass activityClass = env->GetObjectClass(activity);
-		jmethodID importGameFiles =
-			env->GetMethodID(activityClass, "importGameFiles", "(Ljava/lang/String;)Ljava/lang/String;");
-
-		if (importGameFiles) {
-			jstring treeUri = env->NewStringUTF(p_treeUri);
-			jstring destRoot = static_cast<jstring>(env->CallObjectMethod(activity, importGameFiles, treeUri));
-			if (env->ExceptionCheck()) {
-				env->ExceptionDescribe();
-				env->ExceptionClear();
-				destRoot = NULL;
-			}
-
-			if (destRoot) {
-				const char* utf = env->GetStringUTFChars(destRoot, NULL);
-				if (utf) {
-					importedRoot = SDL_strdup(utf);
-					env->ReleaseStringUTFChars(destRoot, utf);
-				}
-				env->DeleteLocalRef(destRoot);
-			}
-
-			env->DeleteLocalRef(treeUri);
+	if (root) {
+		const char* utf = call.m_env->GetStringUTFChars(root, NULL);
+		if (utf) {
+			importedRoot = SDL_strdup(utf);
+			call.m_env->ReleaseStringUTFChars(root, utf);
 		}
-		else {
-			SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "IsleActivity.importGameFiles not found");
-			env->ExceptionClear();
-		}
+		call.m_env->DeleteLocalRef(root);
+	}
 
-		env->DeleteLocalRef(activityClass);
-		env->DeleteLocalRef(activity);
+	if (!EndActivityCall(&call)) {
+		SDL_free(importedRoot);
+		return NULL;
 	}
 
 	return importedRoot;
@@ -226,11 +290,21 @@ bool Android_TryImportGameFiles(
 		return false;
 	}
 
-	char* importedRoot = ImportGameFiles(treeUri);
+	ImportStatus status = ImportGameFiles(treeUri);
 	SDL_free(treeUri);
 	DrainInputEvents();
 
+	if (status != e_importOk) {
+		// Java has already told the user what went wrong: it owns the copy-level errors,
+		// because it has the dialog and the byte counts. Native only reports what the game
+		// itself can tell, which is which file is still missing.
+		SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Game file import failed with status %d", status);
+		return false;
+	}
+
+	char* importedRoot = GetImportedRoot();
 	if (!importedRoot) {
+		SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Import reported success without a destination");
 		return false;
 	}
 
