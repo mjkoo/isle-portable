@@ -2,4 +2,6 @@
 .gradle
 local.properties
 build
+# SDL3's build-release.py drops its devel zip here while building the SDL3 .aar.
+dist
 *.aar
