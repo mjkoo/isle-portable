@@ -1408,6 +1408,14 @@ bool IsleApp::LoadConfig()
 	MxOmni::SetHD((m_hdPath = SDL_strdup(iniparser_getstring(dict, "isle:diskpath", SDL_GetBasePath()))));
 	MxOmni::SetCD((m_cdPath = SDL_strdup(iniparser_getstring(dict, "isle:cdpath", MxOmni::GetCD()))));
 	m_savePath = SDL_strdup(iniparser_getstring(dict, "isle:savepath", prefPath));
+
+	// The per-platform config overrides above only run when a fresh isle.ini is written, so the
+	// save directory they create is missing whenever a config is restored or hand-written without
+	// it. LegoGameState::Save opens the slot file for writing and does not create parent
+	// directories, so saving would fail for the rest of the install.
+	if (!SDL_GetPathInfo(m_savePath, NULL)) {
+		SDL_CreateDirectory(m_savePath);
+	}
 	m_mediaPath = SDL_strdup(iniparser_getstring(dict, "isle:mediapath", m_hdPath));
 	m_flipSurfaces = iniparser_getboolean(dict, "isle:Flip Surfaces", m_flipSurfaces);
 	m_fullScreen = iniparser_getboolean(dict, "isle:Full Screen", m_fullScreen);
