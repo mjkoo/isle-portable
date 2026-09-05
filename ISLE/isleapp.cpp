@@ -347,6 +347,49 @@ static void ShowFatalError(const char* p_message)
 	Any_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "LEGO® Island Error", p_message, NULL);
 }
 
+#if defined(ANDROID) || defined(IOS) || defined(__EMSCRIPTEN__)
+// Persist progress at the points where the platform may destroy the process without
+// running a normal shutdown. Cheap and idempotent: LegoGameState::Save writes nothing
+// until the player has registered.
+static void SaveGameStateForLifecycleEvent(const char* p_reason)
+{
+	// Lego() has to be checked before GameState(), which only asserts on a missing
+	// LegoOmni and so dereferences NULL in release builds.
+	if (!g_isle || !g_isle->GetGameStarted() || !Lego() || !GameState()) {
+		return;
+	}
+
+	if (GameState()->Save(0) != SUCCESS) {
+		SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Failed to save game state (%s)", p_reason);
+		return;
+	}
+
+	SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Saved game state (%s)", p_reason);
+}
+
+static bool SDLCALL LifecycleEventWatch(void* p_userdata, SDL_Event* p_event)
+{
+	switch (p_event->type) {
+	case SDL_EVENT_DID_ENTER_BACKGROUND:
+		// Deliberately not WILL_ENTER_BACKGROUND. On Android both fire back to back
+		// before the SDL thread blocks, and it is the WILL dispatch that delivers the
+		// queued focus loss that pauses the game, so DID saves an already paused game.
+		// On iOS, WILL is sceneWillResignActive:, which also fires for notification
+		// banners and the control centre.
+		SaveGameStateForLifecycleEvent("backgrounded");
+		break;
+	case SDL_EVENT_TERMINATING:
+		SaveGameStateForLifecycleEvent("terminating");
+		break;
+	default:
+		break;
+	}
+
+	// Watchers cannot suppress an event; only an SDL_SetEventFilter callback can.
+	return true;
+}
+#endif
+
 SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv)
 {
 	*appstate = NULL;
@@ -440,18 +483,15 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv)
 	// Get reference to window
 	*appstate = g_isle->GetWindowHandle();
 
-#ifdef __EMSCRIPTEN__
-	SDL_AddEventWatch(
-		[](void* userdata, SDL_Event* event) -> bool {
-			if (event->type == SDL_EVENT_TERMINATING && g_isle && g_isle->GetGameStarted()) {
-				GameState()->Save(0);
-				return false;
-			}
-
-			return true;
-		},
-		NULL
-	);
+#if defined(ANDROID) || defined(IOS) || defined(__EMSCRIPTEN__)
+	// SDL never queues the app lifecycle events; SDL_SendAppEvent hands them straight to
+	// the event watchers. SDL's own watcher does forward them into SDL_AppEvent, but it
+	// drains the event queue first, so on Android the SDL_EVENT_QUIT that Android_OnDestroy
+	// queues just before SDL_EVENT_TERMINATING has already deleted g_isle by the time
+	// SDL_AppEvent sees the terminate. SDL registers that watcher only after SDL_AppInit
+	// returns, so registering ours here puts it ahead in the list, where it still sees a
+	// live game. Do not move this registration out of SDL_AppInit.
+	SDL_AddEventWatch(LifecycleEventWatch, NULL);
 #endif
 #ifdef __3DS__
 	N3DS_SetupAptHooks();
@@ -569,16 +609,21 @@ SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event)
 			g_isle->SetWindowActive(FALSE);
 			Lego()->Pause();
 #ifdef __EMSCRIPTEN__
-			GameState()->Save(0);
+			// Emscripten only: the browser has no background event, and on desktop this
+			// fires on every alt-tab.
+			SaveGameStateForLifecycleEvent("focus lost");
 #endif
 		}
 		break;
 	case SDL_EVENT_WINDOW_CLOSE_REQUESTED:
 	case SDL_EVENT_QUIT:
 		if (!g_closed) {
-			delete g_isle;
+			// Clear the global first: ~IsleApp tickles the game while it shuts down, so a
+			// lifecycle event arriving here must not find a half-destructed IsleApp.
+			IsleApp* isle = g_isle;
 			g_isle = NULL;
 			g_closed = TRUE;
+			delete isle;
 		}
 		break;
 	case SDL_EVENT_KEY_DOWN: {
