@@ -11,14 +11,14 @@ enum QuitPromptStatus {
 	e_quitPromptQuit = 1,
 };
 
-static bool ShowQuitPrompt(bool p_saved)
+static bool ShowQuitPrompt(QuitPromptSaveResult p_saveResult)
 {
 	Android_ActivityCall call;
-	if (!Android_BeginActivityCall(&call, "showQuitPrompt", "(Z)V")) {
+	if (!Android_BeginActivityCall(&call, "showQuitPrompt", "(I)V")) {
 		return false;
 	}
 
-	call.m_env->CallVoidMethod(call.m_activity, call.m_method, static_cast<jboolean>(p_saved));
+	call.m_env->CallVoidMethod(call.m_activity, call.m_method, static_cast<jint>(p_saveResult));
 	return Android_EndActivityCall(&call);
 }
 
@@ -37,9 +37,9 @@ static QuitPromptStatus GetQuitPromptStatus()
 	return static_cast<QuitPromptStatus>(status);
 }
 
-bool Android_ConfirmQuit(bool (*p_abandoned)(), bool p_saved)
+bool Android_ConfirmQuit(bool (*p_abandoned)(), QuitPromptSaveResult p_saveResult)
 {
-	if (!ShowQuitPrompt(p_saved)) {
+	if (!ShowQuitPrompt(p_saveResult)) {
 		// No prompt means no answer, and quitting a game the player did not agree to quit is
 		// the worse of the two failures.
 		return false;

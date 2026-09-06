@@ -4,6 +4,7 @@
 
 #include "3dmanager/lego3dmanager.h"
 #include "decomp.h"
+#include "infocenter.h"
 #include "legoanimationmanager.h"
 #include "legobuildingmanager.h"
 #include "legogamestate.h"
@@ -397,8 +398,10 @@ static bool SDLCALL LifecycleEventWatch(void* p_userdata, SDL_Event* p_event)
 #endif
 
 // Shuts the game down. ~IsleApp runs IsleApp::Close, which saves and then tickles the world
-// down, so this is the only place a quit may be performed from: returning SDL_APP_SUCCESS on
-// its own skips it entirely, since SDL_AppQuit never touches g_isle.
+// down, so a quit has to come through here: returning SDL_APP_SUCCESS on its own skips all of
+// it, since SDL_AppQuit never touches g_isle. (IsleApp::Tick's multiplayer-rejection path does
+// set g_closed by hand and so does skip it, which predates this and is left alone: the call
+// that would replace it deletes the IsleApp out from under the Tick that is still running.)
 //
 // Clear the global first: ~IsleApp tickles the game while it shuts down, so a lifecycle event
 // arriving meanwhile must not find a half-destructed IsleApp.
@@ -418,6 +421,19 @@ static void CloseGame()
 static bool GameAbandoned()
 {
 	return g_closed;
+}
+
+// Whether a save would actually write a file. LegoGameState::Save reports success without
+// writing anything until the player has registered, which is fine for a lifecycle save but not
+// for telling the player their game is safe. Asks the same question Save does.
+static bool GameStateIsSaveable()
+{
+	if (!GameState()) {
+		return false;
+	}
+
+	InfocenterState* infocenterState = (InfocenterState*) GameState()->GetState("InfocenterState");
+	return infocenterState && infocenterState->HasRegistered();
 }
 
 // The back button, as a decision rather than an accident: pause, save, and ask.
@@ -449,10 +465,18 @@ static SDL_AppResult HandleBackButton()
 	// Before the prompt rather than after the answer, so the dialog can say what actually
 	// happened. Android can reclaim the process at any point while a prompt is up, and the save
 	// is cheap and idempotent, so paying it on a cancelled press is the better trade.
-	bool saved = SaveGameStateForLifecycleEvent("back button");
+	QuitPromptSaveResult saveResult;
+	if (!GameStateIsSaveable()) {
+		// Nothing was written, and saying so is not the same as reporting a failure.
+		SaveGameStateForLifecycleEvent("back button");
+		saveResult = e_quitPromptNothingToSave;
+	}
+	else {
+		saveResult = SaveGameStateForLifecycleEvent("back button") ? e_quitPromptSaveWritten : e_quitPromptSaveFailed;
+	}
 
 	confirming = true;
-	bool quit = Android_ConfirmQuit(GameAbandoned, saved);
+	bool quit = Android_ConfirmQuit(GameAbandoned, saveResult);
 	confirming = false;
 
 	// Resume even when quitting. IsleApp::Close queues a keypress that the input manager drops

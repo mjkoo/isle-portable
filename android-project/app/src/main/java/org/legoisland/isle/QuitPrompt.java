@@ -26,21 +26,28 @@ final class QuitPrompt {
     static final int STATUS_RESUME = 0;
     static final int STATUS_QUIT = 1;
 
+    // What the save that precedes the prompt did. Also mirrored in quitprompt.h.
+    static final int SAVE_WRITTEN = 0;
+    static final int SAVE_NOTHING_TO_SAVE = 1;
+    static final int SAVE_FAILED = 2;
+
     private static final String TAG = "IsleActivity";
 
     private final Activity mActivity;
-    private final boolean mSaved;
+    private final int mSaveResult;
     private final Handler mHandler = new Handler(Looper.getMainLooper());
 
     // Written on the UI thread, read on the SDL thread.
     private volatile int mStatus = STATUS_PENDING;
 
-    // Touched on the UI thread only.
+    // Touched on the UI thread only: show() posts showDialog there, and abandon() is called from
+    // the activity's own onDestroy.
     private AlertDialog mDialog;
+    private boolean mAbandoned;
 
-    QuitPrompt(Activity activity, boolean saved) {
+    QuitPrompt(Activity activity, int saveResult) {
         mActivity = activity;
-        mSaved = saved;
+        mSaveResult = saveResult;
     }
 
     /** STATUS_PENDING until the user has answered. */
@@ -59,17 +66,29 @@ final class QuitPrompt {
      * leak. Answers "keep playing" because there is no longer a game to quit.
      */
     void abandon() {
-        finish(STATUS_RESUME);
+        // Checked by showDialog, which may still be sitting in the looper queue: dismissing a
+        // dialog that has not been built yet does nothing, and the posted runnable would then
+        // put one on screen after the activity is gone.
+        mAbandoned = true;
+
+        // Only if nobody has answered. The SDL thread polls every 100 ms, so a confirmed quit
+        // can be waiting to be read, and overwriting it would discard the user's decision.
+        if (mStatus == STATUS_PENDING) {
+            finish(STATUS_RESUME);
+        }
     }
 
     private void showDialog() {
+        if (mAbandoned) {
+            return;
+        }
+
         AlertDialog.Builder builder = new AlertDialog.Builder(mActivity);
         builder.setTitle("Quit LEGO Island?");
-        // Say which of the two actually happened. The caller saves before asking, and a player
-        // whose save just failed is exactly the one who must not be told otherwise while a Quit
-        // button is in front of them.
-        builder.setMessage(mSaved ? "Your game has been saved."
-                : "Your game could not be saved.");
+        // Say what actually happened. A player whose save just failed is exactly the one who
+        // must not be told otherwise with a Quit button in front of them - and one who has not
+        // registered has nothing saved either, which is not the same as a failure.
+        builder.setMessage(saveMessage());
         builder.setPositiveButton("Quit", (dialog, which) -> finish(STATUS_QUIT));
         builder.setNegativeButton("Keep playing", (dialog, which) -> finish(STATUS_RESUME));
 
@@ -89,6 +108,17 @@ final class QuitPrompt {
             // answer for it rather than leaving it to poll a dialog that does not exist.
             Log.e(TAG, "Could not show the quit prompt", e);
             finish(STATUS_RESUME);
+        }
+    }
+
+    private String saveMessage() {
+        switch (mSaveResult) {
+        case SAVE_WRITTEN:
+            return "Your game has been saved.";
+        case SAVE_FAILED:
+            return "Your game could not be saved.";
+        default:
+            return "There is no saved game yet.";
         }
     }
 

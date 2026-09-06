@@ -11,6 +11,13 @@
 // dialog cannot always answer for itself: destroying the activity takes its window down
 // without running either button callback, and pumping is exactly what lets that happen here,
 // so a loop waiting only on the user is a loop that can wait forever.
-bool Android_ConfirmQuit(bool (*p_abandoned)(), bool p_saved);
+// Mirrors QuitPrompt's SAVE_ constants; keep the numbering in step.
+enum QuitPromptSaveResult {
+	e_quitPromptSaveWritten = 0,
+	e_quitPromptNothingToSave = 1,
+	e_quitPromptSaveFailed = 2,
+};
+
+bool Android_ConfirmQuit(bool (*p_abandoned)(), QuitPromptSaveResult p_saveResult);
 
 #endif // ANDROID_QUITPROMPT_H

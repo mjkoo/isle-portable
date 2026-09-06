@@ -6,7 +6,10 @@ import org.libsdl.app.SDLActivity;
 
 public class IsleActivity extends SDLActivity {
     private GameImport mImport;
-    private QuitPrompt mQuitPrompt;
+
+    // Unlike mImport, which only the SDL thread touches, this is written by the SDL thread in
+    // showQuitPrompt and read by the UI thread in onDestroy.
+    private volatile QuitPrompt mQuitPrompt;
 
     protected String[] getLibraries() {
         return new String[] { "SDL3", "lego1", "isle" };
@@ -66,13 +69,14 @@ public class IsleActivity extends SDLActivity {
     }
 
     /**
-     * Posts the confirmation the back button raises, saying whether the save that precedes it
-     * succeeded. Returns immediately; the caller polls getQuitPromptStatus().
+     * Posts the confirmation the back button raises, told what the save that precedes it did as
+     * one of QuitPrompt's SAVE_ constants. Returns immediately; the caller polls
+     * getQuitPromptStatus().
      *
      * Called from native code (see ISLE/android/quitprompt.cpp); kept by proguard-rules.pro.
      */
-    public void showQuitPrompt(boolean saved) {
-        mQuitPrompt = new QuitPrompt(this, saved);
+    public void showQuitPrompt(int saveResult) {
+        mQuitPrompt = new QuitPrompt(this, saveResult);
         mQuitPrompt.show();
     }
 

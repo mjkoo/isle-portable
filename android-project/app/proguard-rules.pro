@@ -10,6 +10,6 @@
     java.lang.String getImportedRoot();
     boolean hasImportedGameData();
     boolean removeImportedGameData();
-    void showQuitPrompt(boolean);
+    void showQuitPrompt(int);
     int getQuitPromptStatus();
 }
