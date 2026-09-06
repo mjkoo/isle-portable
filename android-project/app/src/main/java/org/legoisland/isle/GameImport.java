@@ -93,8 +93,10 @@ final class GameImport {
     private volatile boolean mFinished;
 
     private volatile int mStatus = STATUS_RUNNING;
-    private String mImportedRoot;
-    private String mFailureDetail;
+    // Written on the worker, read on the SDL and UI threads. Publication is already ordered by
+    // the volatile mStatus below it, but not visibly so; say it here instead.
+    private volatile String mImportedRoot;
+    private volatile String mFailureDetail;
 
     // Touched on the UI thread only.
     private AlertDialog mDialog;
