@@ -263,18 +263,32 @@ static void UpdateConfigDiskPath(const char* p_iniPath, const char* p_diskPath)
 		SDL_asprintf(&iniConfig, "%s/isle.ini", SDL_GetAndroidExternalStoragePath());
 	}
 
+	// SDL_asprintf leaves the pointer NULL when it fails, and so would a failed SDL_strdup.
+	if (!iniConfig) {
+		SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Out of memory building the config path");
+		return;
+	}
+
 	dictionary* dict = iniparser_load(iniConfig);
 	if (dict) {
 		char* iniTemp;
 		SDL_asprintf(&iniTemp, "%s.new", iniConfig);
 
-		FILE* iniFP = fopen(iniTemp, "wb");
+		FILE* iniFP = iniTemp ? fopen(iniTemp, "wb") : NULL;
 		if (iniFP) {
 			iniparser_set(dict, "isle:diskpath", p_diskPath);
 			iniparser_dump_ini(dict, iniFP);
 
+			// fflush reports the write errors, fclose whatever the close itself hits; the
+			// rename must not happen unless both came back clean. Keep the first errno, since
+			// the second call overwrites it.
 			bool written = fflush(iniFP) == 0;
-			fclose(iniFP);
+			int writeErrno = errno;
+
+			if (fclose(iniFP) != 0 && written) {
+				written = false;
+				writeErrno = errno;
+			}
 
 			if (written && SDL_RenamePath(iniTemp, iniConfig)) {
 				SDL_Log("Updated diskpath to '%s' in config at '%s'", p_diskPath, iniConfig);
@@ -284,13 +298,18 @@ static void UpdateConfigDiskPath(const char* p_iniPath, const char* p_diskPath)
 					SDL_LOG_CATEGORY_APPLICATION,
 					"Failed to replace config at '%s': %s",
 					iniConfig,
-					written ? SDL_GetError() : strerror(errno)
+					written ? SDL_GetError() : strerror(writeErrno)
 				);
 				SDL_RemovePath(iniTemp);
 			}
 		}
 		else {
-			SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Failed to write config at '%s': %s", iniTemp, strerror(errno));
+			SDL_LogError(
+				SDL_LOG_CATEGORY_APPLICATION,
+				"Failed to write config at '%s': %s",
+				iniTemp ? iniTemp : iniConfig,
+				strerror(errno)
+			);
 		}
 
 		SDL_free(iniTemp);
