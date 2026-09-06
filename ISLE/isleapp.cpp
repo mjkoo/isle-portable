@@ -392,6 +392,24 @@ static bool SDLCALL LifecycleEventWatch(void* p_userdata, SDL_Event* p_event)
 }
 #endif
 
+// Shuts the game down. ~IsleApp runs IsleApp::Close, which saves and then tickles the world
+// down, so this is the only place a quit may be performed from: returning SDL_APP_SUCCESS on
+// its own skips it entirely, since SDL_AppQuit never touches g_isle.
+//
+// Clear the global first: ~IsleApp tickles the game while it shuts down, so a lifecycle event
+// arriving meanwhile must not find a half-destructed IsleApp.
+static void CloseGame()
+{
+	if (g_closed) {
+		return;
+	}
+
+	IsleApp* isle = g_isle;
+	g_isle = NULL;
+	g_closed = TRUE;
+	delete isle;
+}
+
 SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv)
 {
 	*appstate = NULL;
@@ -632,14 +650,7 @@ SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event)
 		break;
 	case SDL_EVENT_WINDOW_CLOSE_REQUESTED:
 	case SDL_EVENT_QUIT:
-		if (!g_closed) {
-			// Clear the global first: ~IsleApp tickles the game while it shuts down, so a
-			// lifecycle event arriving here must not find a half-destructed IsleApp.
-			IsleApp* isle = g_isle;
-			g_isle = NULL;
-			g_closed = TRUE;
-			delete isle;
-		}
+		CloseGame();
 		break;
 	case SDL_EVENT_KEY_DOWN: {
 		if (event->key.repeat) {
