@@ -33,20 +33,28 @@ static void SDLCALL OnFolderSelected(void* p_userdata, const char* const* p_file
 // input that was just queued: nothing is drawing yet, and the game would otherwise receive
 // the entire burst at once the moment it starts.
 //
-// Only the input ranges are flushed. Lifecycle events are unaffected either way, since SDL
-// hands those straight to the event watchers rather than queueing them (see the comment on
-// SDL_AddEventWatch in isleapp.cpp), and leaving the 0x100 and 0x200 ranges alone keeps the
-// SDL_EVENT_QUIT that Android_OnDestroy queues on its way to SDL_AppEvent.
+// Only what a person can press or drag is flushed, and deliberately not by whole subsystem
+// range: SDL groups the hotplug events inside those ranges, and an ADDED event is the only
+// notification the game ever gets, since the event handler in isleapp.cpp is the sole caller
+// of LegoInputManager::AddJoystick and AddMouse. SDL_Init queues one for every device already
+// connected at launch, so flushing SDL_EVENT_GAMEPAD_FIRST through _LAST would leave a
+// controller paired before the import dead for the rest of the session.
+//
+// Lifecycle events are unaffected either way, since SDL hands those straight to the event
+// watchers rather than queueing them (see the comment on SDL_AddEventWatch in isleapp.cpp),
+// and leaving the 0x100 and 0x200 ranges alone keeps the SDL_EVENT_QUIT that Android_OnDestroy
+// queues on its way to SDL_AppEvent.
 static void DrainInputEvents()
 {
 	static const struct {
 		SDL_EventType m_first;
 		SDL_EventType m_last;
 	} ranges[] = {
-		{SDL_EVENT_KEYBOARD_FIRST, SDL_EVENT_KEYBOARD_LAST},
-		{SDL_EVENT_MOUSE_FIRST, SDL_EVENT_MOUSE_LAST},
-		{SDL_EVENT_JOYSTICK_FIRST, SDL_EVENT_JOYSTICK_LAST},
-		{SDL_EVENT_GAMEPAD_FIRST, SDL_EVENT_GAMEPAD_LAST},
+		{SDL_EVENT_KEY_DOWN, SDL_EVENT_TEXT_INPUT},
+		{SDL_EVENT_MOUSE_MOTION, SDL_EVENT_MOUSE_WHEEL},
+		{SDL_EVENT_JOYSTICK_AXIS_MOTION, SDL_EVENT_JOYSTICK_BUTTON_UP},
+		{SDL_EVENT_GAMEPAD_AXIS_MOTION, SDL_EVENT_GAMEPAD_BUTTON_UP},
+		{SDL_EVENT_GAMEPAD_TOUCHPAD_DOWN, SDL_EVENT_GAMEPAD_CAPSENSE_RELEASE},
 		{SDL_EVENT_FINGER_FIRST, SDL_EVENT_FINGER_LAST},
 		{SDL_EVENT_PINCH_FIRST, SDL_EVENT_PINCH_LAST},
 	};
