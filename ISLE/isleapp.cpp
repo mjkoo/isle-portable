@@ -84,6 +84,7 @@
 #ifdef ANDROID
 #include "android/config.h"
 #include "android/filepicker.h"
+#include "android/quitprompt.h"
 #endif
 
 #ifdef __vita__
@@ -410,6 +411,46 @@ static void CloseGame()
 	delete isle;
 }
 
+#ifdef ANDROID
+// The back button, as a decision rather than an accident: pause, save, and ask.
+static SDL_AppResult HandleBackButton()
+{
+	if (!g_isle->GetGameStarted()) {
+		// Nothing to save and nothing to lose, so keep the platform's own meaning for the
+		// button rather than making it inert while the game starts up.
+		CloseGame();
+		return SDL_APP_SUCCESS;
+	}
+
+	// Only undo what this does: the focus-lost path pauses too, and resuming a game the player
+	// alt-tabbed away from would be wrong.
+	bool pausedHere = Lego() && !Lego()->IsPaused();
+	if (pausedHere) {
+		Lego()->Pause();
+	}
+
+	// Before the prompt rather than after the answer, so the dialog's promise is already true.
+	// Android can reclaim the process at any point while a prompt is up, and the save is cheap
+	// and idempotent, so paying it on a cancelled press is the better trade.
+	SaveGameStateForLifecycleEvent("back button");
+
+	bool quit = Android_ConfirmQuit();
+
+	// Resume even when quitting. IsleApp::Close queues a keypress that the input manager drops
+	// while the game is paused, and Close only resumes after it.
+	if (pausedHere && Lego()) {
+		Lego()->Resume();
+	}
+
+	if (quit) {
+		CloseGame();
+		return SDL_APP_SUCCESS;
+	}
+
+	return SDL_APP_CONTINUE;
+}
+#endif
+
 SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv)
 {
 	*appstate = NULL;
@@ -434,6 +475,16 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv)
 	// setRequestedOrientation(), which overrides android:screenOrientation from the manifest.
 	// Ask for landscape here so the game stays landscape whatever the display is doing.
 	SDL_SetHint(SDL_HINT_ORIENTATIONS, "LandscapeLeft LandscapeRight");
+
+	// Stop the back button finishing the activity behind the game's back. Android would
+	// otherwise destroy it and give the whole teardown - a save, then tickling the world down -
+	// the one second SDLActivity.onDestroy waits before it gives up on the SDL thread. Trapped,
+	// the press arrives as SDL_SCANCODE_AC_BACK and the quit becomes the player's decision.
+	//
+	// Set before SDL_Init deliberately: SDL registers the hint's callback during video init and
+	// SDL_AddHintCallback fires it as it registers, so the trap is in place before SetupWindow,
+	// which can sit in the import prompt for minutes.
+	SDL_SetHint(SDL_HINT_ANDROID_TRAP_BACK_BUTTON, "1");
 #endif
 #ifdef __DJGPP__
 	SDL_SetHint("SDL_DOS_ALLOW_DIRECT_FRAMEBUFFER", "1");
@@ -588,6 +639,21 @@ SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event)
 	if (!g_isle) {
 		return SDL_APP_CONTINUE;
 	}
+
+#ifdef ANDROID
+	// AC_BACK is the system back button, not a game key, and it is handled ahead of
+	// UpdateLastInputMethod because a key event there makes the keyboard the last input method,
+	// which switches the touch gamepad's virtual stick off until the next finger event.
+	if ((event->type == SDL_EVENT_KEY_DOWN || event->type == SDL_EVENT_KEY_UP) && event->key.key == SDLK_AC_BACK) {
+		if (event->type == SDL_EVENT_KEY_DOWN && !event->key.repeat) {
+			return HandleBackButton();
+		}
+
+		// The repeat and the key-up are nothing to act on, and on API 33 and up the up arrives
+		// half a second after the down, well after the prompt has been answered.
+		return SDL_APP_CONTINUE;
+	}
+#endif
 
 	if (InputManager()) {
 		InputManager()->UpdateLastInputMethod(event);

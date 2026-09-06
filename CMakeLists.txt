@@ -851,6 +851,7 @@ if (ISLE_BUILD_APP)
             ISLE/android/activity.cpp
             ISLE/android/config.cpp
             ISLE/android/filepicker.cpp
+            ISLE/android/quitprompt.cpp
     )
   endif()
   if(VITA)

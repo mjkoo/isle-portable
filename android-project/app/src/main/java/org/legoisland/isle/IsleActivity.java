@@ -6,6 +6,7 @@ import org.libsdl.app.SDLActivity;
 
 public class IsleActivity extends SDLActivity {
     private GameImport mImport;
+    private QuitPrompt mQuitPrompt;
 
     protected String[] getLibraries() {
         return new String[] { "SDL3", "lego1", "isle" };
@@ -46,6 +47,29 @@ public class IsleActivity extends SDLActivity {
      */
     public String getImportedRoot() {
         return mImport != null ? mImport.getImportedRoot() : null;
+    }
+
+    /**
+     * Posts the confirmation the back button raises. Returns immediately; the caller polls
+     * getQuitPromptStatus().
+     *
+     * Called from native code (see ISLE/android/quitprompt.cpp); kept by proguard-rules.pro.
+     */
+    public void showQuitPrompt() {
+        mQuitPrompt = new QuitPrompt(this);
+        mQuitPrompt.show();
+    }
+
+    /**
+     * One of QuitPrompt's STATUS_ constants, which ISLE/android/quitprompt.h mirrors, or
+     * STATUS_PENDING while the user has yet to answer. Reports STATUS_RESUME rather than
+     * STATUS_QUIT if there is no prompt to answer, so a failure to post one cannot quit the
+     * game on the player's behalf.
+     *
+     * Called from native code (see ISLE/android/quitprompt.cpp); kept by proguard-rules.pro.
+     */
+    public int getQuitPromptStatus() {
+        return mQuitPrompt != null ? mQuitPrompt.getStatus() : QuitPrompt.STATUS_RESUME;
     }
 
     /**
