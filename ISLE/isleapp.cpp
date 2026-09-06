@@ -353,12 +353,12 @@ static void ShowFatalError(const char* p_message)
 // Persist progress at the points where the platform may destroy the process without
 // running a normal shutdown. Cheap and idempotent: LegoGameState::Save writes nothing
 // until the player has registered.
-static void SaveGameStateForLifecycleEvent(const char* p_reason)
+static bool SaveGameStateForLifecycleEvent(const char* p_reason)
 {
 	// Lego() has to be checked before GameState(), which only asserts on a missing
 	// LegoOmni and so dereferences NULL in release builds.
 	if (!g_isle || !g_isle->GetGameStarted() || !Lego() || !GameState()) {
-		return;
+		return false;
 	}
 
 	// LegoGameState::Save reports success without writing anything until the player has
@@ -367,7 +367,10 @@ static void SaveGameStateForLifecycleEvent(const char* p_reason)
 
 	if (GameState()->Save(0) != SUCCESS) {
 		SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Failed to save game state (%s)", p_reason);
+		return false;
 	}
+
+	return true;
 }
 
 static bool SDLCALL LifecycleEventWatch(void* p_userdata, SDL_Event* p_event)
@@ -412,9 +415,23 @@ static void CloseGame()
 }
 
 #ifdef ANDROID
+static bool GameAbandoned()
+{
+	return g_closed;
+}
+
 // The back button, as a decision rather than an accident: pause, save, and ask.
 static SDL_AppResult HandleBackButton()
 {
+	// Pumping for the prompt lets SDL dispatch its queued backlog straight back into
+	// SDL_AppEvent, so a second press that was already in the queue can land here while the
+	// first prompt is still up. One prompt at a time; the extra press is the answer to nothing.
+	static bool confirming = false;
+
+	if (confirming) {
+		return SDL_APP_CONTINUE;
+	}
+
 	if (!g_isle->GetGameStarted()) {
 		// Nothing to save and nothing to lose, so keep the platform's own meaning for the
 		// button rather than making it inert while the game starts up.
@@ -429,15 +446,18 @@ static SDL_AppResult HandleBackButton()
 		Lego()->Pause();
 	}
 
-	// Before the prompt rather than after the answer, so the dialog's promise is already true.
-	// Android can reclaim the process at any point while a prompt is up, and the save is cheap
-	// and idempotent, so paying it on a cancelled press is the better trade.
-	SaveGameStateForLifecycleEvent("back button");
+	// Before the prompt rather than after the answer, so the dialog can say what actually
+	// happened. Android can reclaim the process at any point while a prompt is up, and the save
+	// is cheap and idempotent, so paying it on a cancelled press is the better trade.
+	bool saved = SaveGameStateForLifecycleEvent("back button");
 
-	bool quit = Android_ConfirmQuit();
+	confirming = true;
+	bool quit = Android_ConfirmQuit(GameAbandoned, saved);
+	confirming = false;
 
 	// Resume even when quitting. IsleApp::Close queues a keypress that the input manager drops
-	// while the game is paused, and Close only resumes after it.
+	// while the game is paused, and Close only resumes after it. Both are checked again because
+	// the prompt pumps, and the game can be torn down while it is up.
 	if (pausedHere && Lego()) {
 		Lego()->Resume();
 	}

@@ -11,14 +11,14 @@ enum QuitPromptStatus {
 	e_quitPromptQuit = 1,
 };
 
-static bool ShowQuitPrompt()
+static bool ShowQuitPrompt(bool p_saved)
 {
 	Android_ActivityCall call;
-	if (!Android_BeginActivityCall(&call, "showQuitPrompt", "()V")) {
+	if (!Android_BeginActivityCall(&call, "showQuitPrompt", "(Z)V")) {
 		return false;
 	}
 
-	call.m_env->CallVoidMethod(call.m_activity, call.m_method);
+	call.m_env->CallVoidMethod(call.m_activity, call.m_method, static_cast<jboolean>(p_saved));
 	return Android_EndActivityCall(&call);
 }
 
@@ -37,9 +37,9 @@ static QuitPromptStatus GetQuitPromptStatus()
 	return static_cast<QuitPromptStatus>(status);
 }
 
-bool Android_ConfirmQuit()
+bool Android_ConfirmQuit(bool (*p_abandoned)(), bool p_saved)
 {
-	if (!ShowQuitPrompt()) {
+	if (!ShowQuitPrompt(p_saved)) {
 		// No prompt means no answer, and quitting a game the player did not agree to quit is
 		// the worse of the two failures.
 		return false;
@@ -53,6 +53,13 @@ bool Android_ConfirmQuit()
 		QuitPromptStatus status = GetQuitPromptStatus();
 		if (status != e_quitPromptPending) {
 			return status == e_quitPromptQuit;
+		}
+
+		// Checked after the pump, which is where the teardown happens: Android_OnDestroy runs
+		// from inside SDL_PumpEvents and queues the quit that tears the game down, and the
+		// dialog's callbacks never run for a window the activity took with it.
+		if (p_abandoned()) {
+			return false;
 		}
 
 		SDL_Delay(100);

@@ -5,7 +5,12 @@
 // user answers, pumping the event queue throughout: the Android UI thread cannot run the
 // dialog, service a surface teardown, or deliver a lifecycle event while this thread is idle.
 // The caller must therefore treat everything the game owns as having moved on when this
-// returns, and must have saved before calling.
-bool Android_ConfirmQuit();
+// returns.
+//
+// p_abandoned is polled alongside the dialog, and answers false when it reports true. The
+// dialog cannot always answer for itself: destroying the activity takes its window down
+// without running either button callback, and pumping is exactly what lets that happen here,
+// so a loop waiting only on the user is a loop that can wait forever.
+bool Android_ConfirmQuit(bool (*p_abandoned)(), bool p_saved);
 
 #endif // ANDROID_QUITPROMPT_H

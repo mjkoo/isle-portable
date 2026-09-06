@@ -13,6 +13,22 @@ public class IsleActivity extends SDLActivity {
     }
 
     /**
+     * The quit prompt holds a window of its own, and nothing dismisses it when the activity is
+     * destroyed out from under it - a configuration change the activity does not handle, say.
+     * Take it down here rather than leaving the framework to report a leaked window. The native
+     * side is not waiting on this: it stops polling once the game has been torn down.
+     */
+    @Override
+    protected void onDestroy() {
+        if (mQuitPrompt != null) {
+            mQuitPrompt.abandon();
+            mQuitPrompt = null;
+        }
+
+        super.onDestroy();
+    }
+
+    /**
      * Starts copying the game files from the document tree the user selected into the app's
      * external files directory, so they are owned and readable by this app. Returns immediately;
      * the caller polls getGameFileImportStatus().
@@ -50,13 +66,13 @@ public class IsleActivity extends SDLActivity {
     }
 
     /**
-     * Posts the confirmation the back button raises. Returns immediately; the caller polls
-     * getQuitPromptStatus().
+     * Posts the confirmation the back button raises, saying whether the save that precedes it
+     * succeeded. Returns immediately; the caller polls getQuitPromptStatus().
      *
      * Called from native code (see ISLE/android/quitprompt.cpp); kept by proguard-rules.pro.
      */
-    public void showQuitPrompt() {
-        mQuitPrompt = new QuitPrompt(this);
+    public void showQuitPrompt(boolean saved) {
+        mQuitPrompt = new QuitPrompt(this, saved);
         mQuitPrompt.show();
     }
 

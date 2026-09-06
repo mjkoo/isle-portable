@@ -4,6 +4,7 @@ import android.app.Activity;
 import android.app.AlertDialog;
 import android.os.Handler;
 import android.os.Looper;
+import android.util.Log;
 
 /**
  * The "quit to Android?" confirmation the back button raises.
@@ -25,7 +26,10 @@ final class QuitPrompt {
     static final int STATUS_RESUME = 0;
     static final int STATUS_QUIT = 1;
 
+    private static final String TAG = "IsleActivity";
+
     private final Activity mActivity;
+    private final boolean mSaved;
     private final Handler mHandler = new Handler(Looper.getMainLooper());
 
     // Written on the UI thread, read on the SDL thread.
@@ -34,8 +38,9 @@ final class QuitPrompt {
     // Touched on the UI thread only.
     private AlertDialog mDialog;
 
-    QuitPrompt(Activity activity) {
+    QuitPrompt(Activity activity, boolean saved) {
         mActivity = activity;
+        mSaved = saved;
     }
 
     /** STATUS_PENDING until the user has answered. */
@@ -48,10 +53,23 @@ final class QuitPrompt {
         mHandler.post(this::showDialog);
     }
 
+    /**
+     * Takes the dialog down without an answer, for when the activity is going away underneath
+     * it. Its own window would otherwise outlive the activity, which the framework reports as a
+     * leak. Answers "keep playing" because there is no longer a game to quit.
+     */
+    void abandon() {
+        finish(STATUS_RESUME);
+    }
+
     private void showDialog() {
         AlertDialog.Builder builder = new AlertDialog.Builder(mActivity);
         builder.setTitle("Quit LEGO Island?");
-        builder.setMessage("Your game has been saved.");
+        // Say which of the two actually happened. The caller saves before asking, and a player
+        // whose save just failed is exactly the one who must not be told otherwise while a Quit
+        // button is in front of them.
+        builder.setMessage(mSaved ? "Your game has been saved."
+                : "Your game could not be saved.");
         builder.setPositiveButton("Quit", (dialog, which) -> finish(STATUS_QUIT));
         builder.setNegativeButton("Keep playing", (dialog, which) -> finish(STATUS_RESUME));
 
@@ -61,7 +79,17 @@ final class QuitPrompt {
 
         mDialog = builder.create();
         mDialog.setCanceledOnTouchOutside(false);
-        mDialog.show();
+
+        try {
+            mDialog.show();
+        }
+        catch (RuntimeException e) {
+            // A window token that died between posting this and running it takes the dialog with
+            // it, and then no button callback will ever run. The SDL thread is waiting on one, so
+            // answer for it rather than leaving it to poll a dialog that does not exist.
+            Log.e(TAG, "Could not show the quit prompt", e);
+            finish(STATUS_RESUME);
+        }
     }
 
     private void finish(int status) {
