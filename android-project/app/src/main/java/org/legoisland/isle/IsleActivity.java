@@ -59,15 +59,17 @@ public class IsleActivity extends SDLActivity {
     }
 
     /**
-     * Deletes everything an import has copied in, so a bad or unwanted one can be undone
-     * without reinstalling. Never touches saves or isle.ini.
+     * Deletes the game data in this app's storage, so a bad or unwanted import can be undone
+     * without reinstalling. Clears a tree pushed in by hand as well, which is what the caller
+     * wants: it only offers this once that data has failed to load. Never touches saves or
+     * isle.ini.
      *
      * Called from native code (see ISLE/android/filepicker.cpp); kept by proguard-rules.pro.
      */
     public boolean removeImportedGameData() {
         boolean removed = GameImport.removeImportedData(getExternalFilesDir(null));
-        final String message = removed ? "Copied game files removed"
-                : "Some copied game files could not be removed";
+        final String message = removed ? "Game data removed"
+                : "Some game data could not be removed";
         runOnUiThread(() -> Toast.makeText(this, message, Toast.LENGTH_LONG).show());
         return removed;
     }

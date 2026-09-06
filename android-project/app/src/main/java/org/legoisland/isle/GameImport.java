@@ -437,8 +437,10 @@ final class GameImport {
     // --- leftovers --------------------------------------------------------------------
 
     /**
-     * Everything an import has ever created under the external files directory. Deliberately
-     * never saves/ and never isle.ini.
+     * The game data under the external files directory: what an import created, plus a LEGO
+     * directory that arrived some other way, such as one pushed in over adb. Removal is only
+     * offered when that data has already failed to load, so a manual install that got this far
+     * is broken too and clearing it is the point. Deliberately never saves/ and never isle.ini.
      */
     private static List<File> importedPaths(File filesDir) {
         List<File> paths = new ArrayList<>();
@@ -469,9 +471,9 @@ final class GameImport {
     }
 
     /**
-     * Removes every imported path. Returns true when none remain: an "*.unreadable.*" leftover
-     * is by construction something this app could not delete, so false is an expected outcome
-     * and the caller imports beside it instead.
+     * Removes every path importedPaths lists. Returns true when none remain: an
+     * "*.unreadable.*" leftover is by construction something this app could not delete, so
+     * false is an expected outcome and the caller imports beside it instead.
      *
      * Only safe while the game is not reading its data, which is why the two callers are the
      * start of an import and the removal button, both inside the startup file check.
