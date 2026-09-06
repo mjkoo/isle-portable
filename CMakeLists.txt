@@ -848,6 +848,7 @@ if (ISLE_BUILD_APP)
   endif()
   if (ANDROID)
     target_sources(isle PRIVATE
+            ISLE/android/activity.cpp
             ISLE/android/config.cpp
             ISLE/android/filepicker.cpp
     )

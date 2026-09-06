@@ -1,5 +1,7 @@
 #include "filepicker.h"
 
+#include "activity.h"
+
 #include <SDL3/SDL.h>
 #include <errno.h>
 #include <iniparser.h>
@@ -28,51 +30,13 @@ static void SDLCALL OnFolderSelected(void* p_userdata, const char* const* p_file
 	SDL_UnlockMutex(result->m_mutex);
 }
 
-// A SAF session sits over the surface for as long as the user takes, and Android keeps
-// feeding touches through the whole time. Pump so the drivers make progress, then drop the
-// input that was just queued: nothing is drawing yet, and the game would otherwise receive
-// the entire burst at once the moment it starts.
-//
-// Only what a person can press or drag is flushed, and deliberately not by whole subsystem
-// range: SDL groups the hotplug events inside those ranges, and an ADDED event is the only
-// notification the game ever gets, since the event handler in isleapp.cpp is the sole caller
-// of LegoInputManager::AddJoystick and AddMouse. SDL_Init queues one for every device already
-// connected at launch, so flushing SDL_EVENT_GAMEPAD_FIRST through _LAST would leave a
-// controller paired before the import dead for the rest of the session.
-//
-// Lifecycle events are unaffected either way, since SDL hands those straight to the event
-// watchers rather than queueing them (see the comment on SDL_AddEventWatch in isleapp.cpp),
-// and leaving the 0x100 and 0x200 ranges alone keeps the SDL_EVENT_QUIT that Android_OnDestroy
-// queues on its way to SDL_AppEvent.
-static void DrainInputEvents()
-{
-	static const struct {
-		SDL_EventType m_first;
-		SDL_EventType m_last;
-	} ranges[] = {
-		{SDL_EVENT_KEY_DOWN, SDL_EVENT_TEXT_INPUT},
-		{SDL_EVENT_MOUSE_MOTION, SDL_EVENT_MOUSE_WHEEL},
-		{SDL_EVENT_JOYSTICK_AXIS_MOTION, SDL_EVENT_JOYSTICK_BUTTON_UP},
-		{SDL_EVENT_GAMEPAD_AXIS_MOTION, SDL_EVENT_GAMEPAD_BUTTON_UP},
-		{SDL_EVENT_GAMEPAD_TOUCHPAD_DOWN, SDL_EVENT_GAMEPAD_CAPSENSE_RELEASE},
-		{SDL_EVENT_FINGER_FIRST, SDL_EVENT_FINGER_LAST},
-		{SDL_EVENT_PINCH_FIRST, SDL_EVENT_PINCH_LAST},
-	};
-
-	SDL_PumpEvents();
-
-	for (const auto& range : ranges) {
-		SDL_FlushEvents(range.m_first, range.m_last);
-	}
-}
-
 static char* ShowFolderDialog(SDL_Window* p_window)
 {
 	FolderDialogResult result = {SDL_CreateMutex(), false, NULL};
 	SDL_ShowOpenFolderDialog(OnFolderSelected, &result, p_window, NULL, false);
 
 	for (;;) {
-		DrainInputEvents();
+		Android_DrainInputEvents();
 		SDL_LockMutex(result.m_mutex);
 		bool done = result.m_done;
 		SDL_UnlockMutex(result.m_mutex);
@@ -98,58 +62,10 @@ enum ImportStatus {
 	e_importInternalError = 6,
 };
 
-struct ActivityCall {
-	JNIEnv* m_env;
-	jobject m_activity;
-	jclass m_class;
-	jmethodID m_method;
-};
-
-// Resolves a method on the SDL activity. On success the caller must pass p_call to EndActivityCall.
-static bool BeginActivityCall(ActivityCall* p_call, const char* p_name, const char* p_signature)
-{
-	p_call->m_env = static_cast<JNIEnv*>(SDL_GetAndroidJNIEnv());
-	p_call->m_activity = static_cast<jobject>(SDL_GetAndroidActivity());
-	p_call->m_class = NULL;
-	p_call->m_method = NULL;
-
-	if (!p_call->m_env || !p_call->m_activity) {
-		SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "No JNI environment for IsleActivity.%s", p_name);
-		return false;
-	}
-
-	p_call->m_class = p_call->m_env->GetObjectClass(p_call->m_activity);
-	p_call->m_method = p_call->m_env->GetMethodID(p_call->m_class, p_name, p_signature);
-
-	if (!p_call->m_method) {
-		SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "IsleActivity.%s not found", p_name);
-		p_call->m_env->ExceptionClear();
-		p_call->m_env->DeleteLocalRef(p_call->m_class);
-		p_call->m_env->DeleteLocalRef(p_call->m_activity);
-		return false;
-	}
-
-	return true;
-}
-
-// Returns true when the call completed without a pending Java exception.
-static bool EndActivityCall(ActivityCall* p_call)
-{
-	bool threw = p_call->m_env->ExceptionCheck();
-	if (threw) {
-		p_call->m_env->ExceptionDescribe();
-		p_call->m_env->ExceptionClear();
-	}
-
-	p_call->m_env->DeleteLocalRef(p_call->m_class);
-	p_call->m_env->DeleteLocalRef(p_call->m_activity);
-	return !threw;
-}
-
 static bool StartImportGameFiles(const char* p_treeUri)
 {
-	ActivityCall call;
-	if (!BeginActivityCall(&call, "startGameFileImport", "(Ljava/lang/String;)V")) {
+	Android_ActivityCall call;
+	if (!Android_BeginActivityCall(&call, "startGameFileImport", "(Ljava/lang/String;)V")) {
 		return false;
 	}
 
@@ -157,18 +73,18 @@ static bool StartImportGameFiles(const char* p_treeUri)
 	call.m_env->CallVoidMethod(call.m_activity, call.m_method, treeUri);
 	call.m_env->DeleteLocalRef(treeUri);
 
-	return EndActivityCall(&call);
+	return Android_EndActivityCall(&call);
 }
 
 static ImportStatus GetImportStatus()
 {
-	ActivityCall call;
-	if (!BeginActivityCall(&call, "getGameFileImportStatus", "()I")) {
+	Android_ActivityCall call;
+	if (!Android_BeginActivityCall(&call, "getGameFileImportStatus", "()I")) {
 		return e_importInternalError;
 	}
 
 	jint status = call.m_env->CallIntMethod(call.m_activity, call.m_method);
-	if (!EndActivityCall(&call)) {
+	if (!Android_EndActivityCall(&call)) {
 		return e_importInternalError;
 	}
 
@@ -187,7 +103,7 @@ static ImportStatus ImportGameFiles(const char* p_treeUri)
 	}
 
 	for (;;) {
-		DrainInputEvents();
+		Android_DrainInputEvents();
 
 		ImportStatus status = GetImportStatus();
 		if (status != e_importRunning) {
@@ -203,8 +119,8 @@ static ImportStatus ImportGameFiles(const char* p_treeUri)
 // diskpath already named, and count as progress.
 static char* GetImportedRoot()
 {
-	ActivityCall call;
-	if (!BeginActivityCall(&call, "getImportedRoot", "()Ljava/lang/String;")) {
+	Android_ActivityCall call;
+	if (!Android_BeginActivityCall(&call, "getImportedRoot", "()Ljava/lang/String;")) {
 		return NULL;
 	}
 
@@ -220,7 +136,7 @@ static char* GetImportedRoot()
 		call.m_env->DeleteLocalRef(root);
 	}
 
-	if (!EndActivityCall(&call)) {
+	if (!Android_EndActivityCall(&call)) {
 		SDL_free(importedRoot);
 		return NULL;
 	}
@@ -228,25 +144,14 @@ static char* GetImportedRoot()
 	return importedRoot;
 }
 
-static bool CallActivityBooleanMethod(const char* p_name)
-{
-	ActivityCall call;
-	if (!BeginActivityCall(&call, p_name, "()Z")) {
-		return false;
-	}
-
-	jboolean result = call.m_env->CallBooleanMethod(call.m_activity, call.m_method);
-	return EndActivityCall(&call) && result;
-}
-
 static bool HasImportedGameData()
 {
-	return CallActivityBooleanMethod("hasImportedGameData");
+	return Android_CallActivityBooleanMethod("hasImportedGameData");
 }
 
 static bool RemoveImportedGameData()
 {
-	return CallActivityBooleanMethod("removeImportedGameData");
+	return Android_CallActivityBooleanMethod("removeImportedGameData");
 }
 
 // isle.ini is small, it is the only record of where the game data went, and since it is
@@ -415,7 +320,7 @@ bool Android_TryImportGameFiles(
 
 	ImportStatus status = ImportGameFiles(treeUri);
 	SDL_free(treeUri);
-	DrainInputEvents();
+	Android_DrainInputEvents();
 
 	if (status != e_importOk) {
 		// Java has already told the user what went wrong: it owns the copy-level errors,
