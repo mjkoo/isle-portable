@@ -1741,20 +1741,19 @@ MxResult IsleApp::VerifyFilesystem()
 
 #if defined(ANDROID) || defined(IOS)
 	for (int attempt = 0; missing != NULL && attempt < c_maxImportAttempts; attempt++) {
-		if (!TryImportGameFiles(
-				reinterpret_cast<SDL_Window*>(m_windowHandle),
-				m_iniPath,
-				&m_hdPath,
-				missing,
-				attempt
-			)) {
-			break;
-		}
+		bool imported =
+			TryImportGameFiles(reinterpret_cast<SDL_Window*>(m_windowHandle), m_iniPath, &m_hdPath, missing, attempt);
 
+		// Re-check even when the prompt was declined: removing the imported game data repoints
+		// m_hdPath at the default root on its way out, and the failure message below has to name
+		// the paths that were actually searched.
 		MxOmni::SetHD(m_hdPath);
 		MxOmni::SetCD(m_cdPath);
-
 		missing = FindMissingGameFile(m_hdPath, m_cdPath, attempts);
+
+		if (!imported) {
+			break;
+		}
 	}
 #endif
 
