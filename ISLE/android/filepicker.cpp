@@ -337,9 +337,13 @@ bool Android_TryImportGameFiles(
 		);
 	}
 
-	// At most two rounds: removing the copied files takes the third button away, so the
-	// second prompt can only be answered with a pick or a cancel.
-	for (int prompt = 0; prompt < 2; prompt++) {
+	// At most two rounds: removing the game data takes the third button away, so the second
+	// prompt normally offers only a pick or a cancel. Removal can come back incomplete though,
+	// leaving the button in place, so the pick is tracked rather than inferred from falling out
+	// of the loop - that dropped the user into the folder picker unasked.
+	bool picked = false;
+
+	for (int prompt = 0; prompt < 2 && !picked; prompt++) {
 		SDL_MessageBoxButtonData buttons[3];
 		int count = 0;
 
@@ -378,7 +382,11 @@ bool Android_TryImportGameFiles(
 			return false;
 		}
 
-		break;
+		picked = true;
+	}
+
+	if (!picked) {
+		return false;
 	}
 
 	char* treeUri = ShowFolderDialog(p_window);
