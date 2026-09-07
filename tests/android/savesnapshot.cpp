@@ -1,10 +1,31 @@
 #include "savesnapshot.h"
 
 #include <cassert>
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
+#include <new>
 #include <sys/stat.h>
 #include <unistd.h>
+
+static bool g_failAllocation;
+
+void* operator new(size_t p_size)
+{
+	if (g_failAllocation) {
+		g_failAllocation = false;
+		throw std::bad_alloc();
+	}
+	if (void* memory = malloc(p_size ? p_size : 1)) {
+		return memory;
+	}
+	throw std::bad_alloc();
+}
+
+void operator delete(void* p_memory) noexcept
+{
+	free(p_memory);
+}
 
 int main()
 {
@@ -34,6 +55,10 @@ int main()
 	}
 	snapshot = Android_ReadSaveSnapshot(directory);
 	assert(snapshot.m_error.empty() && !snapshot.m_incomplete && snapshot.m_files.size() == 11);
+	std::string directoryPath = directory;
+	g_failAllocation = true;
+	snapshot = Android_ReadSaveSnapshot(directoryPath);
+	assert(!snapshot.m_error.empty() && snapshot.m_files.empty() && !g_failAllocation);
 	std::filesystem::remove(root / "g0.gs");
 	std::filesystem::create_symlink(root / "isle.ini", root / "G0.GS");
 	snapshot = Android_ReadSaveSnapshot(directory);

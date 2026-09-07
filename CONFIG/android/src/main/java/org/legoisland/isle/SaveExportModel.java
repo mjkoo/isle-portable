@@ -1,6 +1,7 @@
 package org.legoisland.isle;
 
 import android.app.Application;
+import android.annotation.SuppressLint;
 import android.content.ContentResolver;
 import android.content.SharedPreferences;
 import android.net.Uri;
@@ -24,6 +25,8 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /** Owns one export across Settings recreation; workers hold only application context. */
+// The interruption journal must be persisted before provider I/O. All commits run on the worker.
+@SuppressLint("ApplySharedPref")
 public final class SaveExportModel extends AndroidViewModel {
     enum Phase { LOADING, IDLE, CONFIRM, PREPARING, READY, PICKING, TRANSFERRING, CANCELLING, DONE, ERROR }
 
@@ -35,6 +38,7 @@ public final class SaveExportModel extends AndroidViewModel {
     private final ContentResolver resolver;
     private final File cache;
     private boolean started;
+    private volatile boolean cleared;
     private String id;
     private String[] info = {"Loading save snapshot...", "0", ""};
     private File archive;
@@ -67,6 +71,7 @@ public final class SaveExportModel extends AndroidViewModel {
             final String[] result = metadata;
             final String failure = interrupted;
             main.post(() -> {
+                if (cleared) return;
                 info = result;
                 message = failure;
                 phase.setValue(failure == null ? Phase.IDLE : Phase.ERROR);
@@ -117,6 +122,7 @@ public final class SaveExportModel extends AndroidViewModel {
                 archive = SaveArchive.create(cache, Arrays.copyOfRange(info, 3, info.length),
                     SettingsBridge.exportData(id), cancelled::get);
                 main.post(() -> {
+                    if (cleared) return;
                     if (cancelled.get()) worker.execute(() -> finish("Export cancelled.", false));
                     else phase.setValue(Phase.READY);
                 });
@@ -187,12 +193,14 @@ public final class SaveExportModel extends AndroidViewModel {
         if (archive != null) { archive.delete(); archive = null; }
         journal.edit().clear().commit();
         main.post(() -> {
+            if (cleared) return;
             message = text;
             phase.setValue(success ? Phase.DONE : Phase.ERROR);
         });
     }
 
     @Override protected void onCleared() {
+        cleared = true;
         cancelled.set(true);
         worker.execute(() -> {
             if (archive != null) { archive.delete(); archive = null; }
