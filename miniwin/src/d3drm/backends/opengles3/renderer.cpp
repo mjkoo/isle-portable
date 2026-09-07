@@ -796,6 +796,12 @@ void OpenGLES3Renderer::Flip()
 	}
 
 	glBindFramebuffer(GL_READ_FRAMEBUFFER, m_fbo);
+	if (m_msaa > 1) {
+		// Multisample resolves cannot scale; resolve first, then scale for presentation.
+		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, m_resolveFBO);
+		glBlitFramebuffer(0, 0, m_width, m_height, 0, 0, m_width, m_height, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+		glBindFramebuffer(GL_READ_FRAMEBUFFER, m_resolveFBO);
+	}
 	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
 
 	// This is a workaround for what is (presumably) a driver bug in some WebGL environments (Android Chrome)
@@ -808,7 +814,9 @@ void OpenGLES3Renderer::Flip()
 	glClear(GL_COLOR_BUFFER_BIT);
 	glDisable(GL_SCISSOR_TEST);
 
-	glBlitFramebuffer(0, 0, m_width, m_height, 0, 0, m_width, m_height, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+	int windowWidth, windowHeight;
+	SDL_GetWindowSizeInPixels(DDWindow, &windowWidth, &windowHeight);
+	glBlitFramebuffer(0, 0, m_width, m_height, 0, 0, windowWidth, windowHeight, GL_COLOR_BUFFER_BIT, GL_NEAREST);
 
 	SDL_GL_SwapWindow(DDWindow);
 	m_dirty = false;

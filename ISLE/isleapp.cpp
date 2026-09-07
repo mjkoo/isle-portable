@@ -1287,7 +1287,11 @@ MxResult IsleApp::SetupWindow()
 		return FAILURE;
 	}
 
-#if defined(MINIWIN)
+#if defined(ANDROID)
+	// Render quality is independent of the game's logical input and UI canvas.
+	g_targetWidth = 640;
+	g_targetHeight = 480;
+#elif defined(MINIWIN)
 	// MINIWIN: window/VESA mode matches the game's rendering resolution.
 	g_targetWidth = m_xRes;
 	g_targetHeight = m_yRes;
@@ -1410,6 +1414,8 @@ MxResult IsleApp::SetupWindow()
 	}
 
 #ifdef ANDROID
+	SDL_SetNumberProperty(SDL_GetWindowProperties(window), MINIWIN_PROP_RENDER_WIDTH, SDL_clamp(m_xRes, 640, 1280));
+	SDL_SetNumberProperty(SDL_GetWindowProperties(window), MINIWIN_PROP_RENDER_HEIGHT, SDL_clamp(m_yRes, 480, 960));
 	Android_CaptureRenderers(window);
 #endif
 
@@ -1729,9 +1735,13 @@ bool IsleApp::LoadConfig()
 	m_exclusiveXRes = iniparser_getint(dict, "isle:Exclusive X Resolution", m_exclusiveXRes);
 	m_exclusiveYRes = iniparser_getint(dict, "isle:Exclusive Y Resolution", m_exclusiveYRes);
 	m_exclusiveFrameRate = iniparser_getdouble(dict, "isle:Exclusive Framerate", m_exclusiveFrameRate);
+#ifdef ANDROID
+	m_videoParam.GetRect() = MxRect32(0, 0, 639, 479);
+#else
 	if (!m_fullScreen) {
 		m_videoParam.GetRect() = MxRect32(0, 0, (m_xRes - 1), (m_yRes - 1));
 	}
+#endif
 	m_frameRate = (1000.0f / iniparser_getdouble(dict, "isle:Frame Delta", m_frameDelta));
 	m_frameDelta = static_cast<int>(iniparser_getdouble(dict, "isle:Frame Delta", m_frameDelta));
 	m_videoParam.SetMSAASamples((m_msaaSamples = iniparser_getint(dict, "isle:MSAA", m_msaaSamples)));

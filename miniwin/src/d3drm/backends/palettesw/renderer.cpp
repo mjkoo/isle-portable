@@ -1300,9 +1300,16 @@ HRESULT Direct3DRMPaletteSWRenderer::FinalizeFrame()
 void Direct3DRMPaletteSWRenderer::Resize(int width, int height, const ViewportTransform& viewportTransform)
 {
 	m_viewportTransform = viewportTransform;
+#ifndef ANDROID
 	float aspect = static_cast<float>(width) / height;
 	float virtualAspect = static_cast<float>(m_virtualWidth) / m_virtualHeight;
+#endif
 
+#ifdef ANDROID
+	// Android exposes render quality independently of the fixed game canvas.
+	m_width = width;
+	m_height = height;
+#else
 	// Cap to virtual canvase for performance
 	if (aspect > virtualAspect) {
 		m_height = std::min(height, (int) m_virtualHeight);
@@ -1312,6 +1319,8 @@ void Direct3DRMPaletteSWRenderer::Resize(int width, int height, const ViewportTr
 		m_width = std::min(width, (int) m_virtualWidth);
 		m_height = static_cast<int>(m_width / aspect);
 	}
+
+#endif
 
 	m_viewportTransform.scale =
 		std::min(static_cast<float>(m_width) / m_virtualWidth, static_cast<float>(m_height) / m_virtualHeight);

@@ -21,3 +21,13 @@ The controls and lifecycle integration also need Android verification: menu-butt
 access, Save/Cancel, next-launch application, renderer switching, startup-error recovery,
 activity recreation, background/foreground, low memory and held input. Check the release
 shrinker output as well as the debug APK because the settings bridge is reached through JNI.
+
+For process restoration, leave the Cursor sensitivity dialog open, press Home, terminate
+only the background app process, then select its card in Recents. Verify that the dialog
+restores without crashing, accepts an edit, and that Save persists it. Repeat with a list
+preference open. Launching the root activity directly does not exercise the same restoration.
+
+For resolution, compare 640 × 480 and 1280 × 960 after a full game relaunch on each Android
+renderer. Verify the logged render-target dimensions change, the image fills the same screen
+area without distortion, and taps hit the same game controls. Include GLES3 with MSAA enabled,
+landscape/portrait rotation, Save/Cancel and resetting to game defaults.

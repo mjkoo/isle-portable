@@ -11,3 +11,7 @@ struct IDirect3DRMMiniwinDevice : virtual public IUnknown {
 };
 
 void Miniwin_SetupWindowCreateProperties(SDL_PropertiesID props);
+
+// Requested content size; the render target also includes the window's letterboxing.
+#define MINIWIN_PROP_RENDER_WIDTH "miniwin.render.width"
+#define MINIWIN_PROP_RENDER_HEIGHT "miniwin.render.height"

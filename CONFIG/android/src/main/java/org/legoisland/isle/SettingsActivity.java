@@ -1,6 +1,9 @@
 package org.legoisland.isle;
 
+import android.app.Dialog;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.text.InputType;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -8,6 +11,7 @@ import android.widget.Toast;
 
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.fragment.app.DialogFragment;
 import androidx.lifecycle.MutableLiveData;
 import androidx.lifecycle.ViewModel;
 import androidx.lifecycle.ViewModelProvider;
@@ -69,7 +73,10 @@ public final class SettingsActivity extends AppCompatActivity {
     };
 
     public static final class SettingsModel extends ViewModel {
-        final MutableLiveData<Integer> state = new MutableLiveData<>();
+        enum State { LOADING, READY, SAVING, SAVED, ERROR }
+
+        final MutableLiveData<State> state = new MutableLiveData<>(State.LOADING);
+        final Handler main = new Handler(Looper.getMainLooper());
         final Map<String, String> original = new LinkedHashMap<>();
         final Map<String, String> draft = new LinkedHashMap<>();
         final ExecutorService worker = Executors.newSingleThreadExecutor();
@@ -77,7 +84,9 @@ public final class SettingsActivity extends AppCompatActivity {
         String error;
         String configPath;
         boolean started;
-        volatile boolean busy, loaded;
+        boolean loaded;
+
+        boolean isBusy() { return state.getValue() == State.LOADING || state.getValue() == State.SAVING; }
 
         void load(Bundle saved, android.content.Intent intent) {
             if (started) return;
@@ -85,7 +94,9 @@ public final class SettingsActivity extends AppCompatActivity {
             configPath = intent.getStringExtra("configPath");
             String[] choices = intent.getStringArrayExtra("renderers");
             renderers = choices == null ? new String[0] : choices;
-            busy = true;
+            if (saved != null) {
+                for (String key : saved.keySet()) draft.put(key, saved.getString(key));
+            }
             worker.execute(() -> {
                 try {
                     ArrayList<String> keys = new ArrayList<>();
@@ -95,24 +106,26 @@ public final class SettingsActivity extends AppCompatActivity {
                     keys.add(WIDTH);
                     keys.add(HEIGHT);
                     String[] values = SettingsBridge.read(configPath, keys.toArray(new String[0]));
-                    for (int i = 0; i < values.length; i++) original.put(keys.get(i), values[i]);
-                    draft.putAll(original);
-                    if (saved != null) {
-                        for (String key : original.keySet()) {
-                            if (saved.containsKey(key)) draft.put(key, saved.getString(key));
+                    main.post(() -> {
+                        for (int i = 0; i < values.length; i++) {
+                            String key = keys.get(i);
+                            original.put(key, values[i]);
+                            if (!draft.containsKey(key)) draft.put(key, values[i]);
                         }
-                    }
-                    loaded = true;
+                        loaded = true;
+                        state.setValue(State.READY);
+                    });
                 } catch (RuntimeException e) {
-                    error = e.getMessage();
+                    main.post(() -> {
+                        error = e.toString();
+                        state.setValue(State.ERROR);
+                    });
                 }
-                busy = false;
-                state.postValue(0);
             });
         }
 
         void save() {
-            if (!loaded || busy) return;
+            if (!loaded || isBusy()) return;
             ArrayList<String> keys = new ArrayList<>();
             ArrayList<String> values = new ArrayList<>();
             for (String key : original.keySet()) {
@@ -121,21 +134,31 @@ public final class SettingsActivity extends AppCompatActivity {
                     values.add(draft.get(key));
                 }
             }
-            busy = true;
-            state.setValue(0);
+            state.setValue(State.SAVING);
             worker.execute(() -> {
+                String failure;
                 try {
-                    error = keys.isEmpty() ? null : SettingsBridge.write(
+                    failure = keys.isEmpty() ? null : SettingsBridge.write(
                         configPath, keys.toArray(new String[0]), values.toArray(new String[0]), renderers);
                 } catch (RuntimeException e) {
-                    error = e.getMessage();
+                    failure = e.toString();
                 }
-                busy = false;
-                state.postValue(error == null ? 1 : 0);
+                final String message = failure;
+                main.post(() -> {
+                    error = message;
+                    state.setValue(message == null ? State.SAVED : State.ERROR);
+                });
             });
         }
 
         @Override protected void onCleared() { worker.shutdown(); }
+    }
+
+    public static final class ErrorDialog extends DialogFragment {
+        @Override public Dialog onCreateDialog(Bundle savedInstanceState) {
+            return new AlertDialog.Builder(requireContext()).setTitle("Could not update settings")
+                .setMessage(requireArguments().getString("message")).setPositiveButton("OK", null).create();
+        }
     }
 
     private SettingsModel model;
@@ -147,15 +170,18 @@ public final class SettingsActivity extends AppCompatActivity {
         model = new ViewModelProvider(this).get(SettingsModel.class);
         model.state.observe(this, result -> {
             invalidateOptionsMenu();
-            if (result == 1) {
+            if (result == SettingsModel.State.SAVED) {
                 setResult(RESULT_OK);
                 Toast.makeText(this, "Settings saved. Changes apply on the next game launch.", Toast.LENGTH_LONG).show();
                 finish();
             } else if (model.error != null) {
                 String message = model.error;
                 model.error = null;
-                new AlertDialog.Builder(this).setTitle("Could not update settings")
-                    .setMessage(message).setPositiveButton("OK", null).show();
+                Bundle arguments = new Bundle();
+                arguments.putString("message", message);
+                ErrorDialog dialog = new ErrorDialog();
+                dialog.setArguments(arguments);
+                dialog.show(getSupportFragmentManager(), "settings-error");
             }
         });
         if (savedInstanceState == null) {
@@ -166,7 +192,7 @@ public final class SettingsActivity extends AppCompatActivity {
     }
 
     @Override protected void onSaveInstanceState(Bundle state) {
-        if (model.loaded) {
+        if (!model.draft.isEmpty()) {
             Bundle draft = new Bundle();
             for (Map.Entry<String, String> entry : model.draft.entrySet()) draft.putString(entry.getKey(), entry.getValue());
             state.putBundle("draft", draft);
@@ -181,8 +207,8 @@ public final class SettingsActivity extends AppCompatActivity {
     }
 
     @Override public boolean onPrepareOptionsMenu(Menu menu) {
-        menu.findItem(1).setEnabled(model.loaded && !model.busy);
-        menu.findItem(2).setEnabled(!model.busy);
+        menu.findItem(1).setEnabled(model.loaded && !model.isBusy());
+        menu.findItem(2).setEnabled(!model.isBusy());
         return super.onPrepareOptionsMenu(menu);
     }
 
@@ -193,11 +219,12 @@ public final class SettingsActivity extends AppCompatActivity {
     }
 
     @Override public void onBackPressed() {
-        if (!model.busy) super.onBackPressed();
+        if (!model.isBusy()) super.onBackPressed();
     }
 
     public static final class SettingsFragment extends PreferenceFragmentCompat {
         private SettingsModel model;
+        private boolean updating;
 
         @Override public void onCreatePreferences(Bundle savedInstanceState, String rootKey) {
             model = new ViewModelProvider(requireActivity()).get(SettingsModel.class);
@@ -211,6 +238,7 @@ public final class SettingsActivity extends AppCompatActivity {
                     return value == null ? DEFAULT : value;
                 }
                 @Override public void putString(String key, String value) {
+                    if (updating) return;
                     value = DEFAULT.equals(value) ? null : value;
                     if (RESOLUTION.equals(key)) {
                         String[] pair = value == null ? new String[] {null, null} : value.split("x");
@@ -219,11 +247,11 @@ public final class SettingsActivity extends AppCompatActivity {
                     } else model.draft.put(key, value);
                 }
             });
-            rebuild();
-            model.state.observe(this, ignored -> { if (model.loaded) rebuild(); });
+            buildPreferences();
+            model.state.observe(this, ignored -> refresh());
         }
 
-        private void rebuild() {
+        private void buildPreferences() {
             PreferenceScreen screen = getPreferenceManager().createPreferenceScreen(requireContext());
             setPreferenceScreen(screen);
             Preference notice = new Preference(requireContext());
@@ -232,7 +260,6 @@ public final class SettingsActivity extends AppCompatActivity {
             notice.setSelectable(false);
             notice.setIconSpaceReserved(false);
             screen.addPreference(notice);
-            if (!model.loaded) return;
             String group = "";
             PreferenceCategory category = null;
             for (Control control : CONTROLS) {
@@ -256,7 +283,10 @@ public final class SettingsActivity extends AppCompatActivity {
                         if (text.isEmpty()) { edit.setText(DEFAULT); return false; }
                         try {
                             double number = Double.parseDouble(text);
-                            if (!Double.isInfinite(number) && !Double.isNaN(number) && number >= 0.1 && number <= 20) return true;
+                            if (!Double.isInfinite(number) && !Double.isNaN(number) && number >= 0.1 && number <= 20) {
+                                edit.setText(Double.toString(number));
+                                return false;
+                            }
                         } catch (NumberFormatException ignored) { }
                         Toast.makeText(requireContext(), "Enter a number from 0.1 to 20.", Toast.LENGTH_SHORT).show();
                         return false;
@@ -265,19 +295,6 @@ public final class SettingsActivity extends AppCompatActivity {
                     preference = edit;
                 } else {
                     ListPreference list = new ListPreference(requireContext());
-                    ArrayList<String> labels = new ArrayList<>(Arrays.asList("Game default"));
-                    ArrayList<String> values = new ArrayList<>(Arrays.asList(DEFAULT));
-                    if ("isle:3d device id".equals(control.key)) {
-                        for (int i = 0; i < model.renderers.length; i += 2) {
-                            labels.add(model.renderers[i]); values.add(model.renderers[i + 1]);
-                        }
-                    } else {
-                        labels.addAll(Arrays.asList(control.labels)); values.addAll(Arrays.asList(control.values));
-                    }
-                    String current = getPreferenceManager().getPreferenceDataStore().getString(control.key, DEFAULT);
-                    if (!values.contains(current)) { labels.add("Current: " + current); values.add(current); }
-                    list.setEntries(labels.toArray(new String[0]));
-                    list.setEntryValues(values.toArray(new String[0]));
                     list.setSummaryProvider(ListPreference.SimpleSummaryProvider.getInstance());
                     if ("isle:touch scheme".equals(control.key)) {
                         list.setSummaryProvider(p -> list.getEntry() + " (no control overlay)");
@@ -288,7 +305,9 @@ public final class SettingsActivity extends AppCompatActivity {
                 preference.setKey(control.key);
                 preference.setTitle(control.title);
                 preference.setDefaultValue(DEFAULT);
+                updating = true;
                 category.addPreference(preference);
+                updating = false;
             }
             Preference reset = new Preference(requireContext());
             reset.setTitle("Reset these settings");
@@ -296,11 +315,41 @@ public final class SettingsActivity extends AppCompatActivity {
             reset.setSummary("Use game defaults for Input, Audio and Display. Paths and other settings are kept. Choose Save to apply.");
             reset.setOnPreferenceClickListener(p -> {
                 for (String key : model.draft.keySet()) model.draft.put(key, null);
-                rebuild();
+                refresh();
                 return true;
             });
             screen.addPreference(reset);
-            screen.setEnabled(!model.busy);
+            refresh();
+        }
+
+        private void refresh() {
+            updating = true;
+            for (Control control : CONTROLS) {
+                Preference preference = findPreference(control.key);
+                String current = getPreferenceManager().getPreferenceDataStore().getString(control.key, DEFAULT);
+                if (preference instanceof EditTextPreference) {
+                    ((EditTextPreference) preference).setText(current);
+                } else {
+                    ListPreference list = (ListPreference) preference;
+                    ArrayList<String> labels = new ArrayList<>(Arrays.asList("Game default"));
+                    ArrayList<String> values = new ArrayList<>(Arrays.asList(DEFAULT));
+                    if ("isle:3d device id".equals(control.key)) {
+                        for (int i = 0; i + 1 < model.renderers.length; i += 2) {
+                            labels.add(model.renderers[i]);
+                            values.add(model.renderers[i + 1]);
+                        }
+                    } else {
+                        labels.addAll(Arrays.asList(control.labels));
+                        values.addAll(Arrays.asList(control.values));
+                    }
+                    if (!values.contains(current)) { labels.add("Current: " + current); values.add(current); }
+                    list.setEntries(labels.toArray(new String[0]));
+                    list.setEntryValues(values.toArray(new String[0]));
+                    list.setValue(current);
+                }
+            }
+            updating = false;
+            getPreferenceScreen().setEnabled(model.loaded && !model.isBusy());
         }
     }
 }

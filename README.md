@@ -71,6 +71,10 @@ apply changes. **Cancel** discards edits. **Reset these settings** restores defa
 controls when saved; it keeps game paths, saves and extension configuration. A startup error
 also offers Settings so an unsuitable display configuration can be reset.
 
+Render resolution sets the game content quality independently of the screen size. Android
+keeps the game and touch coordinates at 640 × 480, scales the rendered image to fit the
+screen, and preserves its aspect ratio. The default content resolution is 640 × 480.
+
 The touch schemes currently use invisible movement regions or a virtual stick; the menu
 button is the only added on-screen control. Renderer choices reflect what the device could
 initialize at startup. Vulkan is not enabled by this settings screen.

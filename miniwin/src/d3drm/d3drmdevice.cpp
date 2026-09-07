@@ -9,7 +9,9 @@
 #include "miniwin/miniwindevice.h"
 
 #include <SDL3/SDL.h>
+#include <algorithm>
 #include <cassert>
+#include <cmath>
 
 Direct3DRMDevice2Impl::Direct3DRMDevice2Impl(DWORD width, DWORD height, Direct3DRMRenderer* renderer)
 	: m_virtualWidth(width), m_virtualHeight(height), m_renderer(renderer), m_viewports(new Direct3DRMViewportArrayImpl)
@@ -157,9 +159,24 @@ void Direct3DRMDevice2Impl::Resize()
 	m_windowWidth = 320; // We are on the lower screen
 	m_windowHeight = 240;
 #endif
-	SDL_Log("Render resolution: %dx%d", m_windowWidth, m_windowHeight);
 	m_viewportTransform = CalculateViewportTransform(m_virtualWidth, m_virtualHeight, m_windowWidth, m_windowHeight);
-	m_renderer->Resize(m_windowWidth, m_windowHeight, m_viewportTransform);
+	int renderWidth = m_windowWidth;
+	int renderHeight = m_windowHeight;
+	SDL_PropertiesID properties = SDL_GetWindowProperties(DDWindow);
+	int contentWidth = SDL_GetNumberProperty(properties, MINIWIN_PROP_RENDER_WIDTH, 0);
+	int contentHeight = SDL_GetNumberProperty(properties, MINIWIN_PROP_RENDER_HEIGHT, 0);
+	if (contentWidth > 0 && contentHeight > 0 && m_windowWidth > 0 && m_windowHeight > 0) {
+		// Include the same letterboxing as the window so presentation and input stay aligned.
+		float scale = std::max((float) contentWidth / m_virtualWidth, (float) contentHeight / m_virtualHeight);
+		renderWidth = (int) std::ceil(m_windowWidth * scale / m_viewportTransform.scale);
+		renderHeight = (int) std::ceil(m_windowHeight * scale / m_viewportTransform.scale);
+	}
+	SDL_Log("Render resolution: %dx%d (window %dx%d)", renderWidth, renderHeight, m_windowWidth, m_windowHeight);
+	m_renderer->Resize(
+		renderWidth,
+		renderHeight,
+		CalculateViewportTransform(m_virtualWidth, m_virtualHeight, renderWidth, renderHeight)
+	);
 	m_renderer->Clear(0, 0, 0);
 	for (int i = 0; i < m_viewports->GetSize(); i++) {
 		IDirect3DRMViewport* viewport;

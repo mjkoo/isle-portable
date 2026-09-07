@@ -761,6 +761,9 @@ void OpenGLES2Renderer::Flip()
 	}
 
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+	int windowWidth, windowHeight;
+	SDL_GetWindowSizeInPixels(DDWindow, &windowWidth, &windowHeight);
+	glViewport(0, 0, windowWidth, windowHeight);
 
 	glDisable(GL_DEPTH_TEST);
 	glFrontFace(GL_CCW);
@@ -816,6 +819,7 @@ void OpenGLES2Renderer::Flip()
 	glDisableVertexAttribArray(m_texLoc);
 
 	SDL_GL_SwapWindow(DDWindow);
+	glViewport(0, 0, m_width, m_height);
 	glFrontFace(GL_CW);
 	m_dirty = false;
 }
