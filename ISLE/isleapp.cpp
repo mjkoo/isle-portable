@@ -1599,7 +1599,7 @@ bool IsleApp::LoadConfig()
 	m_xRes = iniparser_getint(dict, "isle:Horizontal Resolution", m_xRes);
 	m_yRes = iniparser_getint(dict, "isle:Vertical Resolution", m_yRes);
 	m_exclusiveXRes = iniparser_getint(dict, "isle:Exclusive X Resolution", m_exclusiveXRes);
-	m_exclusiveYRes = iniparser_getint(dict, "isle:Exclusive Y Resolution", m_exclusiveXRes);
+	m_exclusiveYRes = iniparser_getint(dict, "isle:Exclusive Y Resolution", m_exclusiveYRes);
 	m_exclusiveFrameRate = iniparser_getdouble(dict, "isle:Exclusive Framerate", m_exclusiveFrameRate);
 	if (!m_fullScreen) {
 		m_videoParam.GetRect() = MxRect32(0, 0, (m_xRes - 1), (m_yRes - 1));
