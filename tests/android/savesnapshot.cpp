@@ -1,6 +1,8 @@
 #include "savesnapshot.h"
 
 #include <cassert>
+#include <cerrno>
+#include <cstdio>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
@@ -29,7 +31,8 @@ void operator delete(void* p_memory) noexcept
 
 int main()
 {
-	char directory[] = "/tmp/isle-snapshot-XXXXXX";
+	std::string directoryTemplate = (std::filesystem::temp_directory_path() / "isle-snapshot-XXXXXX").string();
+	char* directory = directoryTemplate.data();
 	assert(mkdtemp(directory));
 	std::filesystem::path root(directory);
 	assert(Android_ReadSaveSnapshot("").m_error.size());
@@ -64,9 +67,17 @@ int main()
 	snapshot = Android_ReadSaveSnapshot(directory);
 	assert(!snapshot.m_error.empty() && snapshot.m_files.empty());
 	std::filesystem::remove(root / "G0.GS");
-	assert(mkfifo((root / "G0.GS").c_str(), 0600) == 0);
+	std::filesystem::create_directory(root / "G0.GS");
 	assert(!Android_ReadSaveSnapshot(directory).m_error.empty());
 	std::filesystem::remove(root / "G0.GS");
+	if (mkfifo((root / "G0.GS").c_str(), 0600) == 0) {
+		assert(!Android_ReadSaveSnapshot(directory).m_error.empty());
+		std::filesystem::remove(root / "G0.GS");
+	}
+	else {
+		assert(errno == EACCES || errno == EPERM || errno == ENOTSUP);
+		puts("FIFO creation is prohibited on this test filesystem; regular-directory rejection passed.");
+	}
 	std::ofstream(root / "G0.GS");
 	std::filesystem::resize_file(root / "G0.GS", 16 * 1024 * 1024);
 	assert(!Android_ReadSaveSnapshot(directory).m_error.empty());
