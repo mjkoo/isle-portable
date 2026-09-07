@@ -1,0 +1,3 @@
+<resources>
+    <style name="SettingsTheme" parent="Theme.AppCompat.DayNight.DarkActionBar" />
+</resources>

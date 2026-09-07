@@ -1,11 +1,89 @@
 package org.legoisland.isle;
 
 import android.widget.Toast;
+import android.widget.ImageButton;
+import android.widget.RelativeLayout;
+import android.content.Intent;
+import android.os.Bundle;
+import android.view.View;
+import android.os.Build;
 
 import org.libsdl.app.SDLActivity;
 
 public class IsleActivity extends SDLActivity {
     private GameImport mImport;
+    private static final int SETTINGS_REQUEST = 4801;
+    private ImageButton mMenuButton;
+    private boolean mGameReady;
+
+    @Override protected void onCreate(Bundle state) {
+        super.onCreate(state);
+        if (mLayout == null) return;
+        mMenuButton = new ImageButton(this);
+        mMenuButton.setImageResource(R.drawable.game_menu);
+        mMenuButton.setBackgroundResource(R.drawable.game_menu_background);
+        mMenuButton.setContentDescription("Game menu");
+        mMenuButton.setPadding(0, 0, 0, 0);
+        mMenuButton.setVisibility(View.GONE);
+        int size = (int) (48 * getResources().getDisplayMetrics().density + 0.5f);
+        int margin = (int) (8 * getResources().getDisplayMetrics().density + 0.5f);
+        RelativeLayout.LayoutParams params = new RelativeLayout.LayoutParams(size, size);
+        params.addRule(RelativeLayout.ALIGN_PARENT_RIGHT);
+        params.setMargins(margin, margin, margin, margin);
+        mLayout.addView(mMenuButton, params);
+        mMenuButton.setOnApplyWindowInsetsListener((view, insets) -> {
+            int right = insets.getSystemWindowInsetRight();
+            int top = insets.getSystemWindowInsetTop();
+            if (Build.VERSION.SDK_INT >= 28 && insets.getDisplayCutout() != null) {
+                right = Math.max(right, insets.getDisplayCutout().getSafeInsetRight());
+                top = Math.max(top, insets.getDisplayCutout().getSafeInsetTop());
+            }
+            RelativeLayout.LayoutParams layout = (RelativeLayout.LayoutParams) view.getLayoutParams();
+            layout.setMargins(margin, margin + top, margin + right, margin);
+            view.setLayoutParams(layout);
+            return insets;
+        });
+        mMenuButton.setOnClickListener(view -> {
+            view.setVisibility(View.GONE);
+            SettingsBridge.requestMenu();
+        });
+    }
+
+    public void showMenuButton() {
+        runOnUiThread(() -> { mGameReady = true; restoreMenuButton(); });
+    }
+
+    void restoreMenuButton() {
+        if (mGameReady && mMenuButton != null && !isFinishing()) {
+            mMenuButton.setVisibility(View.VISIBLE);
+            mMenuButton.requestApplyInsets();
+        }
+    }
+
+    void openSettings() {
+        startActivityForResult(new Intent(this, SettingsActivity.class)
+            .putExtra("configPath", SettingsBridge.path())
+            .putExtra("renderers", SettingsBridge.renderers()), SETTINGS_REQUEST);
+    }
+
+    @Override protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == SETTINGS_REQUEST && mQuitPrompt != null) {
+            mQuitPrompt.returnedFromSettings();
+        }
+    }
+
+    public void showStartupSettings(String error) {
+        QuitPrompt prompt = new QuitPrompt(this, QuitPrompt.SAVE_NOTHING_TO_SAVE, error);
+        mQuitPrompt = prompt;
+        prompt.show();
+    }
+
+    public boolean isStartupSettingsOpen() {
+        QuitPrompt prompt = mQuitPrompt;
+        return prompt != null && prompt.getStatus() == QuitPrompt.STATUS_PENDING;
+    }
+
 
     // Unlike mImport, which only the SDL thread touches, this is written by the SDL thread in
     // showQuitPrompt and read by the UI thread in onDestroy.
@@ -77,6 +155,7 @@ public class IsleActivity extends SDLActivity {
      * Called from native code (see ISLE/android/quitprompt.cpp); kept by proguard-rules.pro.
      */
     public void showQuitPrompt(int saveResult) {
+        runOnUiThread(() -> { if (mMenuButton != null) mMenuButton.setVisibility(View.GONE); });
         QuitPrompt prompt = new QuitPrompt(this, saveResult);
         mQuitPrompt = prompt;
         prompt.show();

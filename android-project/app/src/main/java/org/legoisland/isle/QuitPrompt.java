@@ -33,7 +33,8 @@ final class QuitPrompt {
 
     private static final String TAG = "IsleActivity";
 
-    private final Activity mActivity;
+    private final IsleActivity mActivity;
+    private final String mStartupError;
     private final int mSaveResult;
     private final Handler mHandler = new Handler(Looper.getMainLooper());
 
@@ -45,7 +46,12 @@ final class QuitPrompt {
     private AlertDialog mDialog;
     private boolean mAbandoned;
 
-    QuitPrompt(Activity activity, int saveResult) {
+    QuitPrompt(IsleActivity activity, int saveResult) {
+        this(activity, saveResult, null);
+    }
+
+    QuitPrompt(IsleActivity activity, int saveResult, String startupError) {
+        mStartupError = startupError;
         mActivity = activity;
         mSaveResult = saveResult;
     }
@@ -84,13 +90,24 @@ final class QuitPrompt {
         }
 
         AlertDialog.Builder builder = new AlertDialog.Builder(mActivity);
-        builder.setTitle("Quit LEGO Island?");
+        builder.setTitle(mStartupError == null ? "LEGO Island" : "LEGO Island could not start");
         // Say what actually happened. A player whose save just failed is exactly the one who
         // must not be told otherwise with a Quit button in front of them - and one who has not
         // registered has nothing saved either, which is not the same as a failure.
-        builder.setMessage(saveMessage());
-        builder.setPositiveButton("Quit", (dialog, which) -> finish(STATUS_QUIT));
-        builder.setNegativeButton("Keep playing", (dialog, which) -> finish(STATUS_RESUME));
+        builder.setMessage(mStartupError == null ? saveMessage() : mStartupError);
+        builder.setPositiveButton(mStartupError == null ? "Quit" : "Close", (dialog, which) -> finish(STATUS_QUIT));
+        if (mStartupError == null) {
+            builder.setNegativeButton("Resume", (dialog, which) -> finish(STATUS_RESUME));
+        }
+        builder.setNeutralButton("Settings", (dialog, which) -> {
+            mDialog = null;
+            try {
+                mActivity.openSettings();
+            } catch (RuntimeException e) {
+                Log.e(TAG, "Could not open settings", e);
+                showDialog();
+            }
+        });
 
         // A second back press answers "keep playing" without stacking another prompt.
         builder.setOnCancelListener(dialog -> finish(STATUS_RESUME));
@@ -110,11 +127,15 @@ final class QuitPrompt {
         }
     }
 
+    void returnedFromSettings() {
+        if (!mAbandoned && mStatus == STATUS_PENDING) showDialog();
+    }
+
     private String saveMessage() {
         switch (mSaveResult) {
         case SAVE_ATTEMPTED:
             // The save API does not report every write failure, so do not promise persistence.
-            return "Return to Android?";
+            return "Game paused.";
         case SAVE_FAILED:
             return "Your game could not be saved.";
         default:
@@ -131,5 +152,6 @@ final class QuitPrompt {
         // Published last: the SDL thread tears the game down the moment it reads this, and
         // nothing may be left floating over the surface while that happens.
         mStatus = status;
+        if (!mAbandoned && status == STATUS_RESUME) mActivity.restoreMenuButton();
     }
 }

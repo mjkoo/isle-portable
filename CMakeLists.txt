@@ -850,6 +850,8 @@ if (ISLE_BUILD_APP)
     target_sources(isle PRIVATE
             ISLE/android/activity.cpp
             ISLE/android/config.cpp
+            ISLE/android/configstore.cpp
+            ISLE/android/settings.cpp
             ISLE/android/filepicker.cpp
             ISLE/android/quitprompt.cpp
     )

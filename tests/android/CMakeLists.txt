@@ -1,0 +1,13 @@
+cmake_minimum_required(VERSION 3.20)
+project(android_config_tests LANGUAGES CXX)
+
+find_package(Threads REQUIRED)
+find_path(INIPARSER_INCLUDE_DIR iniparser.h REQUIRED)
+find_library(INIPARSER_LIBRARY NAMES iniparser REQUIRED)
+add_executable(configstore configstore.cpp ../../ISLE/android/configstore.cpp)
+target_compile_features(configstore PRIVATE cxx_std_17)
+target_compile_options(configstore PRIVATE -Wall -Wextra -Werror -UNDEBUG)
+target_include_directories(configstore PRIVATE ../../ISLE/android "${INIPARSER_INCLUDE_DIR}")
+target_link_libraries(configstore PRIVATE "${INIPARSER_LIBRARY}" Threads::Threads)
+enable_testing()
+add_test(NAME android_config_store COMMAND configstore)

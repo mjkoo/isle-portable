@@ -11,5 +11,10 @@
     boolean hasImportedGameData();
     boolean removeImportedGameData();
     void showQuitPrompt(int);
+    void showMenuButton();
+    void showStartupSettings(java.lang.String);
+    boolean isStartupSettingsOpen();
     int getQuitPromptStatus();
 }
+
+-keep class org.legoisland.isle.SettingsBridge { *; }

@@ -47,6 +47,11 @@
         android:hardwareAccelerated="true"
         tools:targetApi="31">
         <activity
+            android:name="org.legoisland.isle.SettingsActivity"
+            android:theme="@style/SettingsTheme"
+            android:exported="false"
+            android:excludeFromRecents="true" />
+        <activity
             android:name="org.legoisland.isle.IsleActivity"
             android:theme="@style/AppTheme"
             android:exported="true"

@@ -6,6 +6,10 @@ def androidProject = projectDir.parentFile
 android {
     namespace "org.legoisland.isle"
     compileSdk 35
+    sourceSets.main {
+        java.srcDir '../../CONFIG/android/src/main/java'
+        res.srcDir '../../CONFIG/android/src/main/res'
+    }
 
     defaultConfig {
         applicationId 'org.legoisland.isle'
@@ -118,6 +122,7 @@ tasks.register('compileSDL3AndroidArchive', Exec) {
 }
 
 dependencies {
+    implementation "androidx.preference:preference:1.2.1"
     // Still unimplemented: with DOWNLOAD_DEPENDENCIES=OFF this should fetch the
     // matching 'devel android zip' release instead of building SDL from source, and
     // place its archive at aarDest.

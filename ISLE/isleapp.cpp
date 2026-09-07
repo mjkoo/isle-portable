@@ -88,6 +88,7 @@
 #include "android/config.h"
 #include "android/filepicker.h"
 #include "android/quitprompt.h"
+#include "android/settings.h"
 #endif
 
 #ifdef __vita__
@@ -533,7 +534,7 @@ static SDL_AppResult HandleBackButton()
 	// Resume even when quitting. IsleApp::Close queues a keypress that the input manager drops
 	// while the game is paused, and Close only resumes after it. Both are checked again because
 	// the prompt pumps, and the game can be torn down while it is up.
-	if (pausedHere && Lego()) {
+	if (pausedHere && Lego() && (!g_androidBackgrounded || quit)) {
 		Lego()->Resume();
 	}
 
@@ -664,12 +665,21 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv)
 
 	// Create window
 	if (g_isle->SetupWindow() != SUCCESS) {
+#ifdef ANDROID
+		Android_ShowStartupSettings(
+			g_startupError[0] != '\0'
+				? g_startupError
+				: "\"LEGO® Island\" failed to start.\nPlease quit all other applications and try again."
+				  "\nFailed to initialize; see logs for details"
+		);
+#else
 		ShowFatalError(
 			g_startupError[0] != '\0'
 				? g_startupError
 				: "\"LEGO® Island\" failed to start.\nPlease quit all other applications and try again."
 				  "\nFailed to initialize; see logs for details"
 		);
+#endif
 		return SDL_APP_FAILURE;
 	}
 
@@ -684,6 +694,12 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv)
 
 SDL_AppResult SDL_AppIterate(void* appstate)
 {
+#ifdef ANDROID
+	if (Android_TakeMenuRequest() && g_isle && g_isle->GetGameStarted() && !g_closed && !g_confirmingQuit) {
+		return HandleBackButton();
+	}
+#endif
+
 	if (g_closed) {
 		return SDL_APP_SUCCESS;
 	}
@@ -806,7 +822,13 @@ SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event)
 	case SDL_EVENT_WINDOW_FOCUS_GAINED:
 		if (!g_isle->GetActiveInBackground()) {
 			g_isle->SetWindowActive(TRUE);
+#ifdef ANDROID
+			if (!g_confirmingQuit) {
+				Lego()->Resume();
+			}
+#else
 			Lego()->Resume();
+#endif
 		}
 		break;
 	case SDL_EVENT_WINDOW_FOCUS_LOST:
@@ -1175,6 +1197,9 @@ SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event)
 			Emscripten_SetupWindow((SDL_Window*) g_isle->GetWindowHandle());
 #endif
 
+#ifdef ANDROID
+			Android_ShowMenuButton();
+#endif
 			SDL_Log("Game started");
 		}
 	}
@@ -1377,6 +1402,10 @@ MxResult IsleApp::SetupWindow()
 		SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Failed to open SDL_IOStream for icon: %s", SDL_GetError());
 	}
 
+#ifdef ANDROID
+	Android_CaptureRenderers(window);
+#endif
+
 	if (!SetupLegoOmni()) {
 		return FAILURE;
 	}
@@ -1476,6 +1505,10 @@ bool IsleApp::LoadConfig()
 	else {
 		iniConfig = "isle.ini";
 	}
+
+#ifdef ANDROID
+	Android_SetSettingsPath(iniConfig.GetData());
+#endif
 
 	SDL_Log("Reading configuration from \"%s\"", iniConfig.GetData());
 

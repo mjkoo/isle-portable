@@ -1,6 +1,7 @@
 #include "filepicker.h"
 
 #include "activity.h"
+#include "configstore.h"
 
 #include <SDL3/SDL.h>
 #include <errno.h>
@@ -181,54 +182,9 @@ static void UpdateConfigDiskPath(const char* p_iniPath, const char* p_diskPath)
 		return;
 	}
 
-	dictionary* dict = iniparser_load(iniConfig);
-	if (dict) {
-		char* iniTemp;
-		SDL_asprintf(&iniTemp, "%s.new", iniConfig);
-
-		FILE* iniFP = iniTemp ? fopen(iniTemp, "wb") : NULL;
-		if (iniFP) {
-			iniparser_set(dict, "isle:diskpath", p_diskPath);
-			iniparser_dump_ini(dict, iniFP);
-
-			// fflush reports the write errors, fclose whatever the close itself hits; the
-			// rename must not happen unless both came back clean. Keep the first errno, since
-			// the second call overwrites it.
-			bool written = fflush(iniFP) == 0;
-			int writeErrno = errno;
-
-			if (fclose(iniFP) != 0 && written) {
-				written = false;
-				writeErrno = errno;
-			}
-
-			if (written && SDL_RenamePath(iniTemp, iniConfig)) {
-				SDL_Log("Updated diskpath to '%s' in config at '%s'", p_diskPath, iniConfig);
-			}
-			else {
-				SDL_LogError(
-					SDL_LOG_CATEGORY_APPLICATION,
-					"Failed to replace config at '%s': %s",
-					iniConfig,
-					written ? SDL_GetError() : strerror(writeErrno)
-				);
-				SDL_RemovePath(iniTemp);
-			}
-		}
-		else {
-			SDL_LogError(
-				SDL_LOG_CATEGORY_APPLICATION,
-				"Failed to write config at '%s': %s",
-				iniTemp ? iniTemp : iniConfig,
-				strerror(errno)
-			);
-		}
-
-		SDL_free(iniTemp);
-		iniparser_freedict(dict);
-	}
-	else {
-		SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Failed to load config at '%s'", iniConfig);
+	std::string error = Android_UpdateConfig(iniConfig, {{"isle:diskpath", p_diskPath}});
+	if (!error.empty()) {
+		SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "%s", error.c_str());
 	}
 
 	SDL_free(iniConfig);

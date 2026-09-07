@@ -60,6 +60,26 @@ To achieve our goal of platform independence, we need to replace any Windows-onl
 | Direct3D Retained Mode | Custom re-implementation | ✅ | [Remarks](https://github.com/search?q=repo%3Aisledecomp%2Fisle-portable+%22%2F%2F+%5Blibrary%3Aretained%5D%22&type=code) |
 | [SmartHeap](https://github.com/isledecomp/isle/tree/master/3rdparty/smartheap) | Default memory allocator | - | - |
 
+## Android settings
+
+The Android app launches directly into the game. Tap the menu button in the upper-right
+corner, or use Android's Back button or gesture, to open Resume / Settings / Quit.
+
+Settings exposes touch schemes, cursor sensitivity, haptics, WASD, audio, render resolution,
+available renderers and filtering. Choose **Save**, then quit and launch the game again to
+apply changes. **Cancel** discards edits. **Reset these settings** restores defaults for these
+controls when saved; it keeps game paths, saves and extension configuration. A startup error
+also offers Settings so an unsuitable display configuration can be reset.
+
+The touch schemes currently use invisible movement regions or a virtual stick; the menu
+button is the only added on-screen control. Renderer choices reflect what the device could
+initialize at startup. Vulkan is not enabled by this settings screen.
+
+Configuration (`isle.ini`) and default saves (`saves/`) live in private internal storage.
+Imported game assets remain in app-scoped external storage. Settings preserves custom paths
+and other INI keys. Android backup eligibility does not guarantee that a backup or restore
+will occur.
+
 ## Building
 
 This project uses the [CMake](https://cmake.org/) build system, which allows for a high degree of versatility regarding compilers and development environments. Please refer to the [GitHub action](/.github/workflows//ci.yml) for guidance.
