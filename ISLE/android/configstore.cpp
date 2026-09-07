@@ -21,7 +21,7 @@ std::string Android_ReadConfig(
 {
 	std::lock_guard<std::mutex> lock(g_configMutex);
 	ConfigDictionary dict(iniparser_load(p_path.c_str()), iniparser_freedict);
-	if (!dict || !iniparser_find_entry(dict.get(), "isle")) {
+	if (!dict || dict->n == 0) {
 		return "Could not read isle.ini. The existing configuration has not been changed.";
 	}
 	for (const auto& key : p_keys) {
@@ -38,8 +38,11 @@ std::string Android_UpdateConfig(
 {
 	std::lock_guard<std::mutex> lock(g_configMutex);
 	ConfigDictionary dict(iniparser_load(p_path.c_str()), iniparser_freedict);
-	if (!dict || !iniparser_find_entry(dict.get(), "isle")) {
+	if (!dict || dict->n == 0) {
 		return "Could not read isle.ini. The existing configuration has not been changed.";
+	}
+	if (!iniparser_find_entry(dict.get(), "isle") && iniparser_set(dict.get(), "isle", nullptr) != 0) {
+		return "Not enough memory to update the configuration.";
 	}
 	for (const auto& change : p_changes) {
 		if (change.second) {

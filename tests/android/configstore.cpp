@@ -60,6 +60,15 @@ int main()
 	assert(!Android_UpdateConfig(path + ".missing", {{"isle:music", "true"}}).empty());
 	assert(!std::filesystem::exists(path + ".missing"));
 
+	std::ofstream(path) << "[extensions]\nmultiplayer=true\n";
+	values.clear();
+	assert(Android_ReadConfig(path, {"isle:music"}, values).empty());
+	assert(!values[0].first);
+	assert(Android_UpdateConfig(path, {{"isle:music", "false"}}).empty());
+	values.clear();
+	assert(Android_ReadConfig(path, {"isle:music", "extensions:multiplayer"}, values).empty());
+	assert(values[0].second == "false" && values[1].second == "true");
+
 	assert(Android_ValidateSetting("isle:music", nullptr, {}));
 	assert(Android_ValidateSetting("isle:music", "false", {}));
 	assert(!Android_ValidateSetting("isle:music", "garbage", {}));
