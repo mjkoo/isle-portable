@@ -53,6 +53,7 @@ public:
 	SDL_Cursor* GetCursorNo() { return m_cursorNo; }
 	MxS32 GetDrawCursor() { return m_drawCursor; }
 	MxS32 GetGameStarted() { return m_gameStarted; }
+	const char* GetSavePath() { return m_savePath; }
 	MxFloat GetCursorSensitivity() { return m_cursorSensitivity; }
 	LegoInputManager::TouchScheme GetTouchScheme() { return m_touchScheme; }
 	MxBool GetHaptic() { return m_haptic; }

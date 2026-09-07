@@ -8,6 +8,10 @@ final class SettingsBridge {
     }
 
     static native void requestMenu();
+    static native String exportId();
+    // Metadata is error, capture time in milliseconds, warning, then canonical filenames.
+    static native String[] exportInfo(String id);
+    static native byte[][] exportData(String id);
     static native String path();
     static native String[] renderers();
     static native String[] read(String path, String[] keys);

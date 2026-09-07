@@ -40,3 +40,4 @@ LEGO1.DLL
 
 # Local Android AVDs and adb state, created by the justfile's emulator recipes.
 /.android/
+/.scratch/

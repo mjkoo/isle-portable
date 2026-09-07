@@ -63,6 +63,7 @@ public class IsleActivity extends SDLActivity {
     void openSettings() {
         startActivityForResult(new Intent(this, SettingsActivity.class)
             .putExtra("configPath", SettingsBridge.path())
+            .putExtra("exportId", SettingsBridge.exportId())
             .putExtra("renderers", SettingsBridge.renderers()), SETTINGS_REQUEST);
     }
 

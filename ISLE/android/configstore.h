@@ -5,6 +5,13 @@
 #include <utility>
 #include <vector>
 
+// Read-only resolution for recovery export, including a missing configuration.
+std::string Android_ResolveSaveExportPath(
+	const std::string& p_config,
+	const std::string& p_default,
+	std::string& p_path
+);
+
 // A null value removes a key. All writers reload under the same lock before replacing the file.
 std::string Android_UpdateConfig(
 	const std::string& p_path,

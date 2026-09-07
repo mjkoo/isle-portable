@@ -1,5 +1,32 @@
 # Android configuration tests
 
+Save snapshot tests cover recognized filenames, immutable bytes, incomplete sets,
+case collisions on case-sensitive volumes, symlinks, nonregular files, read failures
+and size limits. Recovery-path tests cover defaults, overrides and invalid config.
+
+The archive/stream tests run on Java 17 without an Android device:
+
+```sh
+mkdir -p build/save-export-java-tests
+javac -d build/save-export-java-tests \
+  CONFIG/android/src/main/java/org/legoisland/isle/SaveArchive.java \
+  tests/android/java/org/legoisland/isle/SaveArchiveTest.java
+java -cp build/save-export-java-tests org.legoisland.isle.SaveArchiveTest
+```
+
+Run these commands inside `nix develop .#android` if Java is unavailable. They cover
+archive contents and CRC validation, invalid names, limits, cancellation, failed
+destination writes and failed stream closure.
+
+For export runtime validation, exercise Settings > Data > Export saves on both a
+debug and minified release APK. Check empty/partial sets, registered-player progress,
+custom paths and startup recovery. Cancel the picker, rotate Settings and the picker,
+inject trim events, and kill the background process with the picker open. The latter
+must report interruption and must not write an old snapshot after relaunch. Preserve
+the original config/save bytes and restore them after destructive test setup. Extract
+an exported registered-player set on desktop and verify it loads; fixture hashes
+alone are insufficient evidence of that round trip.
+
 These host tests exercise the native configuration store without Android or SDL. They cover
 unrelated-key preservation, absent defaults, scoped resets, concurrent updates, failed writes,
 malformed files and settings validation. Render-target tests also cover proportional fitting

@@ -530,7 +530,10 @@ static SDL_AppResult HandleBackButton()
 
 	g_confirmingQuit = true;
 	CancelInputForQuitPrompt();
+	// Capture before pumping or opening Settings: lifecycle saves may run after either.
+	Android_CaptureSaveExport(g_isle->GetSavePath(), saveResult);
 	bool quit = Android_ConfirmQuit(GameAbandoned, saveResult);
+	Android_ClearSaveExport();
 	// SDL may already have removed input into a dispatch batch before entering this callback.
 	// Flushing cannot reach that batch; reject its old events when dispatch resumes as well.
 	g_quitPromptInputCutoff = SDL_GetTicksNS();
@@ -677,7 +680,8 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv)
 			g_startupError[0] != '\0'
 				? g_startupError
 				: "\"LEGO® Island\" failed to start.\nPlease quit all other applications and try again."
-				  "\nFailed to initialize; see logs for details"
+				  "\nFailed to initialize; see logs for details",
+			g_isle->GetSavePath()
 		);
 #else
 		ShowFatalError(
@@ -807,12 +811,16 @@ SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event)
 				if (Lego()) {
 					Lego()->Pause();
 				}
-				SaveGameStateForLifecycleEvent("render failure");
+				bool saved = SaveGameStateForLifecycleEvent("render failure");
 				g_confirmingQuit = true;
 				CancelInputForQuitPrompt();
-				Android_ShowStartupSettings("Could not resize the game's render target. Choose a lower resolution or "
-											"another renderer in Settings, "
-											"then close and relaunch the game.");
+				Android_ShowStartupSettings(
+					"Could not resize the game's render target. Choose a lower resolution or "
+					"another renderer in Settings, "
+					"then close and relaunch the game.",
+					g_isle->GetSavePath(),
+					saved ? e_quitPromptSaveAttempted : e_quitPromptSaveFailed
+				);
 #else
 				ShowFatalError("Could not resize the game's render target. See logs for details.");
 #endif

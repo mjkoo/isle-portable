@@ -8,10 +8,36 @@
 #include <iniparser.h>
 #include <memory>
 #include <mutex>
+#include <sys/stat.h>
 #include <unistd.h>
 
 static std::mutex g_configMutex;
 using ConfigDictionary = std::unique_ptr<dictionary, decltype(&iniparser_freedict)>;
+
+std::string Android_ResolveSaveExportPath(
+	const std::string& p_config,
+	const std::string& p_default,
+	std::string& p_path
+)
+{
+	std::lock_guard<std::mutex> lock(g_configMutex);
+	p_path.clear();
+	struct stat info;
+	if (stat(p_config.c_str(), &info) != 0) {
+		if (errno != ENOENT) {
+			return "Could not read the configuration to locate saves.";
+		}
+		p_path = p_default;
+	}
+	else {
+		ConfigDictionary dict(iniparser_load(p_config.c_str()), iniparser_freedict);
+		if (!dict) {
+			return "Could not read the configuration to locate saves.";
+		}
+		p_path = iniparser_getstring(dict.get(), "isle:savepath", p_default.c_str());
+	}
+	return p_path.empty() ? "The save directory must not be empty." : "";
+}
 
 std::string Android_ReadConfig(
 	const std::string& p_path,

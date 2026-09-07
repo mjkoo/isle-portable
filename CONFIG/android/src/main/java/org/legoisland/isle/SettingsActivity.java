@@ -11,6 +11,8 @@ import android.widget.Toast;
 
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.fragment.app.DialogFragment;
 import androidx.lifecycle.MutableLiveData;
 import androidx.lifecycle.ViewModel;
@@ -162,12 +164,76 @@ public final class SettingsActivity extends AppCompatActivity {
     }
 
     private SettingsModel model;
+    private SaveExportModel export;
+    private final ActivityResultLauncher<String> exportDestination = registerForActivityResult(
+        new ActivityResultContracts.CreateDocument("application/zip"), uri -> export.destination(uri));
+
+    public static final class ExportDialog extends DialogFragment {
+        @Override public Dialog onCreateDialog(Bundle savedInstanceState) {
+            SaveExportModel model = new ViewModelProvider(requireActivity()).get(SaveExportModel.class);
+            SaveExportModel.Phase phase = model.phase.getValue();
+            AlertDialog.Builder builder = new AlertDialog.Builder(requireContext()).setTitle("Export saves");
+            if (phase == SaveExportModel.Phase.CONFIRM) {
+                builder.setMessage(model.warning() + "Export the available files?");
+                builder.setPositiveButton("Export", (dialog, which) -> model.prepare());
+                builder.setNegativeButton("Cancel", (dialog, which) -> model.cancel());
+            } else if (phase == SaveExportModel.Phase.DONE || phase == SaveExportModel.Phase.ERROR) {
+                builder.setMessage(model.message).setPositiveButton("OK", (dialog, which) -> model.acknowledge());
+            } else {
+                builder.setMessage(phase == SaveExportModel.Phase.TRANSFERRING ? "Exporting save files..."
+                    : phase == SaveExportModel.Phase.CANCELLING ? "Cancelling export..." : "Preparing save archive...");
+                if (phase != SaveExportModel.Phase.CANCELLING) {
+                    builder.setNegativeButton("Cancel", (dialog, which) -> model.cancel());
+                }
+            }
+            setCancelable(false);
+            return builder.create();
+        }
+    }
+
+    private void updateExportUi() {
+        new Handler(Looper.getMainLooper()).post(this::renderExportUi);
+    }
+
+    private void renderExportUi() {
+        if (isFinishing() || isDestroyed()) return;
+        invalidateOptionsMenu();
+        if (getSupportFragmentManager().isStateSaved()) return;
+        SaveExportModel.Phase phase = export.phase.getValue();
+        ExportDialog previous = (ExportDialog) getSupportFragmentManager().findFragmentByTag("save-export");
+        if (previous != null && phase.name().equals(previous.requireArguments().getString("phase"))) return;
+        if (previous != null) {
+            previous.dismiss();
+            getSupportFragmentManager().executePendingTransactions();
+        }
+        if (phase == SaveExportModel.Phase.READY) {
+            export.picking();
+            try { exportDestination.launch(export.filename()); }
+            catch (RuntimeException e) { export.pickerFailed("Could not open the save picker: " + e.getMessage()); }
+        } else if (phase == SaveExportModel.Phase.CONFIRM || phase == SaveExportModel.Phase.PREPARING
+                || phase == SaveExportModel.Phase.TRANSFERRING || phase == SaveExportModel.Phase.CANCELLING
+                || ((phase == SaveExportModel.Phase.DONE || phase == SaveExportModel.Phase.ERROR) && export.message != null)) {
+            ExportDialog dialog = new ExportDialog();
+            Bundle arguments = new Bundle();
+            arguments.putString("phase", phase.name());
+            dialog.setArguments(arguments);
+            dialog.showNow(getSupportFragmentManager(), "save-export");
+        }
+    }
+
+    @Override protected void onPostResume() {
+        super.onPostResume();
+        updateExportUi();
+    }
 
     @Override protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setTitle("LEGO Island Settings");
         getSupportActionBar().setDisplayHomeAsUpEnabled(true);
         model = new ViewModelProvider(this).get(SettingsModel.class);
+        export = new ViewModelProvider(this).get(SaveExportModel.class);
+        export.load(getIntent().getStringExtra("exportId"), savedInstanceState != null && savedInstanceState.getBoolean("exportBusy"));
+        export.phase.observe(this, ignored -> updateExportUi());
         model.state.observe(this, result -> {
             invalidateOptionsMenu();
             if (result == SettingsModel.State.SAVED) {
@@ -192,6 +258,7 @@ public final class SettingsActivity extends AppCompatActivity {
     }
 
     @Override protected void onSaveInstanceState(Bundle state) {
+        state.putBoolean("exportBusy", export.isBusy());
         if (!model.draft.isEmpty()) {
             Bundle draft = new Bundle();
             for (Map.Entry<String, String> entry : model.draft.entrySet()) draft.putString(entry.getKey(), entry.getValue());
@@ -207,27 +274,30 @@ public final class SettingsActivity extends AppCompatActivity {
     }
 
     @Override public boolean onPrepareOptionsMenu(Menu menu) {
-        menu.findItem(1).setEnabled(model.loaded && !model.isBusy());
-        menu.findItem(2).setEnabled(!model.isBusy());
+        menu.findItem(1).setEnabled(model.loaded && !model.isBusy() && !export.isBusy());
+        menu.findItem(2).setEnabled(!model.isBusy() && !export.isBusy());
         return super.onPrepareOptionsMenu(menu);
     }
 
     @Override public boolean onOptionsItemSelected(MenuItem item) {
+        if (export.isBusy()) return true;
         if (item.getItemId() == 1) { model.save(); return true; }
         if (item.getItemId() == 2 || item.getItemId() == android.R.id.home) { onBackPressed(); return true; }
         return super.onOptionsItemSelected(item);
     }
 
     @Override public void onBackPressed() {
-        if (!model.isBusy()) super.onBackPressed();
+        if (!model.isBusy() && !export.isBusy()) super.onBackPressed();
     }
 
     public static final class SettingsFragment extends PreferenceFragmentCompat {
         private SettingsModel model;
+        private SaveExportModel export;
         private boolean updating;
 
         @Override public void onCreatePreferences(Bundle savedInstanceState, String rootKey) {
             model = new ViewModelProvider(requireActivity()).get(SettingsModel.class);
+            export = new ViewModelProvider(requireActivity()).get(SaveExportModel.class);
             getPreferenceManager().setPreferenceDataStore(new PreferenceDataStore() {
                 @Override public String getString(String key, String fallback) {
                     if (RESOLUTION.equals(key)) {
@@ -249,6 +319,7 @@ public final class SettingsActivity extends AppCompatActivity {
             });
             buildPreferences();
             model.state.observe(this, ignored -> refresh());
+            export.phase.observe(this, ignored -> refresh());
         }
 
         private void buildPreferences() {
@@ -260,6 +331,16 @@ public final class SettingsActivity extends AppCompatActivity {
             notice.setSelectable(false);
             notice.setIconSpaceReserved(false);
             screen.addPreference(notice);
+            PreferenceCategory data = new PreferenceCategory(requireContext());
+            data.setTitle("Data");
+            data.setIconSpaceReserved(false);
+            screen.addPreference(data);
+            Preference exportSaves = new Preference(requireContext());
+            exportSaves.setKey("export-saves");
+            exportSaves.setTitle("Export saves");
+            exportSaves.setIconSpaceReserved(false);
+            exportSaves.setOnPreferenceClickListener(p -> { export.start(); return true; });
+            data.addPreference(exportSaves);
             String group = "";
             PreferenceCategory category = null;
             for (Control control : CONTROLS) {
@@ -323,6 +404,9 @@ public final class SettingsActivity extends AppCompatActivity {
         }
 
         private void refresh() {
+            Preference exportSaves = findPreference("export-saves");
+            exportSaves.setSummary(export.summary());
+            exportSaves.setEnabled(!export.isBusy() && !model.isBusy());
             updating = true;
             for (Control control : CONTROLS) {
                 Preference preference = findPreference(control.key);

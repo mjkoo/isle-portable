@@ -12,6 +12,12 @@ target_link_libraries(configstore PRIVATE "${INIPARSER_LIBRARY}" Threads::Thread
 enable_testing()
 add_test(NAME android_config_store COMMAND configstore)
 
+add_executable(savesnapshot savesnapshot.cpp ../../ISLE/android/savesnapshot.cpp)
+target_compile_features(savesnapshot PRIVATE cxx_std_17)
+target_compile_options(savesnapshot PRIVATE -Wall -Wextra -Werror -UNDEBUG)
+target_include_directories(savesnapshot PRIVATE ../../ISLE/android)
+add_test(NAME android_save_snapshot COMMAND savesnapshot)
+
 add_executable(rendertarget rendertarget.cpp)
 target_compile_features(rendertarget PRIVATE cxx_std_17)
 target_compile_options(rendertarget PRIVATE -Wall -Wextra -Werror -UNDEBUG)

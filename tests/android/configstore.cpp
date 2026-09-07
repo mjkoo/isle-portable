@@ -18,6 +18,16 @@ int main()
 	char directory[] = "/tmp/isle-config-test-XXXXXX";
 	assert(mkdtemp(directory));
 	std::string path = std::string(directory) + "/isle.ini";
+	std::string exportPath;
+	assert(Android_ResolveSaveExportPath(path, "/private/saves", exportPath).empty());
+	assert(exportPath == "/private/saves" && !std::filesystem::exists(path));
+	std::ofstream(path) << "[isle]\nsavepath=/custom/progress\n";
+	assert(Android_ResolveSaveExportPath(path, "/private/saves", exportPath).empty());
+	assert(exportPath == "/custom/progress");
+	std::ofstream(path) << "[isle]\nsavepath=\n";
+	assert(!Android_ResolveSaveExportPath(path, "/private/saves", exportPath).empty());
+	std::ofstream(path) << "[isle]\nmalformed config\n";
+	assert(!Android_ResolveSaveExportPath(path, "/private/saves", exportPath).empty());
 	const std::string original =
 		"[isle]\nmusic=true\ndiskpath=/assets\ncustom=preserve\n[extensions]\nmultiplayer=true\n";
 	std::ofstream(path) << original;
