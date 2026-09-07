@@ -40,6 +40,7 @@
 #include <array>
 #include <extensions/multiplayer.h>
 #include <extensions/thirdpersoncamera.h>
+#include <memory>
 #include <miniwin/miniwindevice.h>
 #include <type_traits>
 #include <vec.h>
@@ -375,10 +376,21 @@ static bool SaveGameStateForLifecycleEvent(const char* p_reason)
 	return true;
 }
 
+#ifdef ANDROID
+static bool g_androidBackgrounded = false;
+static bool g_androidLowMemorySaveAttempted = false;
+#endif
+
 static bool SDLCALL LifecycleEventWatch(void* p_userdata, SDL_Event* p_event)
 {
 	switch (p_event->type) {
 	case SDL_EVENT_DID_ENTER_BACKGROUND:
+#ifdef ANDROID
+		if (!g_androidBackgrounded) {
+			g_androidLowMemorySaveAttempted = false;
+		}
+		g_androidBackgrounded = true;
+#endif
 		// Deliberately not WILL_ENTER_BACKGROUND. On Android both fire back to back
 		// before the SDL thread blocks, so DID is still early enough, and by then the
 		// window events that SDL_OnApplicationWillEnterBackground queues ahead of WILL
@@ -386,6 +398,26 @@ static bool SDLCALL LifecycleEventWatch(void* p_userdata, SDL_Event* p_event)
 		// which also fires for notification banners and the control centre.
 		SaveGameStateForLifecycleEvent("backgrounded");
 		break;
+#ifdef ANDROID
+	case SDL_EVENT_WILL_ENTER_FOREGROUND:
+		g_androidBackgrounded = false;
+		break;
+	case SDL_EVENT_LOW_MEMORY:
+		// SDL forwards every Android trim level, including routine foreground memory
+		// pressure. Do not turn those notifications into synchronous saves during play.
+		SDL_LogWarn(
+			SDL_LOG_CATEGORY_APPLICATION,
+			"Low memory (%s)",
+			g_androidBackgrounded ? "background" : "foreground"
+		);
+		if (g_androidBackgrounded && !g_androidLowMemorySaveAttempted) {
+			// Mark the attempt first: saving can re-enter the event watchers, and even a
+			// failed save must not cause repeated writes during the same background interval.
+			g_androidLowMemorySaveAttempted = true;
+			SaveGameStateForLifecycleEvent("low memory");
+		}
+		break;
+#endif
 	case SDL_EVENT_TERMINATING:
 		SaveGameStateForLifecycleEvent("terminating");
 		break;
@@ -591,6 +623,10 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv)
 	// watch from inside a dispatch would compact the list while the outer dispatch is
 	// still walking it, which saving can trigger: Save emits e_saveSlotWritten, and that
 	// SDL_PushEvent re-enters the watch list.
+#ifdef ANDROID
+	g_androidBackgrounded = false;
+	g_androidLowMemorySaveAttempted = false;
+#endif
 	SDL_AddEventWatch(LifecycleEventWatch, NULL);
 #endif
 
@@ -1407,8 +1443,19 @@ bool IsleApp::LoadConfig()
 #ifdef IOS
 	const char* prefPath = SDL_GetUserFolder(SDL_FOLDER_DOCUMENTS);
 #elif defined(ANDROID)
-	MxString androidPath = MxString(SDL_GetAndroidExternalStoragePath()) + "/";
-	const char* prefPath = androidPath.GetData();
+	std::unique_ptr<char, decltype(&SDL_free)> androidPrefPath(SDL_GetPrefPath("isledecomp", "isle"), SDL_free);
+	const char* prefPath = androidPrefPath.get();
+	if (!prefPath || !*prefPath) {
+		SDL_snprintf(
+			g_startupError,
+			sizeof(g_startupError),
+			"The app's internal storage directory is unavailable. Please try again.\n%s",
+			SDL_GetError()
+		);
+		SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "%s", g_startupError);
+		return false;
+	}
+	MxString androidSavePath = MxString(prefPath) + "saves/";
 #elif defined(EMSCRIPTEN)
 	if (m_iniPath && !Emscripten_SetupConfig(m_iniPath)) {
 		m_iniPath = NULL;
@@ -1455,6 +1502,20 @@ bool IsleApp::LoadConfig()
 			return false;
 #endif
 		}
+
+#ifdef ANDROID
+		const char* dataPath = SDL_GetAndroidExternalStoragePath();
+		if (!dataPath || !*dataPath) {
+			SDL_snprintf(
+				g_startupError,
+				sizeof(g_startupError),
+				"The app's external storage directory for game data is unavailable. Please try again.\n%s",
+				SDL_GetError()
+			);
+			SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "%s", g_startupError);
+			return false;
+		}
+#endif
 
 		SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Loading sane defaults");
 		FILE* iniFP = fopen(iniConfig.GetData(), "wb");
@@ -1531,7 +1592,7 @@ bool IsleApp::LoadConfig()
 		IOS_SetupDefaultConfigOverrides(dict);
 #endif
 #ifdef ANDROID
-		Android_SetupDefaultConfigOverrides(dict);
+		Android_SetupDefaultConfigOverrides(dict, dataPath);
 #endif
 
 #ifdef __vita__
@@ -1554,15 +1615,32 @@ bool IsleApp::LoadConfig()
 
 	MxOmni::SetHD((m_hdPath = SDL_strdup(iniparser_getstring(dict, "isle:diskpath", SDL_GetBasePath()))));
 	MxOmni::SetCD((m_cdPath = SDL_strdup(iniparser_getstring(dict, "isle:cdpath", MxOmni::GetCD()))));
+#ifdef ANDROID
+	m_savePath = SDL_strdup(iniparser_getstring(dict, "isle:savepath", androidSavePath.GetData()));
+#else
 	m_savePath = SDL_strdup(iniparser_getstring(dict, "isle:savepath", prefPath));
+#endif
 
-	// The per-platform config overrides above only run when a fresh isle.ini is written, so the
-	// save directory they create is missing whenever a config is restored or hand-written without
-	// it. LegoGameState::Save opens the slot file for writing and does not create parent
-	// directories, so saving would fail for the rest of the install.
+	// A restored or hand-written config may name a save directory that does not exist yet.
+	// LegoGameState::Save opens the slot file for writing and does not create parent directories.
+#ifdef ANDROID
+	if (!m_savePath || !*m_savePath || !SDL_CreateDirectory(m_savePath)) {
+		SDL_snprintf(
+			g_startupError,
+			sizeof(g_startupError),
+			"Could not create the save directory '%s'.\n%s",
+			m_savePath ? m_savePath : "",
+			SDL_GetError()
+		);
+		SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "%s", g_startupError);
+		iniparser_freedict(dict);
+		return false;
+	}
+#else
 	if (!SDL_GetPathInfo(m_savePath, NULL)) {
 		SDL_CreateDirectory(m_savePath);
 	}
+#endif
 	m_mediaPath = SDL_strdup(iniparser_getstring(dict, "isle:mediapath", m_hdPath));
 	m_flipSurfaces = iniparser_getboolean(dict, "isle:Flip Surfaces", m_flipSurfaces);
 	m_fullScreen = iniparser_getboolean(dict, "isle:Full Screen", m_fullScreen);

@@ -165,7 +165,14 @@ static void UpdateConfigDiskPath(const char* p_iniPath, const char* p_diskPath)
 		iniConfig = SDL_strdup(p_iniPath);
 	}
 	else {
-		SDL_asprintf(&iniConfig, "%s/isle.ini", SDL_GetAndroidExternalStoragePath());
+		char* prefPath = SDL_GetPrefPath("isledecomp", "isle");
+		if (!prefPath || !*prefPath) {
+			SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Internal config directory unavailable: %s", SDL_GetError());
+			SDL_free(prefPath);
+			return;
+		}
+		SDL_asprintf(&iniConfig, "%sisle.ini", prefPath);
+		SDL_free(prefPath);
 	}
 
 	// SDL_asprintf leaves the pointer NULL when it fails, and so would a failed SDL_strdup.

@@ -1,27 +1,19 @@
 #include "config.h"
 
-#include "mxstring.h"
-
-#include <SDL3/SDL_filesystem.h>
 #include <SDL3/SDL_log.h>
-#include <SDL3/SDL_system.h>
+#include <SDL3/SDL_stdinc.h>
 #include <iniparser.h>
 
-void Android_SetupDefaultConfigOverrides(dictionary* p_dictionary)
+void Android_SetupDefaultConfigOverrides(dictionary* p_dictionary, const char* p_dataPath)
 {
 	SDL_Log("Overriding default config for Android");
 
-	const char* data = SDL_GetAndroidExternalStoragePath();
-	MxString savedata = MxString(data) + "/saves/";
-
-	if (!SDL_GetPathInfo(savedata.GetData(), NULL)) {
-		SDL_CreateDirectory(savedata.GetData());
-	}
-
-	iniparser_set(p_dictionary, "isle:diskpath", data);
-	iniparser_set(p_dictionary, "isle:cdpath", data);
-	iniparser_set(p_dictionary, "isle:mediapath", data);
-	iniparser_set(p_dictionary, "isle:savepath", savedata.GetData());
+	iniparser_set(p_dictionary, "isle:diskpath", p_dataPath);
+	iniparser_set(p_dictionary, "isle:cdpath", p_dataPath);
+	iniparser_set(p_dictionary, "isle:mediapath", p_dataPath);
+	// Resolve the default save directory on each launch, including after a backup is restored
+	// on a device whose internal storage path differs. Explicit savepath overrides still work.
+	iniparser_unset(p_dictionary, "isle:savepath");
 
 	// Default to Virtual Mouse
 	char buf[16];

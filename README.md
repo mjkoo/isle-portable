@@ -33,6 +33,14 @@ As it stands, builds provided in the [Releases tab](https://github.com/isledecom
 
 [Installation instructions](https://github.com/isledecomp/isle-portable/wiki/Installation) for some ports can be found in our Wiki.
 
+On Android, `isle.ini` and the default `saves/` directory live in the app's private internal
+files directory. Imported game data lives in the app-scoped external files directory under
+`Android/data/org.legoisland.isle/files/`. Removing imported data in the app leaves saves and
+settings intact. Android backup rules include the internal saves and config, but exclude game
+data; backup and restore depend on the device's backup settings and service. An explicit
+`savepath` override is honored, but saves outside the default directory are not covered by
+these rules. Uninstalling removes both app-specific storage directories.
+
 ## Library substitutions
 
 To achieve our goal of platform independence, we need to replace any Windows-only libraries with platform-independent alternatives. This ensures that our codebase remains versatile and compatible across various systems. The following table serves as an overview of major libraries / subsystems and their chosen replacements. For any significant changes or additions, it's recommended to discuss them with the team on the Matrix chat first to ensure consistency and alignment with our project's objectives.

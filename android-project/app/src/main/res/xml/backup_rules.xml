@@ -9,10 +9,10 @@
   default: once any <include> is present only those paths are backed up, so the imported
   LEGO/ tree (and the imported-<timestamp>/ fallback root) drops out without an <exclude>.
 
-  Saves and isle.ini together are a few kilobytes. Game data is not backed up on purpose:
-  it is reimported from the user's own copy of the game.
+  Saves and isle.ini live in internal files storage and together are a few kilobytes.
+  Game data is not backed up on purpose: it is reimported from the user's own copy of the game.
 -->
 <full-backup-content>
-    <include domain="external" path="saves" />
-    <include domain="external" path="isle.ini" />
+    <include domain="file" path="saves" />
+    <include domain="file" path="isle.ini" />
 </full-backup-content>

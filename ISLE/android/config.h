@@ -3,6 +3,6 @@
 
 #include "dictionary.h"
 
-void Android_SetupDefaultConfigOverrides(dictionary* p_dictionary);
+void Android_SetupDefaultConfigOverrides(dictionary* p_dictionary, const char* p_dataPath);
 
 #endif // ANDROID_CONFIG_H
