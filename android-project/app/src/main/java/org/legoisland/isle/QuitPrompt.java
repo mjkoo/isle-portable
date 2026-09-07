@@ -1,13 +1,12 @@
 package org.legoisland.isle;
 
-import android.app.Activity;
 import android.app.AlertDialog;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
 
 /**
- * The "quit to Android?" confirmation the back button raises.
+ * The game menu and startup recovery dialog, coordinated with the SDL thread.
  *
  * Deliberately not SDL_ShowMessageBox, which blocks the calling thread on a monitor until a
  * button is pressed. That thread is the SDL thread, and it is the only thread that dispatches

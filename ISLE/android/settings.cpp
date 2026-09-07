@@ -5,8 +5,6 @@
 #include "mxdirectx/legodxinfo.h"
 
 #include <atomic>
-#include <cmath>
-#include <cstdlib>
 #include <jni.h>
 
 static std::string g_settingsPath;

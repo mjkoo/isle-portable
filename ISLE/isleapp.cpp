@@ -493,6 +493,8 @@ static void CancelInputForQuitPrompt()
 // The back button, as a decision rather than an accident: pause, save, and ask.
 static SDL_AppResult HandleBackButton()
 {
+	// Coalesce a touch-menu request with Back if both arrive in the same event batch.
+	Android_TakeMenuRequest();
 	if (!g_isle->GetGameStarted()) {
 		// Nothing to save and nothing to lose, so keep the platform's own meaning for the
 		// button rather than making it inert while the game starts up.
@@ -529,6 +531,7 @@ static SDL_AppResult HandleBackButton()
 	// Flushing cannot reach that batch; reject its old events when dispatch resumes as well.
 	g_quitPromptInputCutoff = SDL_GetTicksNS();
 	CancelInputForQuitPrompt();
+	Android_TakeMenuRequest();
 	g_confirmingQuit = false;
 
 	// Resume even when quitting. IsleApp::Close queues a keypress that the input manager drops

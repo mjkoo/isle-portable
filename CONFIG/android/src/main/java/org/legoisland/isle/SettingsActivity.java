@@ -239,6 +239,7 @@ public final class SettingsActivity extends AppCompatActivity {
                 if (!group.equals(control.group)) {
                     category = new PreferenceCategory(requireContext());
                     category.setTitle(control.group);
+                    category.setIconSpaceReserved(false);
                     screen.addPreference(category);
                     group = control.group;
                 }
