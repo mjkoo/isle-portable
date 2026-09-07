@@ -1624,13 +1624,23 @@ bool IsleApp::LoadConfig()
 	// A restored or hand-written config may name a save directory that does not exist yet.
 	// LegoGameState::Save opens the slot file for writing and does not create parent directories.
 #ifdef ANDROID
-	if (!m_savePath || !*m_savePath || !SDL_CreateDirectory(m_savePath)) {
+	const char* savePathError = NULL;
+	if (!m_savePath) {
+		savePathError = "Out of memory resolving the save directory.";
+	}
+	else if (!*m_savePath) {
+		savePathError = "The savepath setting must not be empty.";
+	}
+	else if (!SDL_CreateDirectory(m_savePath)) {
+		savePathError = SDL_GetError();
+	}
+	if (savePathError) {
 		SDL_snprintf(
 			g_startupError,
 			sizeof(g_startupError),
 			"Could not create the save directory '%s'.\n%s",
 			m_savePath ? m_savePath : "",
-			SDL_GetError()
+			savePathError
 		);
 		SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "%s", g_startupError);
 		iniparser_freedict(dict);
