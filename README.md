@@ -71,6 +71,11 @@ apply changes. **Cancel** discards edits. **Reset these settings** restores defa
 controls when saved; it keeps game paths, saves and extension configuration. A startup error
 also offers Settings so an unsuitable display configuration can be reset.
 
+**Data > Export saves** writes a ZIP of the save files captured when the menu opened.
+Choose a destination in the system picker; no storage permission is required. Export
+preserves staged settings edits and excludes config and game assets. See
+[exporting Android saves](docs/android-saves.md) for desktop transfer and limitations.
+
 Render resolution sets the game content quality independently of the screen size. Android
 keeps the game and touch coordinates at 640 × 480, scales the rendered image to fit the
 screen, and preserves its aspect ratio. GLES render targets are reduced proportionally when
