@@ -276,12 +276,12 @@ public final class SettingsActivity extends AppCompatActivity {
                     }
                     String current = getPreferenceManager().getPreferenceDataStore().getString(control.key, DEFAULT);
                     if (!values.contains(current)) { labels.add("Current: " + current); values.add(current); }
-                    if ("isle:touch scheme".equals(control.key)) {
-                        list.setDialogMessage("Movement regions and the virtual stick currently have no visible on-screen controls.");
-                    }
                     list.setEntries(labels.toArray(new String[0]));
                     list.setEntryValues(values.toArray(new String[0]));
                     list.setSummaryProvider(ListPreference.SimpleSummaryProvider.getInstance());
+                    if ("isle:touch scheme".equals(control.key)) {
+                        list.setSummaryProvider(p -> list.getEntry() + " (no control overlay)");
+                    }
                     preference = list;
                 }
                 preference.setIconSpaceReserved(false);
