@@ -214,7 +214,11 @@ IsleApp::IsleApp()
 	m_maxAllowedExtras = m_islandQuality <= 1 ? 10 : 20;
 	m_transitionType = MxTransitionManager::e_mosaic;
 	m_cursorSensitivity = 4;
+#ifdef ANDROID
+	m_touchScheme = LegoInputManager::e_mouse;
+#else
 	m_touchScheme = LegoInputManager::e_gamepad;
+#endif
 	m_haptic = TRUE;
 	m_wasd = FALSE;
 #ifdef __DJGPP__
