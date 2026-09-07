@@ -34,6 +34,7 @@ public:
 	virtual void SetFrustumPlanes(const Plane* frustumPlanes) = 0;
 	virtual Uint32 GetTextureId(IDirect3DRMTexture* texture, bool isUI = false, float scaleX = 0, float scaleY = 0) = 0;
 	virtual Uint32 GetMeshId(IDirect3DRMMesh* mesh, const MeshGroup* meshGroup) = 0;
+	bool IsRenderTargetReady() const { return m_renderTargetReady; }
 	int GetWidth() { return m_width; }
 	int GetHeight() { return m_height; }
 	int GetVirtualWidth() { return m_virtualWidth; }
@@ -59,6 +60,7 @@ public:
 	virtual bool UsesPalettedSurfaces() const { return false; }
 
 protected:
+	bool m_renderTargetReady = true;
 	int m_width, m_height;
 	int m_virtualWidth, m_virtualHeight;
 	ViewportTransform m_viewportTransform;

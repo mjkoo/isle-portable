@@ -126,8 +126,15 @@ HRESULT Direct3DRMDevice2Impl::Update()
 HRESULT Direct3DRMDevice2Impl::AddViewport(IDirect3DRMViewport* viewport)
 {
 	HRESULT status = m_viewports->AddElement(viewport);
+	if (status != DD_OK) {
+		return status;
+	}
 	Resize();
-	return status;
+	if (!m_renderer->IsRenderTargetReady()) {
+		m_viewports->DeleteElement(viewport);
+		return DDERR_GENERIC;
+	}
+	return DD_OK;
 }
 
 HRESULT Direct3DRMDevice2Impl::GetViewports(IDirect3DRMViewportArray** ppViewportArray)
@@ -177,6 +184,9 @@ void Direct3DRMDevice2Impl::Resize()
 		renderHeight,
 		CalculateViewportTransform(m_virtualWidth, m_virtualHeight, renderWidth, renderHeight)
 	);
+	if (!m_renderer->IsRenderTargetReady()) {
+		return;
+	}
 	m_renderer->Clear(0, 0, 0);
 	for (int i = 0; i < m_viewports->GetSize(); i++) {
 		IDirect3DRMViewport* viewport;
@@ -197,7 +207,7 @@ bool Direct3DRMDevice2Impl::ConvertEventToRenderCoordinates(SDL_Event* event)
 	switch (event->type) {
 	case SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED: {
 		Resize();
-		break;
+		return m_renderer->IsRenderTargetReady();
 	}
 	case SDL_EVENT_MOUSE_MOTION: {
 		event->motion.x = (event->motion.x * density - m_viewportTransform.offsetX) / m_viewportTransform.scale;

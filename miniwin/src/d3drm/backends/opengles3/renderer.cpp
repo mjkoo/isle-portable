@@ -1,5 +1,6 @@
 #include "d3drmrenderer_opengles3.h"
 #include "meshutils.h"
+#include "rendertarget.h"
 
 #if defined(__APPLE__)
 #include <TargetConditionals.h>
@@ -212,7 +213,13 @@ Direct3DRMRenderer* OpenGLES3Renderer::Create(
 	glDeleteShader(vs);
 	glDeleteShader(fs);
 
-	return new OpenGLES3Renderer(width, height, msaaSamples, anisotropic, lightingModel, context, shaderProgram);
+	auto renderer =
+		new OpenGLES3Renderer(width, height, msaaSamples, anisotropic, lightingModel, context, shaderProgram);
+	if (!renderer->IsRenderTargetReady()) {
+		renderer->Release();
+		return nullptr;
+	}
+	return renderer;
 }
 
 GLES3MeshCacheEntry OpenGLES3Renderer::GLES3UploadMesh(const MeshGroup& meshGroup, bool forceUV)
@@ -706,16 +713,46 @@ HRESULT OpenGLES3Renderer::FinalizeFrame()
 	return DD_OK;
 }
 
-void OpenGLES3Renderer::Resize(int width, int height, const ViewportTransform& viewportTransform)
+void OpenGLES3Renderer::Resize(int width, int height, const ViewportTransform&)
 {
-	SDL_GL_MakeCurrent(DDWindow, m_context);
+	m_renderTargetReady = false;
+	if (!SDL_GL_MakeCurrent(DDWindow, m_context)) {
+		return;
+	}
+	GLint maxRenderbuffer = 0;
+	GLint maxViewport[2] = {0, 0};
+	glGetIntegerv(GL_MAX_RENDERBUFFER_SIZE, &maxRenderbuffer);
+	glGetIntegerv(GL_MAX_VIEWPORT_DIMS, maxViewport);
+	RenderTargetSize size = FitRenderTarget(
+		width,
+		height,
+		std::min(maxRenderbuffer, maxViewport[0]),
+		std::min(maxRenderbuffer, maxViewport[1])
+	);
+	if (!size.width || !size.height) {
+		SDL_SetError("Could not determine supported render-target dimensions");
+		return;
+	}
+	if (size.width != width || size.height != height) {
+		SDL_Log("Capping render target from %dx%d to %dx%d", width, height, size.width, size.height);
+	}
+	width = size.width;
+	height = size.height;
+	// Discard earlier GL errors so allocation errors below belong to this resize.
+	while (glGetError() != GL_NO_ERROR) {
+	}
+
 	m_width = width;
 	m_height = height;
-	m_viewportTransform = viewportTransform;
+	float scale = std::min((float) width / m_virtualWidth, (float) height / m_virtualHeight);
+	m_viewportTransform = {scale, (width - m_virtualWidth * scale) / 2, (height - m_virtualHeight * scale) / 2};
 	if (m_renderedImage) {
 		SDL_DestroySurface(m_renderedImage);
 	}
 	m_renderedImage = SDL_CreateSurface(m_width, m_height, SDL_PIXELFORMAT_RGBA32);
+	if (!m_renderedImage) {
+		return;
+	}
 
 	if (m_colorTarget) {
 		glDeleteRenderbuffers(1, &m_colorTarget);
@@ -755,7 +792,8 @@ void OpenGLES3Renderer::Resize(int width, int height, const ViewportTransform& v
 	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, m_depthTarget);
 	GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
 	if (status != GL_FRAMEBUFFER_COMPLETE) {
-		SDL_Log("FBO incomplete: 0x%X", status);
+		SDL_SetError("Could not allocate render target: framebuffer status 0x%X", status);
+		return;
 	}
 
 	if (m_msaa > 1) {
@@ -766,13 +804,20 @@ void OpenGLES3Renderer::Resize(int width, int height, const ViewportTransform& v
 		glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER, m_resolveColor);
 		GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
 		if (status != GL_FRAMEBUFFER_COMPLETE) {
-			SDL_Log("Resolve FBO incomplete: 0x%X", status);
+			SDL_SetError("Could not allocate MSAA resolve target: framebuffer status 0x%X", status);
+			return;
 		}
 	}
 
 	glBindFramebuffer(GL_FRAMEBUFFER, m_fbo);
 
 	glViewport(0, 0, m_width, m_height);
+	GLenum error = glGetError();
+	if (error != GL_NO_ERROR) {
+		SDL_SetError("Could not allocate render target: GL error 0x%X", error);
+		return;
+	}
+	m_renderTargetReady = true;
 }
 
 void OpenGLES3Renderer::Clear(float r, float g, float b)

@@ -799,11 +799,25 @@ SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event)
 	case SDL_EVENT_FINGER_CANCELED:
 		IDirect3DRMMiniwinDevice* device = GetD3DRMMiniwinDevice();
 		if (device) {
-			if (!device->ConvertEventToRenderCoordinates(event)) {
-				SDL_Log("Failed to convert event coordinates: %s", SDL_GetError());
-			}
-
+			bool converted = device->ConvertEventToRenderCoordinates(event);
 			device->Release();
+			if (!converted) {
+				SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Rendering failed: %s", SDL_GetError());
+#ifdef ANDROID
+				if (Lego()) {
+					Lego()->Pause();
+				}
+				SaveGameStateForLifecycleEvent("render failure");
+				g_confirmingQuit = true;
+				CancelInputForQuitPrompt();
+				Android_ShowStartupSettings("Could not resize the game's render target. Choose a lower resolution or "
+											"another renderer in Settings, "
+											"then close and relaunch the game.");
+#else
+				ShowFatalError("Could not resize the game's render target. See logs for details.");
+#endif
+				return SDL_APP_FAILURE;
+			}
 		}
 
 #ifdef __EMSCRIPTEN__

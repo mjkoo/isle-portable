@@ -11,3 +11,16 @@ target_include_directories(configstore PRIVATE ../../ISLE/android "${INIPARSER_I
 target_link_libraries(configstore PRIVATE "${INIPARSER_LIBRARY}" Threads::Threads)
 enable_testing()
 add_test(NAME android_config_store COMMAND configstore)
+
+add_executable(rendertarget rendertarget.cpp)
+target_compile_features(rendertarget PRIVATE cxx_std_17)
+target_compile_options(rendertarget PRIVATE -Wall -Wextra -Werror -UNDEBUG)
+target_include_directories(rendertarget PRIVATE ../../miniwin/src/internal)
+add_test(NAME android_render_target_limits COMMAND rendertarget)
+
+find_path(SDL3_INCLUDE_DIR SDL3/SDL_video.h HINTS ../../build/_deps/sdl3-src/include REQUIRED)
+add_executable(hresult hresult.cpp)
+target_compile_features(hresult PRIVATE cxx_std_17)
+target_compile_options(hresult PRIVATE -Wall -Wextra -Werror -UNDEBUG)
+target_include_directories(hresult PRIVATE ../../miniwin/include "${SDL3_INCLUDE_DIR}")
+add_test(NAME android_hresult_failure_codes COMMAND hresult)

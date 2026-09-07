@@ -19,7 +19,7 @@
 #define HWND_NOTOPMOST ((HWND) (-2))
 #define RGB(r, g, b) (((BYTE) (r) | ((BYTE) (g) << 8) | ((BYTE) (b) << 16)))
 #define S_OK ((HRESULT) 0)
-#define E_NOINTERFACE (0x80004002)
+#define E_NOINTERFACE ((HRESULT) 0x80004002)
 #define VOID void
 #define TRUE 1
 #define FALSE 0
@@ -60,7 +60,7 @@
 typedef uint8_t BYTE, byte;
 typedef int32_t LONG;
 typedef uint32_t ULONG, DWORD;
-typedef long HRESULT;
+typedef int32_t HRESULT;
 typedef DWORD* LPDWORD;
 typedef int BOOL, WINBOOL, INT;
 typedef unsigned int UINT;

@@ -118,6 +118,11 @@ HRESULT Direct3DRMImpl::CreateDeviceFromD3D(
 	*outDevice = static_cast<IDirect3DRMDevice2*>(
 		new Direct3DRMDevice2Impl(renderer->GetVirtualWidth(), renderer->GetVirtualHeight(), renderer)
 	);
+	if (!renderer->IsRenderTargetReady()) {
+		(*outDevice)->Release();
+		*outDevice = nullptr;
+		return DDERR_GENERIC;
+	}
 	return DD_OK;
 }
 
@@ -143,6 +148,11 @@ HRESULT Direct3DRMImpl::CreateDeviceFromSurface(
 	}
 	*outDevice =
 		static_cast<IDirect3DRMDevice2*>(new Direct3DRMDevice2Impl(DDSDesc.dwWidth, DDSDesc.dwHeight, DDRenderer));
+	if (!DDRenderer->IsRenderTargetReady()) {
+		(*outDevice)->Release();
+		*outDevice = nullptr;
+		return DDERR_GENERIC;
+	}
 	return DD_OK;
 }
 
@@ -199,8 +209,12 @@ HRESULT Direct3DRMImpl::CreateViewport(
 		viewport->SetCamera(camera);
 	}
 	*outViewport = static_cast<IDirect3DRMViewport*>(viewport);
-	device->AddViewport(*outViewport);
-	return DD_OK;
+	HRESULT result = device->AddViewport(*outViewport);
+	if (result != DD_OK) {
+		(*outViewport)->Release();
+		*outViewport = nullptr;
+	}
+	return result;
 }
 
 HRESULT Direct3DRMImpl::SetDefaultTextureShades(DWORD count)
