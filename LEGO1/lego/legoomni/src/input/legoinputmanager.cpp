@@ -662,6 +662,29 @@ void LegoInputManager::RemoveJoystick(SDL_JoystickID p_joystickID)
 	m_joysticks.erase(p_joystickID);
 }
 
+// Platform dialogs consume releases that would normally end gestures and pending clicks.
+// Cancel them without dispatching a click or changing the player's input method.
+void LegoInputManager::CancelPointerInput()
+{
+	StopAutoDragTimer();
+	m_unk0x80 = FALSE;
+	m_unk0x81 = FALSE;
+	m_touchFinger = 0;
+	m_touchVirtualThumb = {0, 0};
+	m_touchVirtualThumbOrigin = {0, 0};
+	m_touchFlags.clear();
+
+	if (m_camera) {
+		m_camera->OnLButtonUp(MxPoint32(m_x, m_y));
+		m_camera->OnRButtonUp(MxPoint32(m_x, m_y));
+	}
+	if (m_controlManager) {
+		m_controlManager->CancelButtonPress();
+	}
+
+	Extension<ThirdPersonCameraExt>::Call(TP::CancelPointerInput);
+}
+
 MxBool LegoInputManager::HandleTouchEvent(SDL_Event* p_event, TouchScheme p_touchScheme)
 {
 	if (Extension<ThirdPersonCameraExt>::Call(TP::HandleTouchInput, p_event).value_or(FALSE)) {

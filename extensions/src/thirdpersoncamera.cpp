@@ -168,6 +168,13 @@ MxBool ThirdPersonCameraExt::IsThirdPersonCameraActive()
 	return FALSE;
 }
 
+void ThirdPersonCameraExt::CancelPointerInput()
+{
+	if (s_camera) {
+		s_camera->CancelPointerInput();
+	}
+}
+
 MxBool ThirdPersonCameraExt::HandleTouchInput(SDL_Event* p_event)
 {
 	if (!s_camera || !s_camera->IsActive()) {

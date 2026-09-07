@@ -74,6 +74,7 @@ public:
 	MxControlPresenter* GetControlAt(MxS32 p_x, MxS32 p_y);
 	MxBool HandleButtonDown();
 	MxBool HandleButtonUp();
+	void CancelButtonPress();
 	void Notify();
 
 	MxU32 HandleUpNextTickle() { return m_handleUpNextTickle; }

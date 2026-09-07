@@ -33,6 +33,7 @@ public:
 	static void OnSDLEvent(SDL_Event* p_event);
 	static MxBool IsThirdPersonCameraActive();
 	static MxBool HandleTouchInput(SDL_Event* p_event);
+	static void CancelPointerInput();
 	static MxBool HandleNavOverride(
 		LegoNavController* p_nav,
 		const Vector3& p_curPos,
@@ -70,6 +71,7 @@ constexpr auto HandleCamAnimEnd = &ThirdPersonCameraExt::HandleCamAnimEnd;
 constexpr auto HandleSDLEvent = &ThirdPersonCameraExt::OnSDLEvent;
 constexpr auto IsThirdPersonCameraActive = &ThirdPersonCameraExt::IsThirdPersonCameraActive;
 constexpr auto HandleTouchInput = &ThirdPersonCameraExt::HandleTouchInput;
+constexpr auto CancelPointerInput = &ThirdPersonCameraExt::CancelPointerInput;
 constexpr auto HandleNavOverride = &ThirdPersonCameraExt::HandleNavOverride;
 constexpr auto HandleROIClick = &ThirdPersonCameraExt::HandleROIClick;
 constexpr auto IsClonedCharacter = &ThirdPersonCameraExt::IsClonedCharacter;
@@ -82,6 +84,7 @@ constexpr decltype(&ThirdPersonCameraExt::HandleCamAnimEnd) HandleCamAnimEnd = n
 constexpr decltype(&ThirdPersonCameraExt::OnSDLEvent) HandleSDLEvent = nullptr;
 constexpr decltype(&ThirdPersonCameraExt::IsThirdPersonCameraActive) IsThirdPersonCameraActive = nullptr;
 constexpr decltype(&ThirdPersonCameraExt::HandleTouchInput) HandleTouchInput = nullptr;
+constexpr decltype(&ThirdPersonCameraExt::CancelPointerInput) CancelPointerInput = nullptr;
 constexpr decltype(&ThirdPersonCameraExt::HandleNavOverride) HandleNavOverride = nullptr;
 constexpr decltype(&ThirdPersonCameraExt::HandleROIClick) HandleROIClick = nullptr;
 constexpr decltype(&ThirdPersonCameraExt::IsClonedCharacter) IsClonedCharacter = nullptr;

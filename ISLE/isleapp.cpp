@@ -83,6 +83,7 @@
 #endif
 
 #ifdef ANDROID
+#include "android/activity.h"
 #include "android/config.h"
 #include "android/filepicker.h"
 #include "android/quitprompt.h"
@@ -418,6 +419,9 @@ static void CloseGame()
 }
 
 #ifdef ANDROID
+static bool g_confirmingQuit = false;
+static Uint64 g_quitPromptInputCutoff = 0;
+
 static bool GameAbandoned()
 {
 	return g_closed;
@@ -436,18 +440,26 @@ static bool GameStateIsSaveable()
 	return infocenterState && infocenterState->HasRegistered();
 }
 
+// The prompt consumes releases, so start the next interaction from neutral input state.
+static void CancelInputForQuitPrompt()
+{
+	g_mousedown = FALSE;
+	g_mousemoved = FALSE;
+	g_lastJoystickMouseX = 0;
+	g_lastJoystickMouseY = 0;
+	g_dpadUp = g_dpadDown = g_dpadLeft = g_dpadRight = false;
+
+	if (Lego() && InputManager()) {
+		InputManager()->CancelPointerInput();
+	}
+	if (window) {
+		SDL_SetWindowRelativeMouseMode(window, false);
+	}
+}
+
 // The back button, as a decision rather than an accident: pause, save, and ask.
 static SDL_AppResult HandleBackButton()
 {
-	// Pumping for the prompt lets SDL dispatch its queued backlog straight back into
-	// SDL_AppEvent, so a second press that was already in the queue can land here while the
-	// first prompt is still up. One prompt at a time; the extra press is the answer to nothing.
-	static bool confirming = false;
-
-	if (confirming) {
-		return SDL_APP_CONTINUE;
-	}
-
 	if (!g_isle->GetGameStarted()) {
 		// Nothing to save and nothing to lose, so keep the platform's own meaning for the
 		// button rather than making it inert while the game starts up.
@@ -472,12 +484,19 @@ static SDL_AppResult HandleBackButton()
 		saveResult = e_quitPromptNothingToSave;
 	}
 	else {
-		saveResult = SaveGameStateForLifecycleEvent("back button") ? e_quitPromptSaveWritten : e_quitPromptSaveFailed;
+		// Save does not propagate every serialization or close failure, so success only
+		// establishes that a save was attempted, not that the entire file was written.
+		saveResult = SaveGameStateForLifecycleEvent("back button") ? e_quitPromptSaveAttempted : e_quitPromptSaveFailed;
 	}
 
-	confirming = true;
+	g_confirmingQuit = true;
+	CancelInputForQuitPrompt();
 	bool quit = Android_ConfirmQuit(GameAbandoned, saveResult);
-	confirming = false;
+	// SDL may already have removed input into a dispatch batch before entering this callback.
+	// Flushing cannot reach that batch; reject its old events when dispatch resumes as well.
+	g_quitPromptInputCutoff = SDL_GetTicksNS();
+	CancelInputForQuitPrompt();
+	g_confirmingQuit = false;
 
 	// Resume even when quitting. IsleApp::Close queues a keypress that the input manager drops
 	// while the game is paused, and Close only resumes after it. Both are checked again because
@@ -685,6 +704,13 @@ SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event)
 	}
 
 #ifdef ANDROID
+	// Pumping can dispatch input inline during a lifecycle event, including another Back.
+	// After the dialog, discard any input SDL had already copied into its dispatch batch.
+	if (Android_IsInputEvent(event->type) &&
+		(g_confirmingQuit || (g_quitPromptInputCutoff && event->common.timestamp <= g_quitPromptInputCutoff))) {
+		return SDL_APP_CONTINUE;
+	}
+
 	// AC_BACK is the system back button, not a game key, and it is handled ahead of
 	// UpdateLastInputMethod because a key event there makes the keyboard the last input method,
 	// which switches the touch gamepad's virtual stick off until the next finger event.

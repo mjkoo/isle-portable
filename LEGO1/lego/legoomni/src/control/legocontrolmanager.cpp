@@ -108,6 +108,23 @@ MxBool LegoControlManager::HandleButtonDown(LegoEventNotificationParam& p_param,
 	}
 }
 
+void LegoControlManager::CancelButtonPress()
+{
+	// Release the control immediately, including listeners that stop held actions on release.
+	// This bypasses deferred release handling without generating another press or click.
+	if (m_presenterList && g_clickedObjectId != -1 && g_clickedAtom) {
+		m_event.SetNotification(c_notificationButtonUp);
+		HandleButtonUp();
+	}
+
+	g_clickedObjectId = -1;
+	g_clickedAtom = NULL;
+	m_buttonDownState = e_idle;
+	m_handleUpNextTickle = 0;
+	m_secondButtonDown = FALSE;
+	m_handledPresenter = NULL;
+}
+
 // FUNCTION: LEGO1 0x100292e0
 void LegoControlManager::Notify()
 {

@@ -18,24 +18,34 @@
 // watchers rather than queueing them (see the comment on SDL_AddEventWatch in isleapp.cpp),
 // and leaving the 0x100 and 0x200 ranges alone keeps the SDL_EVENT_QUIT that Android_OnDestroy
 // queues on its way to SDL_AppEvent.
+static const struct {
+	SDL_EventType m_first;
+	SDL_EventType m_last;
+} g_inputRanges[] = {
+	{SDL_EVENT_KEY_DOWN, SDL_EVENT_TEXT_INPUT},
+	{SDL_EVENT_MOUSE_MOTION, SDL_EVENT_MOUSE_WHEEL},
+	{SDL_EVENT_JOYSTICK_AXIS_MOTION, SDL_EVENT_JOYSTICK_BUTTON_UP},
+	{SDL_EVENT_GAMEPAD_AXIS_MOTION, SDL_EVENT_GAMEPAD_BUTTON_UP},
+	{SDL_EVENT_GAMEPAD_TOUCHPAD_DOWN, SDL_EVENT_GAMEPAD_CAPSENSE_RELEASE},
+	{SDL_EVENT_FINGER_FIRST, SDL_EVENT_FINGER_LAST},
+	{SDL_EVENT_PINCH_FIRST, SDL_EVENT_PINCH_LAST},
+};
+
+bool Android_IsInputEvent(Uint32 p_type)
+{
+	for (const auto& range : g_inputRanges) {
+		if (p_type >= range.m_first && p_type <= range.m_last) {
+			return true;
+		}
+	}
+	return false;
+}
+
 void Android_DrainInputEvents()
 {
-	static const struct {
-		SDL_EventType m_first;
-		SDL_EventType m_last;
-	} ranges[] = {
-		{SDL_EVENT_KEY_DOWN, SDL_EVENT_TEXT_INPUT},
-		{SDL_EVENT_MOUSE_MOTION, SDL_EVENT_MOUSE_WHEEL},
-		{SDL_EVENT_JOYSTICK_AXIS_MOTION, SDL_EVENT_JOYSTICK_BUTTON_UP},
-		{SDL_EVENT_GAMEPAD_AXIS_MOTION, SDL_EVENT_GAMEPAD_BUTTON_UP},
-		{SDL_EVENT_GAMEPAD_TOUCHPAD_DOWN, SDL_EVENT_GAMEPAD_CAPSENSE_RELEASE},
-		{SDL_EVENT_FINGER_FIRST, SDL_EVENT_FINGER_LAST},
-		{SDL_EVENT_PINCH_FIRST, SDL_EVENT_PINCH_LAST},
-	};
-
 	SDL_PumpEvents();
 
-	for (const auto& range : ranges) {
+	for (const auto& range : g_inputRanges) {
 		SDL_FlushEvents(range.m_first, range.m_last);
 	}
 }

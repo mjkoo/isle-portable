@@ -164,6 +164,7 @@ public:
 	LEGO1_EXPORT void AddJoystick(SDL_JoystickID p_joystickID);
 	LEGO1_EXPORT void RemoveJoystick(SDL_JoystickID p_joystickID);
 	LEGO1_EXPORT MxBool HandleTouchEvent(SDL_Event* p_event, TouchScheme p_touchScheme);
+	LEGO1_EXPORT void CancelPointerInput();
 	LEGO1_EXPORT MxBool
 	HandleRumbleEvent(float p_strength, float p_lowFrequencyRumble, float p_highFrequencyRumble, MxU32 p_milliseconds);
 	LEGO1_EXPORT void UpdateLastInputMethod(SDL_Event* p_event);

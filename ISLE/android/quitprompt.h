@@ -13,7 +13,7 @@
 // so a loop waiting only on the user is a loop that can wait forever.
 // Mirrors QuitPrompt's SAVE_ constants; keep the numbering in step.
 enum QuitPromptSaveResult {
-	e_quitPromptSaveWritten = 0,
+	e_quitPromptSaveAttempted = 0,
 	e_quitPromptNothingToSave = 1,
 	e_quitPromptSaveFailed = 2,
 };

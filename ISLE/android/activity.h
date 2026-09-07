@@ -1,6 +1,7 @@
 #ifndef ANDROID_ACTIVITY_H
 #define ANDROID_ACTIVITY_H
 
+#include <SDL3/SDL_events.h>
 #include <jni.h>
 
 // The JNI glue and the event housekeeping every Android prompt in this port needs. Shared so
@@ -28,5 +29,8 @@ bool Android_CallActivityBooleanMethod(const char* p_name);
 // poll loop must call this rather than SDL_PumpEvents: it is what keeps the Android UI thread
 // running, and it is what stops a prompt's worth of touches arriving in one burst afterwards.
 void Android_DrainInputEvents();
+
+// Input consumed by a platform prompt, excluding device hotplug and lifecycle events.
+bool Android_IsInputEvent(Uint32 p_type);
 
 #endif // ANDROID_ACTIVITY_H

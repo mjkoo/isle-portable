@@ -27,7 +27,7 @@ final class QuitPrompt {
     static final int STATUS_QUIT = 1;
 
     // What the save that precedes the prompt did. Also mirrored in quitprompt.h.
-    static final int SAVE_WRITTEN = 0;
+    static final int SAVE_ATTEMPTED = 0;
     static final int SAVE_NOTHING_TO_SAVE = 1;
     static final int SAVE_FAILED = 2;
 
@@ -92,8 +92,7 @@ final class QuitPrompt {
         builder.setPositiveButton("Quit", (dialog, which) -> finish(STATUS_QUIT));
         builder.setNegativeButton("Keep playing", (dialog, which) -> finish(STATUS_RESUME));
 
-        // A second back press answers "keep playing" rather than stacking another prompt: the
-        // game is already saved and paused, so the safe answer is the one that costs nothing.
+        // A second back press answers "keep playing" without stacking another prompt.
         builder.setOnCancelListener(dialog -> finish(STATUS_RESUME));
 
         mDialog = builder.create();
@@ -113,8 +112,9 @@ final class QuitPrompt {
 
     private String saveMessage() {
         switch (mSaveResult) {
-        case SAVE_WRITTEN:
-            return "Your game has been saved.";
+        case SAVE_ATTEMPTED:
+            // The save API does not report every write failure, so do not promise persistence.
+            return "Return to Android?";
         case SAVE_FAILED:
             return "Your game could not be saved.";
         default:

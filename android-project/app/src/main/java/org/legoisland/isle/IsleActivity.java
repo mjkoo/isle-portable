@@ -23,8 +23,9 @@ public class IsleActivity extends SDLActivity {
      */
     @Override
     protected void onDestroy() {
-        if (mQuitPrompt != null) {
-            mQuitPrompt.abandon();
+        QuitPrompt prompt = mQuitPrompt;
+        if (prompt != null) {
+            prompt.abandon();
             mQuitPrompt = null;
         }
 
@@ -76,8 +77,9 @@ public class IsleActivity extends SDLActivity {
      * Called from native code (see ISLE/android/quitprompt.cpp); kept by proguard-rules.pro.
      */
     public void showQuitPrompt(int saveResult) {
-        mQuitPrompt = new QuitPrompt(this, saveResult);
-        mQuitPrompt.show();
+        QuitPrompt prompt = new QuitPrompt(this, saveResult);
+        mQuitPrompt = prompt;
+        prompt.show();
     }
 
     /**
@@ -89,7 +91,8 @@ public class IsleActivity extends SDLActivity {
      * Called from native code (see ISLE/android/quitprompt.cpp); kept by proguard-rules.pro.
      */
     public int getQuitPromptStatus() {
-        return mQuitPrompt != null ? mQuitPrompt.getStatus() : QuitPrompt.STATUS_RESUME;
+        QuitPrompt prompt = mQuitPrompt;
+        return prompt != null ? prompt.getStatus() : QuitPrompt.STATUS_RESUME;
     }
 
     /**

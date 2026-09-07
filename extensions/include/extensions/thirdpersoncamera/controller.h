@@ -110,6 +110,11 @@ public:
 	float GetOrbitDistance() const { return m_orbit.GetOrbitDistance(); }
 	void SetOrbitDistance(float p_distance) { m_orbit.SetOrbitDistance(p_distance); }
 	void ResetTouchState() { m_input.ResetTouchState(); }
+	void CancelPointerInput()
+	{
+		m_input = InputHandler();
+		SetLmbForwardEngaged(false);
+	}
 	void SuppressGestures() { m_input.SuppressGestures(); }
 
 	bool TryClaimFinger(const SDL_TouchFingerEvent& p_event) { return m_input.TryClaimFinger(p_event); }
