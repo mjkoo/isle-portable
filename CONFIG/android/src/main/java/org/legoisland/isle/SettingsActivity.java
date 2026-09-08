@@ -165,8 +165,70 @@ public final class SettingsActivity extends AppCompatActivity {
 
     private SettingsModel model;
     private SaveExportModel export;
+    private SaveRestoreModel restore;
     private final ActivityResultLauncher<String> exportDestination = registerForActivityResult(
         new ActivityResultContracts.CreateDocument("application/zip"), uri -> export.destination(uri));
+
+    private final ActivityResultLauncher<String[]> restoreSource = registerForActivityResult(
+        new ActivityResultContracts.OpenDocument(), uri -> restore.selected(uri));
+
+    private void startRestore(boolean previous) {
+        if (!model.original.equals(model.draft)) {
+            Toast.makeText(this, "Choose Save or Cancel for your settings edits, then reopen Settings to restore saves.",
+                Toast.LENGTH_LONG).show();
+            return;
+        }
+        if (export.isBusy() || model.isBusy()) return;
+        if (restore.start(previous)) {
+            try { restoreSource.launch(new String[] {"application/zip", "application/x-zip-compressed", "application/octet-stream"}); }
+            catch (RuntimeException e) { restore.error("Could not open the archive picker: " + e.getMessage()); }
+        }
+    }
+
+    public static final class RestoreDialog extends DialogFragment {
+        @Override public Dialog onCreateDialog(Bundle state) {
+            SaveRestoreModel model = new ViewModelProvider(requireActivity()).get(SaveRestoreModel.class);
+            SaveRestoreModel.Phase phase = model.phase.getValue();
+            AlertDialog.Builder builder = new AlertDialog.Builder(requireContext()).setTitle("Restore saves");
+            if (phase == SaveRestoreModel.Phase.CONFIRM) {
+                builder.setMessage(model.confirmation());
+                builder.setPositiveButton("Replace and close", (dialog, which) -> model.confirm());
+                builder.setNegativeButton("Cancel", (dialog, which) -> model.cancel());
+            } else if (phase == SaveRestoreModel.Phase.ERROR) {
+                builder.setMessage(model.message).setPositiveButton("OK", (dialog, which) -> model.acknowledge());
+            } else {
+                builder.setMessage(phase == SaveRestoreModel.Phase.SCHEDULING ? "Recording restore request..."
+                    : phase == SaveRestoreModel.Phase.CANCELLING ? "Cancelling restore..." : "Reading and checking save files...");
+                if (phase == SaveRestoreModel.Phase.READING) {
+                    builder.setNegativeButton("Cancel", (dialog, which) -> model.cancel());
+                }
+            }
+            setCancelable(false);
+            return builder.create();
+        }
+    }
+
+    private void renderRestoreUi() {
+        if (isFinishing() || isDestroyed() || getSupportFragmentManager().isStateSaved()) return;
+        SaveRestoreModel.Phase phase = restore.phase.getValue();
+        RestoreDialog previous = (RestoreDialog) getSupportFragmentManager().findFragmentByTag("save-restore");
+        if (previous != null && previous.requireArguments().getString("phase").equals(phase.name())) return;
+        if (previous != null) {
+            previous.dismiss();
+            getSupportFragmentManager().executePendingTransactions();
+        }
+        if (phase == SaveRestoreModel.Phase.CLOSING) {
+            Toast.makeText(this, restore.message, Toast.LENGTH_LONG).show();
+            finish();
+        } else if (phase == SaveRestoreModel.Phase.CONFIRM || phase == SaveRestoreModel.Phase.READING
+                || phase == SaveRestoreModel.Phase.SCHEDULING || phase == SaveRestoreModel.Phase.CANCELLING
+                || (phase == SaveRestoreModel.Phase.ERROR && restore.message != null)) {
+            RestoreDialog dialog = new RestoreDialog();
+            Bundle arguments = new Bundle(); arguments.putString("phase", phase.name()); dialog.setArguments(arguments);
+            dialog.showNow(getSupportFragmentManager(), "save-restore");
+        }
+        invalidateOptionsMenu();
+    }
 
     public static final class ExportDialog extends DialogFragment {
         @Override public Dialog onCreateDialog(Bundle savedInstanceState) {
@@ -224,6 +286,7 @@ public final class SettingsActivity extends AppCompatActivity {
     @Override protected void onPostResume() {
         super.onPostResume();
         updateExportUi();
+        new Handler(Looper.getMainLooper()).post(this::renderRestoreUi);
     }
 
     @Override protected void onCreate(Bundle savedInstanceState) {
@@ -231,6 +294,9 @@ public final class SettingsActivity extends AppCompatActivity {
         setTitle("LEGO Island Settings");
         getSupportActionBar().setDisplayHomeAsUpEnabled(true);
         model = new ViewModelProvider(this).get(SettingsModel.class);
+        restore = new ViewModelProvider(this).get(SaveRestoreModel.class);
+        restore.load(getIntent().getStringExtra("exportId"), savedInstanceState != null && savedInstanceState.getBoolean("restoreBusy"));
+        restore.phase.observe(this, ignored -> new Handler(Looper.getMainLooper()).post(this::renderRestoreUi));
         export = new ViewModelProvider(this).get(SaveExportModel.class);
         export.load(getIntent().getStringExtra("exportId"), savedInstanceState != null && savedInstanceState.getBoolean("exportBusy"));
         export.phase.observe(this, ignored -> updateExportUi());
@@ -258,6 +324,7 @@ public final class SettingsActivity extends AppCompatActivity {
     }
 
     @Override protected void onSaveInstanceState(Bundle state) {
+        state.putBoolean("restoreBusy", restore.busy());
         state.putBoolean("exportBusy", export.isBusy());
         if (!model.draft.isEmpty()) {
             Bundle draft = new Bundle();
@@ -274,30 +341,32 @@ public final class SettingsActivity extends AppCompatActivity {
     }
 
     @Override public boolean onPrepareOptionsMenu(Menu menu) {
-        menu.findItem(1).setEnabled(model.loaded && !model.isBusy() && !export.isBusy());
-        menu.findItem(2).setEnabled(!model.isBusy() && !export.isBusy());
+        menu.findItem(1).setEnabled(model.loaded && !model.isBusy() && !export.isBusy() && !restore.busy());
+        menu.findItem(2).setEnabled(!model.isBusy() && !export.isBusy() && !restore.busy());
         return super.onPrepareOptionsMenu(menu);
     }
 
     @Override public boolean onOptionsItemSelected(MenuItem item) {
-        if (export.isBusy()) return true;
+        if (export.isBusy() || restore.busy()) return true;
         if (item.getItemId() == 1) { model.save(); return true; }
         if (item.getItemId() == 2 || item.getItemId() == android.R.id.home) { onBackPressed(); return true; }
         return super.onOptionsItemSelected(item);
     }
 
     @Override public void onBackPressed() {
-        if (!model.isBusy() && !export.isBusy()) super.onBackPressed();
+        if (!model.isBusy() && !export.isBusy() && !restore.busy()) super.onBackPressed();
     }
 
     public static final class SettingsFragment extends PreferenceFragmentCompat {
         private SettingsModel model;
         private SaveExportModel export;
+        private SaveRestoreModel restore;
         private boolean updating;
 
         @Override public void onCreatePreferences(Bundle savedInstanceState, String rootKey) {
             model = new ViewModelProvider(requireActivity()).get(SettingsModel.class);
             export = new ViewModelProvider(requireActivity()).get(SaveExportModel.class);
+            restore = new ViewModelProvider(requireActivity()).get(SaveRestoreModel.class);
             getPreferenceManager().setPreferenceDataStore(new PreferenceDataStore() {
                 @Override public String getString(String key, String fallback) {
                     if (RESOLUTION.equals(key)) {
@@ -320,6 +389,7 @@ public final class SettingsActivity extends AppCompatActivity {
             buildPreferences();
             model.state.observe(this, ignored -> refresh());
             export.phase.observe(this, ignored -> refresh());
+            restore.phase.observe(this, ignored -> refresh());
         }
 
         private void buildPreferences() {
@@ -341,6 +411,16 @@ public final class SettingsActivity extends AppCompatActivity {
             exportSaves.setIconSpaceReserved(false);
             exportSaves.setOnPreferenceClickListener(p -> { export.start(); return true; });
             data.addPreference(exportSaves);
+            Preference restoreSaves = new Preference(requireContext());
+            restoreSaves.setKey("restore-saves"); restoreSaves.setTitle("Restore saves");
+            restoreSaves.setIconSpaceReserved(false);
+            restoreSaves.setOnPreferenceClickListener(p -> { ((SettingsActivity) requireActivity()).startRestore(false); return true; });
+            data.addPreference(restoreSaves);
+            Preference previousSaves = new Preference(requireContext());
+            previousSaves.setKey("previous-saves"); previousSaves.setTitle("Restore previous saves");
+            previousSaves.setIconSpaceReserved(false);
+            previousSaves.setOnPreferenceClickListener(p -> { ((SettingsActivity) requireActivity()).startRestore(true); return true; });
+            data.addPreference(previousSaves);
             String group = "";
             PreferenceCategory category = null;
             for (Control control : CONTROLS) {
@@ -406,7 +486,14 @@ public final class SettingsActivity extends AppCompatActivity {
         private void refresh() {
             Preference exportSaves = findPreference("export-saves");
             exportSaves.setSummary(export.summary());
-            exportSaves.setEnabled(!export.isBusy() && !model.isBusy());
+            exportSaves.setEnabled(!export.isBusy() && !restore.busy() && !model.isBusy());
+            Preference restoreSaves = findPreference("restore-saves");
+            restoreSaves.setSummary(restore.summary());
+            restoreSaves.setEnabled(!export.isBusy() && !restore.busy() && !model.isBusy());
+            Preference previousSaves = findPreference("previous-saves");
+            previousSaves.setSummary(restore.previousSummary());
+            previousSaves.setVisible(restore.hasPrevious());
+            previousSaves.setEnabled(!export.isBusy() && !restore.busy() && !model.isBusy());
             updating = true;
             for (Control control : CONTROLS) {
                 Preference preference = findPreference(control.key);
@@ -433,7 +520,7 @@ public final class SettingsActivity extends AppCompatActivity {
                 }
             }
             updating = false;
-            getPreferenceScreen().setEnabled(model.loaded && !model.isBusy());
+            getPreferenceScreen().setEnabled(model.loaded && !model.isBusy() && !restore.busy() && !export.isBusy());
         }
     }
 }

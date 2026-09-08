@@ -127,6 +127,7 @@ final class QuitPrompt {
     }
 
     void returnedFromSettings() {
+        if (SettingsBridge.restoreClosing()) { finish(STATUS_QUIT); return; }
         if (!mAbandoned && mStatus == STATUS_PENDING) showDialog();
     }
 

@@ -3,6 +3,8 @@
 
 #include <SDL3/SDL.h>
 
+bool Android_RestoreBeforeStartup();
+bool Android_SaveRestoreClosing();
 void Android_SetSettingsPath(const char* p_path);
 void Android_CaptureRenderers(SDL_Window* p_window);
 void Android_ShowMenuButton();

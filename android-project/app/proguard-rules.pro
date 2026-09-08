@@ -5,6 +5,8 @@
 #
 # A missing entry here fails only in release, where minifyEnabled is on.
 -keep class org.legoisland.isle.IsleActivity {
+    void startSaveRestore();
+    int getSaveRestoreStatus();
     void startGameFileImport(java.lang.String);
     int getGameFileImportStatus();
     java.lang.String getImportedRoot();

@@ -7,6 +7,11 @@ final class SettingsBridge {
         System.loadLibrary("isle");
     }
 
+    static native String recoverRestore();
+    // Error, then timestamp and empty/saved marker for the previous set.
+    static native String[] restoreInfo(String id);
+    static native String scheduleRestore(String id, String[] names, byte[][] data, boolean previous);
+    static native boolean restoreClosing();
     static native void requestMenu();
     static native String exportId();
     // Metadata is error, capture time in milliseconds, warning, then canonical filenames.

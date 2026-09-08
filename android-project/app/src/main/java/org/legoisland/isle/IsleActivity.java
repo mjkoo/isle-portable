@@ -12,6 +12,19 @@ import org.libsdl.app.SDLActivity;
 
 public class IsleActivity extends SDLActivity {
     private GameImport mImport;
+    private volatile SaveRestoreStartup mRestoreStartup;
+
+    public void startSaveRestore() {
+        SaveRestoreStartup gate = new SaveRestoreStartup(this);
+        mRestoreStartup = gate;
+        gate.start();
+    }
+
+    public int getSaveRestoreStatus() {
+        SaveRestoreStartup gate = mRestoreStartup;
+        return gate == null ? 1 : gate.status();
+    }
+
     private static final int SETTINGS_REQUEST = 4801;
     private ImageButton mMenuButton;
     private boolean mGameReady;
@@ -102,6 +115,7 @@ public class IsleActivity extends SDLActivity {
      */
     @Override
     protected void onDestroy() {
+        if (mRestoreStartup != null) mRestoreStartup.abandon();
         QuitPrompt prompt = mQuitPrompt;
         if (prompt != null) {
             prompt.abandon();

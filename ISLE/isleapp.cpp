@@ -617,6 +617,12 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv)
 	// Original game checks for an existing instance here.
 	// We don't really need that.
 
+#ifdef ANDROID
+	if (!Android_RestoreBeforeStartup()) {
+		return SDL_APP_FAILURE;
+	}
+#endif
+
 	// Create global app instance
 	g_isle = new IsleApp();
 

@@ -1,6 +1,7 @@
 #include "quitprompt.h"
 
 #include "activity.h"
+#include "settings.h"
 
 #include <SDL3/SDL.h>
 
@@ -50,6 +51,9 @@ bool Android_ConfirmQuit(bool (*p_abandoned)(), QuitPromptSaveResult p_saveResul
 		// input queued behind it must not arrive in one burst afterwards.
 		Android_DrainInputEvents();
 
+		if (Android_SaveRestoreClosing()) {
+			return true;
+		}
 		QuitPromptStatus status = GetQuitPromptStatus();
 		if (status != e_quitPromptPending) {
 			return status == e_quitPromptQuit;
