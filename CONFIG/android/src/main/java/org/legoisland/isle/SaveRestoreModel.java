@@ -79,7 +79,8 @@ public final class SaveRestoreModel extends AndroidViewModel {
         String prefix = usePrevious
             ? "Replace current saves with the backup from " + previousDate() + "? Progress made since then will be lost."
                 + (previous.endsWith(":empty") ? " This returns the game to no saved players." : "")
-            : contents.files.size() + " files, " + contents.players + " players.\n\nReplace all current players and progress?";
+            : contents.files.size() + " files, " + contents.players + (contents.players == 1 ? " player." : " players.")
+                + "\n\nReplace all current players and progress?";
         return prefix + "\n\nThe game will close. Reopen it to restore these saves.";
     }
     void selected(Uri uri) {

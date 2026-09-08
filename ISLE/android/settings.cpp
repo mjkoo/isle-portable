@@ -358,12 +358,9 @@ bool Android_SaveRestoreClosing()
 bool Android_RestoreBeforeStartup()
 {
 	const char* internal = SDL_GetAndroidInternalStoragePath();
-	if (!internal || !*internal) {
-		return false;
-	}
 	{
 		std::lock_guard<std::mutex> lock(g_restoreMutex);
-		g_restoreRoot = std::string(internal) + "/save-restore";
+		g_restoreRoot = internal && *internal ? std::string(internal) + "/save-restore" : "";
 		g_restoreStartup = true;
 		g_restoreQuit = false;
 	}
@@ -405,6 +402,9 @@ extern "C" JNIEXPORT jstring JNICALL Java_org_legoisland_isle_SettingsBridge_rec
 	try {
 		if (!g_restoreStartup) {
 			throw std::runtime_error("Restore is only available before the game starts.");
+		}
+		if (g_restoreRoot.empty()) {
+			throw std::runtime_error("Internal storage directory is unavailable.");
 		}
 		Android_SaveRestore store(g_restoreRoot);
 		std::string message = store.Pending() ? store.Recover(RestoreDestination()) : "";
