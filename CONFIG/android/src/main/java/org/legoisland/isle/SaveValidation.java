@@ -89,8 +89,12 @@ final class SaveValidation {
                 case "TowTrackMissionState": case "AmbulanceMissionState":
                     for (int j = 0; j < 10; j++) score(r);
                     break;
-                case "HospitalState": r.skip(12); break;
-                case "GasStationState": r.skip(10); break;
+                case "HospitalState":
+                    for (int j = 0; j < 6; j++) range(r.s16(), 0, 5);
+                    break;
+                case "GasStationState":
+                    for (int j = 0; j < 5; j++) range(r.s16(), 0, 5);
+                    break;
                 case "PoliceState": r.skip(4); break;
                 case "JetskiRaceState": case "CarRaceState":
                     for (int j = 1; j <= 5; j++) {
@@ -128,7 +132,8 @@ final class SaveValidation {
             named[i] = !r.string(r.s16(), 1024).isEmpty();
             for (int j = 0; j < 9; j++) {
                 float value = Float.intBitsToFloat((int) r.u32());
-                require(!Float.isNaN(value) && !Float.isInfinite(value), "Invalid vehicle position.");
+                // Empty planes carry unused vectors which the engine does not initialize.
+                require(!named[i] || (!Float.isNaN(value) && !Float.isInfinite(value)), "Invalid vehicle position.");
             }
         }
         int textures = (named[3] ? 3 : 0) + (named[4] ? 2 : 0) + (named[5] ? 1 : 0) + (named[6] ? 3 : 0);

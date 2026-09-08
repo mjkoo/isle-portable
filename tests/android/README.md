@@ -71,3 +71,36 @@ renderbuffer limit. Both target dimensions must remain within the limit, and the
 image and touch targets must keep their alignment. Check GLES2 texture limits as well as
 renderbuffer and viewport limits. Inject a framebuffer allocation failure after renderer
 probing and verify startup offers Settings instead of continuing with an incomplete target.
+
+## Save restore
+
+The `saverestore` native target exercises complete replacement, original-name and
+absence preservation, custom destination identity, previous-save consumption,
+empty originals, symlink rejection, corrupt journals, interrupted scheduling and
+interrupted install/rollback. Filesystem checkpoints inject failure after writes,
+syncs, publication and individual replacement operations. Reopening must expose
+one complete generation and must not replay committed installation over new saves.
+The test can also run as an Android native executable with TMPDIR set to a writable
+directory. It does not need assets or alter the installed game's saves.
+
+Standalone Java validation tests use the same JDK as the Android build:
+
+```sh
+mkdir -p build/android-restore-java
+javac -d build/android-restore-java \
+  CONFIG/android/src/main/java/org/legoisland/isle/SaveValidation.java \
+  CONFIG/android/src/main/java/org/legoisland/isle/SaveRestoreArchive.java \
+  tests/android/java/org/legoisland/isle/SaveValidationTest.java
+java -ea -cp build/android-restore-java org.legoisland.isle.SaveValidationTest
+```
+
+For device acceptance, preserve the device's config and saves first. Transfer a
+newly registered player's export between independent Android installations through
+the document picker, confirm replacement, and reopen. Verify player identities,
+selected character and a concrete progress marker. Check exact archive bytes before
+selecting a player, because selecting a player changes slot ordering and saves.
+Exercise Restore previous saves and verify original spelling and absent slots too.
+Test confirmation cancellation, incomplete archives, settings drafts, recreation,
+process death with the picker open, startup-error access and minified release JNI.
+Use an isolated custom save directory for destructive storage-failure scenarios.
+Fixture-only and same-directory checks do not establish a real progress transfer.

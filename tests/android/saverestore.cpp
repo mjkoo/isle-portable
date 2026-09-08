@@ -22,8 +22,10 @@ static std::string Read(const fs::path& path)
 static const std::vector<Android_SaveFile> incoming = {{"G0.GS", {1, 2, 3}}, {"Players.gsi", {4, 5}}};
 int main()
 {
-	char pattern[] = "/tmp/isle-restore-test-XXXXXX";
-	fs::path base = mkdtemp(pattern);
+	std::string pattern = (fs::temp_directory_path() / "isle-restore-test-XXXXXX").string();
+	char* directory = mkdtemp(pattern.data());
+	assert(directory);
+	fs::path base = directory;
 	fs::path saves = base / "saves", journal = base / "journal";
 	auto reset = [&] {
 		fs::remove_all(saves);
@@ -91,6 +93,31 @@ int main()
 		std::string bytes = Read(saves / "G0.GS");
 		recovered.Recover(saves);
 		assert(bytes == Read(saves / "G0.GS"));
+	}
+
+	// Scheduling publication failures may leave either no request or a durable
+	// confirmed request, but never change the live set.
+	reset();
+	int scheduledPoints = 0;
+	Android_SaveRestore(journal, [&](const char*) { scheduledPoints++; }).Schedule(saves, incoming, false);
+	for (int failure = 1; failure <= scheduledPoints; failure++) {
+		reset();
+		int point = 0;
+		try {
+			Android_SaveRestore(journal, [&](const char*) {
+				if (++point == failure) {
+					throw std::runtime_error("schedule interrupted");
+				}
+			}).Schedule(saves, incoming, false);
+		}
+		catch (const std::runtime_error&) {
+		}
+		old();
+		Android_SaveRestore recovered(journal);
+		if (recovered.Pending()) {
+			recovered.Recover(saves);
+			fresh();
+		}
 	}
 
 	// Fail rollback itself, then retry. The earlier recovery copy must survive.

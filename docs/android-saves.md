@@ -1,4 +1,4 @@
-# Exporting Android saves
+# Transferring Android saves
 
 Open the game menu using Back or the on-screen menu button, choose Settings, then
 Data > Export saves. Choose a location in the system save picker. No storage
@@ -27,5 +27,52 @@ A fresh menu capture is required to export again after process death.
 
 To transfer to desktop, close the desktop game, preserve its existing saves, and
 extract the ZIP's `saves/` contents into the desktop game's configured save
-directory. Keep all exported files together. Android restore is not yet provided.
+directory. Keep all exported files together. Android restore is described below.
 Auto Backup eligibility remains independent of this explicit export feature.
+
+## Restoring on Android
+
+Open Settings > Data > Restore saves and select an exported ZIP. The app checks
+its contents and shows its file and player counts before asking to replace all
+current players and progress. Resolve pending settings edits with Save or Cancel
+before starting restore. Cancelling archive selection or its confirmation leaves
+saves unchanged. The selected ZIP is only read, never changed or deleted.
+
+Choose Replace and close, then reopen the game. Normal shutdown finishes against
+the old save set. On reopening, the app preserves those files and installs the
+replacement before the engine starts. Custom save directories are honored; an
+invalid or changed destination never falls back to the default directory. Config,
+game assets and unrelated files in that directory are preserved.
+
+Restore accepts complete sets in the export layout: Players.gsi, History.gsi and
+one through nine consecutive slots beginning with G0.GS, matching the player count.
+Partial exports remain useful for manual salvage but cannot be restored here.
+Unsupported versions, serialized states, extra entries, ambiguous names, unsafe
+paths and damaged archives are rejected. The limits are 20 MiB for the ZIP and
+16 MiB for expanded saves. Binary validation supports the retail save format,
+including its island animation table; modified formats are not supported.
+Checks establish structural compatibility, not that every saved gameplay state
+will behave correctly or that the archive came from a trusted source.
+
+If installation is interrupted, startup recovers the original complete set before
+starting the game. An unresolved storage or journal error blocks startup and offers
+Retry and Close while preserving recovery data. Free space or restore access before
+retrying. Cancelling provider I/O waits for the outstanding read to return. Process
+death before confirmation requires selecting the ZIP again; confirmed requests
+remain in private persistent storage for the next launch.
+
+## Restoring the previous saves
+
+After a successful ZIP restore, Settings offers Restore previous saves with the
+backup's date and time. Startup-error Settings offers the same action. This is one
+automatic copy of the saves immediately before replacement, including any final
+shutdown save. If there were no saves, the confirmation explicitly offers to return
+to no saved players.
+
+Restoring this copy replaces current saves and loses progress made since the ZIP
+restore. It uses the same close-and-reopen flow. A failed attempt keeps the recovery
+option; success consumes it. A later successful ZIP restore replaces the recovery
+copy with the set that newer restore displaced. It is not an undo/redo history.
+
+The local recovery copy is excluded from Auto Backup and device transfer and does
+not survive uninstall. Export saves separately when you need an independent backup.

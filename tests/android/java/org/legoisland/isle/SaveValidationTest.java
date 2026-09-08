@@ -27,9 +27,49 @@ public final class SaveValidationTest {
         }
         return bytes.toByteArray();
     }
+    static void number(ByteArrayOutputStream out, int value, int length) {
+        for (int i = 0; i < length; i++) out.write(value >>> (8 * i));
+    }
+    static byte[] allStates() throws Exception {
+        Map<String, byte[]> states = new LinkedHashMap<>();
+        states.put("PizzeriaState", new byte[10]); states.put("PizzaMissionState", new byte[40]);
+        states.put("TowTrackMissionState", new byte[20]); states.put("AmbulanceMissionState", new byte[20]);
+        states.put("HospitalState", new byte[12]); states.put("GasStationState", new byte[10]);
+        states.put("PoliceState", new byte[4]);
+        byte[] race = new byte[25]; for (int i = 0; i < 5; i++) race[5 * i] = (byte) (i + 1);
+        states.put("JetskiRaceState", race); states.put("CarRaceState", race);
+        for (String vehicle : new String[] {"Jetski", "Copter", "DuneCar", "RaceCar"}) {
+            states.put("Lego" + vehicle + "BuildState", new byte[4]);
+        }
+        states.put("AnimState", new byte[12]); states.put("Act1State", new byte[269]);
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        number(out, 0x1000c, 4); out.write(new byte[5]);
+        byte[] end = "END_OF_VARIABLES".getBytes(java.nio.charset.StandardCharsets.US_ASCII);
+        out.write(end.length); out.write(end);
+        out.write(new byte[66 * 16 + 81 * 12 + 16 * 10 + 1]);
+        number(out, states.size(), 2);
+        for (Map.Entry<String, byte[]> state : states.entrySet()) {
+            number(out, state.getKey().length(), 2);
+            out.write(state.getKey().getBytes(java.nio.charset.StandardCharsets.US_ASCII));
+            out.write(state.getValue());
+        }
+        number(out, 0, 2);
+        return out.toByteArray();
+    }
     public static void main(String[] args) throws Exception {
+        SaveValidation.game(allStates());
         byte[] game = Files.readAllBytes(Path.of("docs/samples/G0.GS"));
         SaveValidation.game(game);
+        byte[] unusedPlane = game.clone();
+        byte[] marker = "Act1State".getBytes(java.nio.charset.StandardCharsets.US_ASCII);
+        int plane = -1;
+        for (int i = 0; i < game.length - marker.length; i++) {
+            if (Arrays.equals(Arrays.copyOfRange(game, i, i + marker.length), marker)) { plane = i + marker.length; break; }
+        }
+        if (plane >= 0 && game[plane] == 0 && game[plane + 1] == 0) {
+            java.nio.ByteBuffer.wrap(unusedPlane).order(java.nio.ByteOrder.LITTLE_ENDIAN).putInt(plane + 2, 0x7fc00000);
+            SaveValidation.game(unusedPlane);
+        }
         for (int n = 0; n < game.length; n++) {
             final int length = n;
             rejects(() -> SaveValidation.game(Arrays.copyOf(game, length)));
@@ -55,7 +95,12 @@ public final class SaveValidationTest {
         assert SaveRestoreArchive.read(new ByteArrayInputStream(archive), cache, () -> false).players == 1;
         entries.put("../G0.GS", game);
         rejects(() -> SaveRestoreArchive.read(new ByteArrayInputStream(zip(entries)), cache, () -> false));
+        byte[] tooLarge = new byte[21 * 1024 * 1024];
+        rejects(() -> SaveRestoreArchive.read(new ByteArrayInputStream(tooLarge), cache, () -> false));
         entries.remove("../G0.GS"); entries.put("saves/g0.gs", game);
+        rejects(() -> SaveRestoreArchive.read(new ByteArrayInputStream(zip(entries)), cache, () -> false));
+        entries.remove("saves/g0.gs");
+        entries.put("saves/G0.GS", new byte[SaveValidation.LIMIT + 1]);
         rejects(() -> SaveRestoreArchive.read(new ByteArrayInputStream(zip(entries)), cache, () -> false));
         rejects(() -> SaveRestoreArchive.read(new ByteArrayInputStream(archive) {
             @Override public void close() throws IOException { throw new IOException("provider close failed"); }

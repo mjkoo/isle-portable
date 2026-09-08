@@ -9,6 +9,7 @@ import androidx.lifecycle.AndroidViewModel;
 import androidx.lifecycle.MutableLiveData;
 
 import java.io.IOException;
+import java.io.File;
 import java.text.DateFormat;
 import java.util.Date;
 import java.util.concurrent.ExecutorService;
@@ -37,6 +38,9 @@ public final class SaveRestoreModel extends AndroidViewModel {
         started = true;
         id = captureId;
         worker.execute(() -> {
+            File[] abandoned = getApplication().getCacheDir().listFiles(
+                (directory, name) -> name.startsWith("save-restore-") && name.endsWith(".zip"));
+            if (abandoned != null) for (File file : abandoned) file.delete();
             String[] info;
             try { info = SettingsBridge.restoreInfo(id); }
             catch (RuntimeException | OutOfMemoryError e) { info = new String[] {"Could not read restore information.", ""}; }
