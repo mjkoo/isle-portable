@@ -383,6 +383,9 @@ Android_SaveRestore::Android_SaveRestore(std::string p_root, Checkpoint p_checkp
 {
 	Require(mkdir(m_root.c_str(), 0700) == 0 || errno == EEXIST, "Could not create private restore storage.");
 	FD root(open(m_root.c_str(), O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW));
+	// A previous attempt may have published a commit but failed its directory sync.
+	// Make that observed journal durable before allowing any subsequent game launch.
+	Sync(root.fd, m_checkpoint);
 	FD parent(open((m_root + "/..").c_str(), O_RDONLY | O_DIRECTORY | O_CLOEXEC));
 	Sync(parent.fd, m_checkpoint);
 }
@@ -471,4 +474,20 @@ bool Android_SaveRestore::Pending()
 {
 	FD root(open(m_root.c_str(), O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW));
 	return Load(root.fd).phase != 0;
+}
+
+bool Android_SaveRestore::CanCancel()
+{
+	FD root(open(m_root.c_str(), O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW));
+	return Load(root.fd).phase == 1;
+}
+
+void Android_SaveRestore::Cancel()
+{
+	FD root(open(m_root.c_str(), O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW));
+	State state = Load(root.fd);
+	Require(state.phase != 2, "Replacement has started. Recover the original saves before continuing.");
+	if (state.phase == 1) {
+		Store(root.fd, Idle(state), m_checkpoint);
+	}
 }

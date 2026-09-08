@@ -56,7 +56,8 @@ will behave correctly or that the archive came from a trusted source.
 
 If installation is interrupted, startup recovers the original complete set before
 starting the game. An unresolved storage or journal error blocks startup and offers
-Retry and Close while preserving recovery data. Free space or restore access before
+Retry and Close while preserving recovery data. Before replacement begins,
+Cancel restore can discard the request without changing saves. Free space or restore access before
 retrying. Cancelling provider I/O waits for the outstanding read to return. Process
 death before confirmation requires selecting the ZIP again; confirmed requests
 remain in private persistent storage for the next launch.

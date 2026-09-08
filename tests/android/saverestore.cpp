@@ -51,6 +51,11 @@ int main()
 	reset();
 	Android_SaveRestore store(journal);
 	store.Schedule(saves, incoming, false);
+	assert(store.CanCancel());
+	store.Cancel();
+	assert(!store.Pending());
+	old();
+	store.Schedule(saves, incoming, false);
 	old(); // Scheduling must not touch live saves.
 	Write(saves / "g0.gs", "shutdown save");
 	assert(!store.Recover(saves).empty());

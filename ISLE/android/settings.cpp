@@ -405,6 +405,32 @@ extern "C" JNIEXPORT jstring JNICALL Java_org_legoisland_isle_SettingsBridge_rec
 	}
 }
 
+extern "C" JNIEXPORT jboolean JNICALL Java_org_legoisland_isle_SettingsBridge_canCancelRestore(JNIEnv*, jclass)
+{
+	std::lock_guard<std::mutex> lock(g_restoreMutex);
+	try {
+		return g_restoreStartup && Android_SaveRestore(g_restoreRoot).CanCancel();
+	}
+	catch (...) {
+		return false;
+	}
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_org_legoisland_isle_SettingsBridge_cancelRestore(JNIEnv* p_env, jclass)
+{
+	std::lock_guard<std::mutex> lock(g_restoreMutex);
+	try {
+		if (!g_restoreStartup) {
+			throw std::runtime_error("The game has already started.");
+		}
+		Android_SaveRestore(g_restoreRoot).Cancel();
+		return p_env->NewStringUTF("OK:Restore cancelled. Existing saves were kept.");
+	}
+	catch (const std::exception& error) {
+		return p_env->NewStringUTF(error.what());
+	}
+}
+
 extern "C" JNIEXPORT jobjectArray JNICALL
 Java_org_legoisland_isle_SettingsBridge_restoreInfo(JNIEnv* p_env, jclass, jstring p_id)
 {

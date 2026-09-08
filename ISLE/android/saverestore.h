@@ -16,6 +16,8 @@ public:
 	std::string Recover(const std::string& p_destination);
 	std::string Previous(const std::string& p_destination);
 	bool Pending();
+	bool CanCancel();
+	void Cancel();
 
 private:
 	std::string m_root;

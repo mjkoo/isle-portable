@@ -8,6 +8,8 @@ final class SettingsBridge {
     }
 
     static native String recoverRestore();
+    static native boolean canCancelRestore();
+    static native String cancelRestore();
     // Error, then timestamp and empty/saved marker for the previous set.
     static native String[] restoreInfo(String id);
     static native String scheduleRestore(String id, String[] names, byte[][] data, boolean previous);
