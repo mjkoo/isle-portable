@@ -20,7 +20,10 @@ Export does not apply or discard staged settings edits. Cancellation and failed
 writes attempt to remove the newly created output. If the provider refuses removal,
 the error identifies the potentially incomplete document. Closing Settings is
 disabled during export; cancellation must wait for an outstanding provider I/O call
-to return. Process death interrupts export, and a fresh menu capture is required.
+to return. After process death, recovery preserves any recorded destination and
+shows its location for inspection: the document may be complete or incomplete.
+This also protects completed exports when saving the recovery information fails.
+A fresh menu capture is required to export again after process death.
 
 To transfer to desktop, close the desktop game, preserve its existing saves, and
 extract the ZIP's `saves/` contents into the desktop game's configured save

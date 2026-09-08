@@ -10,13 +10,18 @@ The archive/stream tests run on Java 17 without an Android device:
 mkdir -p build/save-export-java-tests
 javac -d build/save-export-java-tests \
   CONFIG/android/src/main/java/org/legoisland/isle/SaveArchive.java \
-  tests/android/java/org/legoisland/isle/SaveArchiveTest.java
+  CONFIG/android/src/main/java/org/legoisland/isle/SaveExportJournal.java \
+  tests/android/java/org/legoisland/isle/SaveArchiveTest.java \
+  tests/android/java/org/legoisland/isle/SaveExportJournalTest.java
 java -cp build/save-export-java-tests org.legoisland.isle.SaveArchiveTest
+java -cp build/save-export-java-tests org.legoisland.isle.SaveExportJournalTest
 ```
 
 Run these commands inside `nix develop .#android` if Java is unavailable. They cover
 archive contents and CRC validation, invalid names, limits, cancellation, failed
-destination writes and failed stream closure.
+destination writes and failed stream closure. Journal tests cover failed completion
+persistence followed by process restart, repeated recovery, preservation of completed
+and partial output, and failed writes before export starts.
 
 For export runtime validation, exercise Settings > Data > Export saves on both a
 debug and minified release APK. Check empty/partial sets, registered-player progress,

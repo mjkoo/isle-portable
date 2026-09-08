@@ -34,7 +34,7 @@ public final class SaveExportModel extends AndroidViewModel {
     private final ExecutorService worker = Executors.newSingleThreadExecutor();
     private final Handler main = new Handler(Looper.getMainLooper());
     private final AtomicBoolean cancelled = new AtomicBoolean();
-    private final SharedPreferences journal;
+    private final SaveExportJournal journal;
     private final ContentResolver resolver;
     private final File cache;
     private boolean started;
@@ -46,7 +46,14 @@ public final class SaveExportModel extends AndroidViewModel {
 
     public SaveExportModel(Application application) {
         super(application);
-        journal = application.getSharedPreferences("save-export", 0);
+        SharedPreferences preferences = application.getSharedPreferences("save-export", 0);
+        journal = new SaveExportJournal(new SaveExportJournal.Store() {
+            @Override public boolean isActive() { return preferences.getBoolean("active", false); }
+            @Override public String destination() { return preferences.getString("uri", null); }
+            @Override public boolean begin() { return preferences.edit().putBoolean("active", true).remove("uri").commit(); }
+            @Override public boolean recordDestination(String uri) { return preferences.edit().putString("uri", uri).commit(); }
+            @Override public boolean clear() { return preferences.edit().clear().commit(); }
+        });
         resolver = application.getContentResolver();
         cache = application.getCacheDir();
     }
@@ -56,13 +63,7 @@ public final class SaveExportModel extends AndroidViewModel {
         started = true;
         id = snapshotId;
         worker.execute(() -> {
-            String interrupted = null;
-            if (journal.getBoolean("active", false) || wasBusy) {
-                interrupted = "Export was interrupted. Reopen the game and its menu to capture saves again.";
-                String destination = journal.getString("uri", null);
-                if (destination != null) interrupted += deleteDestination(Uri.parse(destination));
-                journal.edit().clear().commit();
-            }
+            String interrupted = journal.recover(wasBusy);
             File[] leftovers = cache.listFiles((dir, name) -> name.startsWith("save-export-") && name.endsWith(".zip"));
             if (leftovers != null) for (File file : leftovers) file.delete();
             String[] metadata;
@@ -116,9 +117,7 @@ public final class SaveExportModel extends AndroidViewModel {
         worker.execute(() -> {
             try {
                 SaveArchive.checkCancelled(cancelled::get);
-                if (!journal.edit().putBoolean("active", true).remove("uri").commit()) {
-                    throw new IOException("Could not record export state. Try again.");
-                }
+                journal.begin();
                 archive = SaveArchive.create(cache, Arrays.copyOfRange(info, 3, info.length),
                     SettingsBridge.exportData(id), cancelled::get);
                 main.post(() -> {
@@ -150,9 +149,7 @@ public final class SaveExportModel extends AndroidViewModel {
         worker.execute(() -> {
             String failure = null;
             try {
-                if (!journal.edit().putString("uri", uri.toString()).commit()) {
-                    throw new IOException("Could not record the export destination.");
-                }
+                journal.recordDestination(uri.toString());
                 SaveArchive.checkCancelled(cancelled::get);
                 SaveArchive.transfer(archive, resolver.openOutputStream(uri, "w"), cancelled::get);
                 SaveArchive.checkCancelled(cancelled::get);
@@ -191,11 +188,11 @@ public final class SaveExportModel extends AndroidViewModel {
     // Runs on the worker; completion is published only after streams and temporary files are closed.
     private void finish(String text, boolean success) {
         if (archive != null) { archive.delete(); archive = null; }
-        journal.edit().clear().commit();
+        String warning = journal.clear();
         main.post(() -> {
             if (cleared) return;
-            message = text;
-            phase.setValue(success ? Phase.DONE : Phase.ERROR);
+            message = warning == null ? text : text + warning;
+            phase.setValue(success && warning == null ? Phase.DONE : Phase.ERROR);
         });
     }
 
