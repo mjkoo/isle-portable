@@ -312,6 +312,20 @@ extern "C" JNIEXPORT jstring JNICALL Java_org_legoisland_isle_SettingsBridge_wri
 
 namespace
 {
+void EnsureDefaultRestoreDirectory(const std::string& p_path)
+{
+	const char* internal = SDL_GetAndroidInternalStoragePath();
+	if (!internal || !*internal) {
+		throw std::runtime_error("Internal storage is unavailable.");
+	}
+	std::string fallback = std::string(internal) + "/saves";
+	if (p_path == fallback || p_path == fallback + "/") {
+		if (mkdir(fallback.c_str(), 0700) != 0 && errno != EEXIST) {
+			throw std::runtime_error("Could not create the default save directory.");
+		}
+	}
+}
+
 std::string RestoreDestination()
 {
 	const char* internal = SDL_GetAndroidInternalStoragePath();
@@ -323,11 +337,7 @@ std::string RestoreDestination()
 	if (!error.empty()) {
 		throw std::runtime_error(error);
 	}
-	if (path == fallback) {
-		if (mkdir(path.c_str(), 0700) != 0 && errno != EEXIST) {
-			throw std::runtime_error("Could not create the default save directory.");
-		}
-	}
+	EnsureDefaultRestoreDirectory(path);
 	return path;
 }
 std::string MenuRestorePath(JNIEnv* p_env, jstring p_id)
@@ -489,6 +499,7 @@ extern "C" JNIEXPORT jstring JNICALL Java_org_legoisland_isle_SettingsBridge_sch
 				files.push_back(std::move(file));
 			}
 		}
+		EnsureDefaultRestoreDirectory(path);
 		Android_SaveRestore(g_restoreRoot).Schedule(path, files, p_previous);
 		g_restoreQuit = true;
 		return nullptr;
