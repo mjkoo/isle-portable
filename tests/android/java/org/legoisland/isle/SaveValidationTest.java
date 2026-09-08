@@ -56,7 +56,61 @@ public final class SaveValidationTest {
         number(out, 0, 2);
         return out.toByteArray();
     }
+    static byte[] withVariable(String name, String value) throws Exception {
+        byte[] base = allStates();
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        out.write(base, 0, 9);
+        byte[] key = name.getBytes(java.nio.charset.StandardCharsets.US_ASCII);
+        byte[] text = value.getBytes(java.nio.charset.StandardCharsets.US_ASCII);
+        out.write(key.length); out.write(key); out.write(text.length); out.write(text);
+        out.write(base, 9, base.length - 9);
+        return out.toByteArray();
+    }
+    static byte[] withPlacedParts(String state, int count) throws Exception {
+        byte[] game = allStates();
+        byte[] marker = state.getBytes(java.nio.charset.StandardCharsets.US_ASCII);
+        for (int i = 0; i < game.length - marker.length - 3; i++) {
+            if (Arrays.equals(Arrays.copyOfRange(game, i, i + marker.length), marker)) {
+                game[i + marker.length + 3] = (byte) count;
+                return game;
+            }
+        }
+        throw new AssertionError("Missing build state");
+    }
+    static void variableValidation() throws Exception {
+        for (String name : new String[] {"CAMERA_LOCATION", "VISIBILITY", "WHO_AM_I", "unknown"}) {
+            rejects(() -> SaveValidation.game(withVariable(name, "")));
+        }
+        for (String value : new String[] {"", " \t", "set", "set 1 2", "set 1 2 3 extra",
+                "set -1 0 0", "set 0 101 0", "set 0 0 NaN", "set 999999999999999 0 0"}) {
+            rejects(() -> SaveValidation.game(withVariable("backgroundcolor", value)));
+        }
+        for (String value : new String[] {"set 0 0 0", "set 100 100 100", "set 56 54 68", "reset"}) {
+            SaveValidation.game(withVariable("backgroundcolor", value));
+        }
+        for (String value : new String[] {"0", "5"}) SaveValidation.game(withVariable("lightposition", value));
+        for (String value : new String[] {"", "-1", "6", "1x", "999999999999999"}) {
+            rejects(() -> SaveValidation.game(withVariable("lightposition", value)));
+        }
+        SaveValidation.game(withVariable("c_chbasey0", "lego black"));
+        rejects(() -> SaveValidation.game(withVariable("c_chbasey0", "")));
+        rejects(() -> SaveValidation.game(withVariable("c_chbasey0", "unknown")));
+    }
+    static void buildValidation() throws Exception {
+        String[] states = {"LegoJetskiBuildState", "LegoCopterBuildState", "LegoDuneCarBuildState", "LegoRaceCarBuildState"};
+        int[] counts = {9, 15, 8, 11};
+        for (int i = 0; i < states.length; i++) {
+            final String state = states[i];
+            final int count = counts[i];
+            SaveValidation.game(withPlacedParts(state, 0));
+            SaveValidation.game(withPlacedParts(state, count));
+            rejects(() -> SaveValidation.game(withPlacedParts(state, count + 1)));
+            rejects(() -> SaveValidation.game(withPlacedParts(state, 255)));
+        }
+    }
     public static void main(String[] args) throws Exception {
+        variableValidation();
+        buildValidation();
         SaveValidation.game(allStates());
         byte[] game = Files.readAllBytes(Path.of("docs/samples/G0.GS"));
         SaveValidation.game(game);

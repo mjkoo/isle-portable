@@ -2,6 +2,7 @@ package org.legoisland.isle;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
@@ -9,6 +10,21 @@ import java.util.Set;
 /** Bounded, read-only parsing of the engine's little-endian save format. */
 final class SaveValidation {
     static final int LIMIT = 16 * 1024 * 1024;
+    // These are the color variables emitted by the retail save writer.
+    private static final Set<String> COLOR_VARIABLES = new HashSet<>(Arrays.asList(
+        "c_dbbkfny0", "c_dbbkxly0", "c_chbasey0", "c_chbacky0",
+        "c_chdishy0", "c_chhorny0", "c_chljety1", "c_chrjety1",
+        "c_chmidly0", "c_chmotry0", "c_chsidly0", "c_chsidry0",
+        "c_chstuty0", "c_chtaily0", "c_chwindy1", "c_dbfbrdy0",
+        "c_dbflagy0", "c_dbfrfny4", "c_dbfrxly0", "c_dbhndly0",
+        "c_dbltbry0", "c_jsdashy0", "c_jsexhy0", "c_jsfrnty5",
+        "c_jshndly0", "c_jslsidy0", "c_jsrsidy0", "c_jsskiby0",
+        "c_jswnshy5", "c_rcbacky6", "c_rcedgey0", "c_rcfrmey0",
+        "c_rcfrnty6", "c_rcmotry0", "c_rcsidey0", "c_rcstery0",
+        "c_rcstrpy0", "c_rctailya", "c_rcwhl1y0", "c_rcwhl2y0",
+        "c_jsbasey0", "c_chblady0", "c_chseaty0"));
+    private static final Set<String> COLORS = new HashSet<>(Arrays.asList(
+        "lego white", "lego black", "lego yellow", "lego red", "lego blue", "lego brown", "lego lt grey", "lego green"));
     private SaveValidation() { }
 
     static int validate(Map<String, byte[]> files) throws IOException {
@@ -52,13 +68,7 @@ final class SaveValidation {
         r.s16();
         range(r.s16(), 0, 2);
         range(r.u8(), 0, 5);
-        Set<String> variables = new HashSet<>();
-        for (;;) {
-            String name = r.string(r.u8(), 255);
-            if (name.equals("END_OF_VARIABLES")) break;
-            require(!name.isEmpty() && variables.add(name) && variables.size() <= 128, "Invalid variables.");
-            r.string(r.u8(), 255);
-        }
+        variables(r);
         for (int i = 0; i < 66; i++) {
             r.skip(8); // Sound and movement are script offsets, not file lengths.
             r.u8();
@@ -101,9 +111,12 @@ final class SaveValidation {
                         require(r.u8() == j, "Invalid race actor index."); score(r); score(r);
                     }
                     break;
-                case "LegoJetskiBuildState": case "LegoCopterBuildState":
-                case "LegoDuneCarBuildState": case "LegoRaceCarBuildState":
-                    r.u8(); range(r.u8(), 0, 1); range(r.u8(), 0, 1); r.u8(); break;
+                // Part counts come from the retail build animation trees. All three
+                // variants of each vehicle contain the same number of placeable parts.
+                case "LegoJetskiBuildState": vehicleBuild(r, 9); break;
+                case "LegoCopterBuildState": vehicleBuild(r, 15); break;
+                case "LegoDuneCarBuildState": vehicleBuild(r, 8); break;
+                case "LegoRaceCarBuildState": vehicleBuild(r, 11); break;
                 case "AnimState":
                     long extra = r.u32(), animations = r.u32();
                     // Retail island animation data has 369 entries. The game copies
@@ -122,6 +135,46 @@ final class SaveValidation {
         }
         r.s16();
         r.end();
+    }
+
+    private static void variables(Reader r) throws IOException {
+        Set<String> seen = new HashSet<>();
+        for (;;) {
+            String name = r.string(r.u8(), 255);
+            if (name.equals("END_OF_VARIABLES")) return;
+            require(seen.add(name), "Duplicate saved-game variable.");
+            String value = r.string(r.u8(), 255);
+            // The engine dispatches variable names to setters, some of which assume
+            // valid commands. Length checks alone do not make arbitrary variables safe.
+            if (COLOR_VARIABLES.contains(name)) {
+                require(COLORS.contains(value), "Unsupported saved part color.");
+            } else if (name.equals("lightposition")) {
+                decimal(value, 5);
+            } else if (name.equals("backgroundcolor")) {
+                backgroundColor(value);
+            } else {
+                throw new IOException("Unsupported saved-game variable: " + name + ".");
+            }
+        }
+    }
+
+    private static void backgroundColor(String value) throws IOException {
+        if (value.equals("reset")) return;
+        String[] fields = value.split("[ \t]+", -1);
+        require(fields.length == 4 && fields[0].equals("set"), "Invalid saved background color.");
+        for (int i = 1; i < fields.length; i++) decimal(fields[i], 100);
+    }
+
+    private static void decimal(String value, int max) throws IOException {
+        require(value.matches("[0-9]{1,3}"), "Invalid saved numeric variable.");
+        range(Integer.parseInt(value), 0, max);
+    }
+
+    private static void vehicleBuild(Reader r, int parts) throws IOException {
+        r.u8(); // Introduction counter wraps as an unsigned byte.
+        range(r.u8(), 0, 1);
+        range(r.u8(), 0, 1);
+        range(r.u8(), 0, parts);
     }
 
     private static void score(Reader r) throws IOException { range(r.s16(), 0, 3); }

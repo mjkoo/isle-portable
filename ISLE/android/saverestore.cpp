@@ -462,6 +462,13 @@ std::string Android_SaveRestore::Previous(const std::string& p_destination)
 	if (state.phase || !state.previousTime) {
 		return {};
 	}
+	// A missing destination has no usable backup identity. Keep this advisory
+	// lookup read-only so a new ZIP can still be selected and scheduled there.
+	struct stat info;
+	if (!p_destination.empty() && p_destination[0] == '/' && p_destination.find('\0') == std::string::npos &&
+		lstat(p_destination.c_str(), &info) != 0 && errno == ENOENT) {
+		return {};
+	}
 	std::string path = Canonical(p_destination);
 	FD directory(open(path.c_str(), O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW));
 	if (state.previousPath != path || state.previousIdentity != Identity(directory.fd)) {

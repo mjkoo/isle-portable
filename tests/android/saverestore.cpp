@@ -67,6 +67,19 @@ int main()
 	assert(store.Previous(saves).empty());
 	assert(store.Recover(saves).empty());
 
+	// Missing destinations have no usable previous copy but must not block selecting
+	// a new archive. Only scheduling is allowed to create the default directory.
+	reset();
+	store.Schedule(saves, incoming, false);
+	store.Recover(saves);
+	fs::remove_all(saves);
+	assert(store.Previous(saves).empty());
+	assert(!fs::exists(saves));
+	fs::create_directory(saves);
+	store.Schedule(saves, incoming, false);
+	store.Recover(saves);
+	assert(Read(saves / "G0.GS") == std::string("\1\2\3", 3));
+
 	// Interrupt after every filesystem checkpoint. Reopening must settle on one
 	// complete generation, including when the commit rename happened before sync.
 	int checkpoints = 0;

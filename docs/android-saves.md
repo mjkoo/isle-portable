@@ -50,7 +50,9 @@ Partial exports remain useful for manual salvage but cannot be restored here.
 Unsupported versions, serialized states, extra entries, ambiguous names, unsafe
 paths and damaged archives are rejected. The limits are 20 MiB for the ZIP and
 16 MiB for expanded saves. Binary validation supports the retail save format,
-including its island animation table; modified formats are not supported.
+including its island animation table and vehicle build limits. Saved variables are
+restricted to the writer's color and lighting settings with checked values; modified
+formats are not supported.
 Checks establish structural compatibility, not that every saved gameplay state
 will behave correctly or that the archive came from a trusted source.
 

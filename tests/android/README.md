@@ -83,6 +83,14 @@ one complete generation and must not replay committed installation over new save
 The test can also run as an Android native executable with TMPDIR set to a writable
 directory. It does not need assets or alter the installed game's saves.
 
+Standalone Java validation tests cover variable names and command syntax, numeric
+bounds, and vehicle part counts in addition to archive structure. Retail jetski,
+copter, dune car and race car builds have 9, 15, 8 and 11 placeable parts respectively;
+each count is shared by all three build animation variants. Test both the completed
+count and the first invalid count to preserve valid progress while rejecting unsafe
+array indexes. Missing-directory recovery tests also verify that an unavailable
+previous backup does not prevent selecting a new ZIP.
+
 Standalone Java validation tests use the same JDK as the Android build:
 
 ```sh
