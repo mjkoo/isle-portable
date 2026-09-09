@@ -458,9 +458,6 @@ public final class SettingsActivity extends AppCompatActivity {
                 } else {
                     ListPreference list = new ListPreference(requireContext());
                     list.setSummaryProvider(ListPreference.SimpleSummaryProvider.getInstance());
-                    if ("isle:touch scheme".equals(control.key)) {
-                        list.setSummaryProvider(p -> list.getEntry() + " (no control overlay)");
-                    }
                     preference = list;
                 }
                 preference.setIconSpaceReserved(false);

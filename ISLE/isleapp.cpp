@@ -496,7 +496,7 @@ static void CancelInputForQuitPrompt()
 	g_lastJoystickMouseY = 0;
 	g_dpadUp = g_dpadDown = g_dpadLeft = g_dpadRight = false;
 
-	if (Lego() && InputManager()) {
+	if (g_isle && Lego() && InputManager()) {
 		InputManager()->CancelPointerInput();
 	}
 	if (window) {
