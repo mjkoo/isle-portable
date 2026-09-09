@@ -59,7 +59,7 @@ public class IsleActivity extends SDLActivity {
         RelativeLayout.LayoutParams escapeParams = new RelativeLayout.LayoutParams(actionWidth, size);
         escapeParams.addRule(RelativeLayout.LEFT_OF, mMenuButton.getId());
         escapeParams.addRule(RelativeLayout.ALIGN_TOP, mMenuButton.getId());
-        escapeParams.rightMargin = margin;
+        // LEFT_OF already includes the menu button's left margin.
         mLayout.addView(escape, escapeParams);
         RelativeLayout.LayoutParams spaceParams = new RelativeLayout.LayoutParams(actionWidth, size);
         spaceParams.addRule(RelativeLayout.LEFT_OF, escape.getId());

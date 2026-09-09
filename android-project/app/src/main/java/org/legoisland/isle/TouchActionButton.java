@@ -7,7 +7,8 @@ import android.view.MotionEvent;
 import android.widget.Button;
 
 /** Owns only gestures that begin on this target; other fingers stay with the SDL surface. */
-@SuppressLint("ViewConstructor")
+// SDLActivity uses a platform theme, so this view deliberately uses the platform Button.
+@SuppressLint({"ViewConstructor", "AppCompatCustomView"})
 final class TouchActionButton extends Button {
     private final int action;
     private long generation, pressedGeneration;
