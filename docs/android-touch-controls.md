@@ -25,3 +25,15 @@ The hints are visual feedback only. Existing game clicks and dragging still reac
 the game. Virtual mouse and Disabled have no movement hints. Physical mouse,
 keyboard or controller use hides the hints; touchscreen use restores them. Menus,
 Settings and backgrounding hide them as well. The game menu button stays separate.
+
+The **Space** and **Esc** buttons beside the menu send the corresponding game keys.
+Space can interrupt animations or end free navigation; Esc can return to the
+infocenter. Their effect depends on the current scene. Esc does not open the Android
+menu. The existing double-tap gesture still sends Space.
+
+Tap and release inside a button to activate it once. Holding does not repeat.
+Dragging outside cancels that press, even if you drag back in. Button touches do
+not move the player or click the scene. You can hold movement with one finger and
+tap an action with another. A finger that starts on the game image stays with the
+game when dragged across a button. Hiding controls, pausing, changing focus or
+resizing cancels pending button presses; returning to play never replays them.

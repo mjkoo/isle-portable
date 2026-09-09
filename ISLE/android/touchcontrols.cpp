@@ -12,6 +12,7 @@
 static std::array<jfloat, 12> g_touchSnapshot{};
 static std::mutex g_touchMutex;
 static jlong g_touchRevision = 0;
+static TouchActions g_touchActions;
 static bool g_touchUiActive = false;
 static std::atomic<bool> g_touchResetRequested{false};
 static bool g_touchControlsEnabled = true;
@@ -66,6 +67,7 @@ void Android_ClearTouchControls()
 {
 	std::lock_guard<std::mutex> lock(g_touchMutex);
 	g_touchSnapshot = {};
+	g_touchActions.Invalidate();
 	++g_touchRevision;
 }
 
@@ -112,6 +114,7 @@ void Android_PublishTouchControls(
 	if (!g_touchUiActive || g_touchResetRequested.load()) {
 		snapshot = {};
 	}
+	g_touchActions.SetAvailable(snapshot[0] != 0);
 	if (g_touchSnapshot != snapshot) {
 		g_touchSnapshot = snapshot;
 		++g_touchRevision;
@@ -125,16 +128,37 @@ Java_org_legoisland_isle_TouchControlsView_setNativeActive(JNIEnv*, jclass, jboo
 	g_touchUiActive = p_active;
 	g_touchResetRequested.store(true);
 	g_touchSnapshot = {};
+	g_touchActions.Invalidate();
 	++g_touchRevision;
 }
 
-extern "C" JNIEXPORT jlong JNICALL
-Java_org_legoisland_isle_TouchControlsView_readNativeState(JNIEnv* p_env, jclass, jfloatArray p_output)
+extern "C" JNIEXPORT jlong JNICALL Java_org_legoisland_isle_TouchControlsView_readNativeState(
+	JNIEnv* p_env,
+	jclass,
+	jfloatArray p_output,
+	jlongArray p_generation
+)
 {
-	if (!p_output || p_env->GetArrayLength(p_output) != static_cast<jsize>(g_touchSnapshot.size())) {
+	if (!p_output || !p_generation || p_env->GetArrayLength(p_generation) != 1 ||
+		p_env->GetArrayLength(p_output) != static_cast<jsize>(g_touchSnapshot.size())) {
 		return -1;
 	}
 	std::lock_guard<std::mutex> lock(g_touchMutex);
 	p_env->SetFloatArrayRegion(p_output, 0, g_touchSnapshot.size(), g_touchSnapshot.data());
+	jlong generation = g_touchActions.Generation();
+	p_env->SetLongArrayRegion(p_generation, 0, 1, &generation);
 	return g_touchRevision;
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_org_legoisland_isle_TouchControlsView_submitAction(JNIEnv*, jclass, jint p_action, jlong p_generation)
+{
+	std::lock_guard<std::mutex> lock(g_touchMutex);
+	g_touchActions.Submit(p_action, p_generation);
+}
+
+TouchActions::Action Android_TakeTouchAction()
+{
+	std::lock_guard<std::mutex> lock(g_touchMutex);
+	return g_touchActions.Take();
 }

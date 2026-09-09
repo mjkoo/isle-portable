@@ -751,6 +751,19 @@ SDL_AppResult SDL_AppIterate(void* appstate)
 	}
 #endif
 
+#ifdef ANDROID
+	// Refresh readiness before each request: an earlier action may have changed the game state.
+	for (int i = 0; i < 16; ++i) {
+		PublishTouchControls();
+		TouchActions::Action action = Android_TakeTouchAction();
+		if (action == TouchActions::e_none) {
+			break;
+		}
+		SDL_Keycode key = action == TouchActions::e_space ? SDLK_SPACE : SDLK_ESCAPE;
+		InputManager()->QueueEvent(c_notificationKeyPress, key, 0, 0, key);
+	}
+#endif
+
 	if (g_closed) {
 		return SDL_APP_SUCCESS;
 	}

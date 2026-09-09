@@ -20,7 +20,17 @@ final class TouchControlsView extends View {
     private static final int IDLE_ALPHA = 90, ACTIVE_ALPHA = 220;
 
     private static native void setNativeActive(boolean active);
-    private static native long readNativeState(float[] output);
+    private static native long readNativeState(float[] output, long[] generation);
+    static native void submitAction(int action, long generation);
+    private final long[] actionGeneration = new long[1];
+    private TouchActionButton[] buttons = new TouchActionButton[0];
+
+    void setActionButtons(TouchActionButton... buttons) { this.buttons = buttons; }
+
+    private void updateActions() {
+        long generation = running && state[VISIBLE] != 0 ? actionGeneration[0] : 0;
+        for (TouchActionButton button : buttons) button.updateGeneration(generation);
+    }
 
     private final View surface;
     private final float density;
@@ -51,6 +61,7 @@ final class TouchControlsView extends View {
         // Invalidate the cached native sample as well, so resume cannot replay held input.
         setNativeActive(enabled);
         state[VISIBLE] = 0;
+        updateActions();
         revision = -1;
         invalidate();
         if (enabled) postOnAnimation(frame);
@@ -59,7 +70,7 @@ final class TouchControlsView extends View {
     private final Runnable frame = new Runnable() {
         @Override public void run() {
             if (!running) return;
-            long nextRevision = readNativeState(state);
+            long nextRevision = readNativeState(state, actionGeneration);
             surface.getLocationInWindow(surfaceLocation);
             getLocationInWindow(overlayLocation);
             float left = surfaceLocation[0] - overlayLocation[0];
@@ -70,6 +81,7 @@ final class TouchControlsView extends View {
                 || surfaceBounds.right != right || surfaceBounds.bottom != bottom;
             surfaceBounds.set(left, top, right, bottom);
             if (nextRevision < 0) state[VISIBLE] = 0;
+            updateActions();
             if (nextRevision != revision || moved) {
                 revision = nextRevision;
                 invalidate();

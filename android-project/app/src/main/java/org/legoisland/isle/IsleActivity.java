@@ -34,10 +34,16 @@ public class IsleActivity extends SDLActivity {
     @Override protected void onCreate(Bundle state) {
         super.onCreate(state);
         if (mLayout == null) return;
+        mLayout.setMotionEventSplittingEnabled(true);
         mTouchControls = new TouchControlsView(this, mSurface);
         mLayout.addView(mTouchControls, new RelativeLayout.LayoutParams(
             RelativeLayout.LayoutParams.MATCH_PARENT, RelativeLayout.LayoutParams.MATCH_PARENT));
+        TouchActionButton space = new TouchActionButton(this, "Space", 1);
+        TouchActionButton escape = new TouchActionButton(this, "Esc", 2);
+        mTouchControls.setActionButtons(space, escape);
         mMenuButton = new ImageButton(this);
+        mMenuButton.setId(View.generateViewId());
+        escape.setId(View.generateViewId());
         mMenuButton.setImageResource(R.drawable.game_menu);
         mMenuButton.setBackgroundResource(R.drawable.game_menu_background);
         mMenuButton.setContentDescription("Game menu");
@@ -49,6 +55,17 @@ public class IsleActivity extends SDLActivity {
         params.addRule(RelativeLayout.ALIGN_PARENT_RIGHT);
         params.setMargins(margin, margin, margin, margin);
         mLayout.addView(mMenuButton, params);
+        int actionWidth = (int) (64 * getResources().getDisplayMetrics().density + 0.5f);
+        RelativeLayout.LayoutParams escapeParams = new RelativeLayout.LayoutParams(actionWidth, size);
+        escapeParams.addRule(RelativeLayout.LEFT_OF, mMenuButton.getId());
+        escapeParams.addRule(RelativeLayout.ALIGN_TOP, mMenuButton.getId());
+        escapeParams.rightMargin = margin;
+        mLayout.addView(escape, escapeParams);
+        RelativeLayout.LayoutParams spaceParams = new RelativeLayout.LayoutParams(actionWidth, size);
+        spaceParams.addRule(RelativeLayout.LEFT_OF, escape.getId());
+        spaceParams.addRule(RelativeLayout.ALIGN_TOP, mMenuButton.getId());
+        spaceParams.rightMargin = margin;
+        mLayout.addView(space, spaceParams);
         mMenuButton.setOnApplyWindowInsetsListener((view, insets) -> {
             int right = insets.getSystemWindowInsetRight();
             int top = insets.getSystemWindowInsetTop();
