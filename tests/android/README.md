@@ -102,6 +102,23 @@ javac -d build/android-restore-java \
 java -ea -cp build/android-restore-java org.legoisland.isle.SaveValidationTest
 ```
 
+Startup-gate tests exercise destruction before work starts, during native recovery,
+and after worker completion with the UI callback still queued. An abandoned gate
+must remain pending while native work runs, then close without draining the UI
+queue. Normal startup still waits for the UI to handle the result or retry.
+
+```sh
+javac -d build/android-restore-java \
+  android-project/app/src/main/java/org/legoisland/isle/SaveRestoreGate.java \
+  tests/android/java/org/legoisland/isle/SaveRestoreGateTest.java
+java -ea -cp build/android-restore-java org.legoisland.isle.SaveRestoreGateTest
+```
+
+Native tests also cover abandoned journal writes with and without a previous backup,
+interrupted cleanup, and preservation of both journal files when published state is
+corrupt. Startup removes an unreferenced temporary write only after establishing
+valid authoritative state.
+
 For device acceptance, preserve the device's config and saves first. Transfer a
 newly registered player's export between independent Android installations through
 the document picker, confirm replacement, and reopen. Verify player identities,

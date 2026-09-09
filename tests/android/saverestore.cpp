@@ -138,6 +138,69 @@ int main()
 		}
 	}
 
+	// A write interrupted before publication must not retain private disk space
+	// once startup has established the authoritative state (including no journal).
+	for (bool hasBackup : {false, true}) {
+		reset();
+		if (hasBackup) {
+			store.Schedule(saves, incoming, false);
+			store.Recover(saves);
+		}
+		std::string published = Read(journal / "state");
+		try {
+			Android_SaveRestore(journal, [](const char* point) {
+				if (std::string(point) == "close") {
+					throw std::runtime_error("unpublished request");
+				}
+			}).Schedule(saves, incoming, false);
+			assert(false);
+		}
+		catch (const std::runtime_error&) {
+		}
+		assert(fs::file_size(journal / "state.tmp") > 0);
+		Android_SaveRestore reopened(journal);
+		assert(!reopened.Pending());
+		assert(!fs::exists(journal / "state.tmp"));
+		assert(Read(journal / "state") == published);
+		if (hasBackup) {
+			assert(!reopened.Previous(saves).empty());
+			fresh();
+		}
+		else {
+			old();
+		}
+	}
+
+	reset();
+	Write(journal / "state.tmp", "abandoned");
+	try {
+		Android_SaveRestore interruptedCleanup(journal, [](const char* point) {
+			if (std::string(point) == "remove") {
+				throw std::runtime_error("cleanup interrupted before sync");
+			}
+		});
+		assert(false);
+	}
+	catch (const std::runtime_error&) {
+	}
+	assert(!Android_SaveRestore(journal).Pending());
+	assert(!fs::exists(journal / "state.tmp"));
+	old();
+
+	// Cleanup must preserve both files when the published journal is unreadable.
+	reset();
+	Write(journal / "state", "damaged");
+	Write(journal / "state.tmp", "keep evidence");
+	try {
+		Android_SaveRestore reopened(journal);
+		assert(false);
+	}
+	catch (const std::runtime_error&) {
+	}
+	assert(Read(journal / "state") == "damaged");
+	assert(Read(journal / "state.tmp") == "keep evidence");
+	old();
+
 	// Fail rollback itself, then retry. The earlier recovery copy must survive.
 	reset();
 	store.Schedule(saves, incoming, false);

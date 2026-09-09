@@ -388,6 +388,18 @@ Android_SaveRestore::Android_SaveRestore(std::string p_root, Checkpoint p_checkp
 	Sync(root.fd, m_checkpoint);
 	FD parent(open((m_root + "/..").c_str(), O_RDONLY | O_DIRECTORY | O_CLOEXEC));
 	Sync(parent.fd, m_checkpoint);
+	struct stat temporary;
+	if (fstatat(root.fd, "state.tmp", &temporary, AT_SYMLINK_NOFOLLOW) == 0) {
+		// Only the published journal is authoritative. Validate it before discarding
+		// an interrupted write, preserving all evidence if recovery state is damaged.
+		Load(root.fd);
+		Require(S_ISREG(temporary.st_mode), "Unexpected restore temporary entry. Recovery data was preserved.");
+		Remove(root.fd, "state.tmp", m_checkpoint);
+		Sync(root.fd, m_checkpoint);
+	}
+	else {
+		Require(errno == ENOENT, "Could not inspect temporary restore storage.");
+	}
 }
 
 void Android_SaveRestore::Schedule(const std::string& p_destination, const Files& p_files, bool p_previous)
