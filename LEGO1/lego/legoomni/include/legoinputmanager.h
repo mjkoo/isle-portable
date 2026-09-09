@@ -8,6 +8,7 @@
 #include "mxlist.h"
 #include "mxpresenter.h"
 #include "mxqueue.h"
+#include "touchmovement.h"
 
 #include <SDL3/SDL_haptic.h>
 #include <SDL3/SDL_joystick.h>
@@ -164,6 +165,7 @@ public:
 	LEGO1_EXPORT void AddJoystick(SDL_JoystickID p_joystickID);
 	LEGO1_EXPORT void RemoveJoystick(SDL_JoystickID p_joystickID);
 	LEGO1_EXPORT MxBool HandleTouchEvent(SDL_Event* p_event, TouchScheme p_touchScheme);
+	LEGO1_EXPORT TouchMovement::State GetTouchMovementState() const;
 	LEGO1_EXPORT void CancelPointerInput();
 	LEGO1_EXPORT MxBool
 	HandleRumbleEvent(float p_strength, float p_lowFrequencyRumble, float p_highFrequencyRumble, MxU32 p_milliseconds);
@@ -208,7 +210,7 @@ private:
 	MxBool m_wasd;
 	TouchScheme m_touchScheme = e_none;
 	SDL_Point m_touchVirtualThumb = {0, 0};
-	SDL_FPoint m_touchVirtualThumbOrigin;
+	SDL_FPoint m_touchVirtualThumbOrigin = {0, 0};
 	SDL_FingerID m_touchFinger = 0;
 	std::map<SDL_FingerID, MxU32> m_touchFlags;
 	std::map<SDL_KeyboardID, std::pair<void*, void*>> m_keyboards;

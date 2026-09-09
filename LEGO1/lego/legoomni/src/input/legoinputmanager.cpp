@@ -685,6 +685,26 @@ void LegoInputManager::CancelPointerInput()
 	Extension<ThirdPersonCameraExt>::Call(TP::CancelPointerInput);
 }
 
+TouchMovement::State LegoInputManager::GetTouchMovementState() const
+{
+	static_assert(c_left == static_cast<int>(TouchMovement::Left));
+	static_assert(c_right == static_cast<int>(TouchMovement::Right));
+	static_assert(c_up == static_cast<int>(TouchMovement::Up));
+	static_assert(c_down == static_cast<int>(TouchMovement::Down));
+	TouchMovement::State state;
+	if (m_touchScheme == e_gamepad && m_touchFinger) {
+		state.stickActive = true;
+		state.origin = m_touchVirtualThumbOrigin;
+		state.axes = {m_touchVirtualThumb.x / 32767.0f, m_touchVirtualThumb.y / 32767.0f};
+	}
+	if (m_touchScheme == e_arrowKeys) {
+		for (const auto& [finger, flags] : m_touchFlags) {
+			state.directions |= flags;
+		}
+	}
+	return state;
+}
+
 MxBool LegoInputManager::HandleTouchEvent(SDL_Event* p_event, TouchScheme p_touchScheme)
 {
 	if (Extension<ThirdPersonCameraExt>::Call(TP::HandleTouchInput, p_event).value_or(FALSE)) {
@@ -699,66 +719,11 @@ MxBool LegoInputManager::HandleTouchEvent(SDL_Event* p_event, TouchScheme p_touc
 		// Handled in LegoCameraController
 		return FALSE;
 	case e_arrowKeys:
-		switch (p_event->type) {
-		case SDL_EVENT_FINGER_UP:
-		case SDL_EVENT_FINGER_CANCELED:
-			m_touchFlags.erase(event.fingerID);
-			break;
-		case SDL_EVENT_FINGER_DOWN:
-		case SDL_EVENT_FINGER_MOTION:
-			m_touchFlags[event.fingerID] = 0;
-
-			if (event.y > 3.0 / 4.0) {
-				if (event.x < 1.0 / 3.0) {
-					m_touchFlags[event.fingerID] |= c_left;
-				}
-				else if (event.x > 2.0 / 3.0) {
-					m_touchFlags[event.fingerID] |= c_right;
-				}
-				else {
-					m_touchFlags[event.fingerID] |= c_down;
-				}
-			}
-			else {
-				m_touchFlags[event.fingerID] |= c_up;
-			}
-			break;
-		}
+		TouchMovement::UpdateArrows(event, m_touchFlags);
 		break;
-	case e_gamepad: {
-		switch (p_event->type) {
-		case SDL_EVENT_FINGER_DOWN:
-			if (!m_touchFinger) {
-				m_touchFinger = event.fingerID;
-				m_touchVirtualThumb = {0, 0};
-				m_touchVirtualThumbOrigin = {event.x, event.y};
-			}
-			break;
-		case SDL_EVENT_FINGER_UP:
-		case SDL_EVENT_FINGER_CANCELED:
-			if (event.fingerID == m_touchFinger) {
-				m_touchFinger = 0;
-				m_touchVirtualThumb = {0, 0};
-				m_touchVirtualThumbOrigin = {0, 0};
-			}
-			break;
-		case SDL_EVENT_FINGER_MOTION:
-			if (event.fingerID == m_touchFinger) {
-				const float thumbstickRadius = 0.25f;
-				const float deltaX =
-					SDL_clamp(event.x - m_touchVirtualThumbOrigin.x, -thumbstickRadius, thumbstickRadius);
-				const float deltaY =
-					SDL_clamp(event.y - m_touchVirtualThumbOrigin.y, -thumbstickRadius, thumbstickRadius);
-
-				m_touchVirtualThumb = {
-					(int) (deltaX / thumbstickRadius * 32767.0f),
-					(int) (deltaY / thumbstickRadius * 32767.0f),
-				};
-			}
-			break;
-		}
+	case e_gamepad:
+		TouchMovement::UpdateStick(event, m_touchFinger, m_touchVirtualThumbOrigin, m_touchVirtualThumb);
 		break;
-	}
 	}
 
 	return TRUE;
@@ -869,10 +834,14 @@ void LegoInputManager::UpdateLastInputMethod(SDL_Event* p_event)
 		break;
 	case SDL_EVENT_MOUSE_BUTTON_DOWN:
 	case SDL_EVENT_MOUSE_BUTTON_UP:
-		m_lastInputMethod = SDL_MouseID_v{p_event->button.which};
+		if (p_event->button.which != SDL_TOUCH_MOUSEID) {
+			m_lastInputMethod = SDL_MouseID_v{p_event->button.which};
+		}
 		break;
 	case SDL_EVENT_MOUSE_MOTION:
-		m_lastInputMethod = SDL_MouseID_v{p_event->motion.which};
+		if (p_event->motion.which != SDL_TOUCH_MOUSEID) {
+			m_lastInputMethod = SDL_MouseID_v{p_event->motion.which};
+		}
 		break;
 	case SDL_EVENT_GAMEPAD_BUTTON_DOWN:
 	case SDL_EVENT_GAMEPAD_BUTTON_UP:

@@ -28,10 +28,15 @@ public class IsleActivity extends SDLActivity {
     private static final int SETTINGS_REQUEST = 4801;
     private ImageButton mMenuButton;
     private boolean mGameReady;
+    private boolean mResumed;
+    private TouchControlsView mTouchControls;
 
     @Override protected void onCreate(Bundle state) {
         super.onCreate(state);
         if (mLayout == null) return;
+        mTouchControls = new TouchControlsView(this, mSurface);
+        mLayout.addView(mTouchControls, new RelativeLayout.LayoutParams(
+            RelativeLayout.LayoutParams.MATCH_PARENT, RelativeLayout.LayoutParams.MATCH_PARENT));
         mMenuButton = new ImageButton(this);
         mMenuButton.setImageResource(R.drawable.game_menu);
         mMenuButton.setBackgroundResource(R.drawable.game_menu_background);
@@ -58,6 +63,7 @@ public class IsleActivity extends SDLActivity {
         });
         mMenuButton.setOnClickListener(view -> {
             view.setVisibility(View.GONE);
+            mTouchControls.setRunning(false);
             SettingsBridge.requestMenu();
         });
     }
@@ -71,6 +77,30 @@ public class IsleActivity extends SDLActivity {
             mMenuButton.setVisibility(View.VISIBLE);
             mMenuButton.requestApplyInsets();
         }
+        updateTouchControls();
+    }
+
+    private void updateTouchControls() {
+        if (mTouchControls != null) {
+            mTouchControls.setRunning(mGameReady && mResumed && hasWindowFocus() && !isFinishing());
+        }
+    }
+
+    @Override protected void onResume() {
+        super.onResume();
+        mResumed = true;
+        updateTouchControls();
+    }
+
+    @Override protected void onPause() {
+        mResumed = false;
+        updateTouchControls();
+        super.onPause();
+    }
+
+    @Override public void onWindowFocusChanged(boolean hasFocus) {
+        super.onWindowFocusChanged(hasFocus);
+        updateTouchControls();
     }
 
     void openSettings() {
@@ -115,6 +145,7 @@ public class IsleActivity extends SDLActivity {
      */
     @Override
     protected void onDestroy() {
+        if (mTouchControls != null) mTouchControls.setRunning(false);
         if (mRestoreStartup != null) mRestoreStartup.abandon();
         QuitPrompt prompt = mQuitPrompt;
         if (prompt != null) {

@@ -852,6 +852,7 @@ if (ISLE_BUILD_APP)
             ISLE/android/config.cpp
             ISLE/android/configstore.cpp
             ISLE/android/settings.cpp
+            ISLE/android/touchcontrols.cpp
             ISLE/android/savesnapshot.cpp
             ISLE/android/saverestore.cpp
             ISLE/android/filepicker.cpp

@@ -89,6 +89,7 @@
 #include "android/filepicker.h"
 #include "android/quitprompt.h"
 #include "android/settings.h"
+#include "android/touchcontrols.h"
 #endif
 
 #ifdef __vita__
@@ -345,6 +346,9 @@ void IsleApp::SetupVideoFlags(
 
 static void ShowFatalError(const char* p_message)
 {
+#ifdef ANDROID
+	Android_ClearTouchControls();
+#endif
 	if (g_isle) {
 		IsleApp* isle = g_isle;
 		g_isle = NULL;
@@ -382,6 +386,7 @@ static bool SaveGameStateForLifecycleEvent(const char* p_reason)
 }
 
 #ifdef ANDROID
+static void CancelInputForQuitPrompt();
 static bool g_androidBackgrounded = false;
 static bool g_androidLowMemorySaveAttempted = false;
 #endif
@@ -395,6 +400,7 @@ static bool SDLCALL LifecycleEventWatch(void* p_userdata, SDL_Event* p_event)
 			g_androidLowMemorySaveAttempted = false;
 		}
 		g_androidBackgrounded = true;
+		CancelInputForQuitPrompt();
 #endif
 		// Deliberately not WILL_ENTER_BACKGROUND. On Android both fire back to back
 		// before the SDL thread blocks, so DID is still early enough, and by then the
@@ -445,6 +451,9 @@ static bool SDLCALL LifecycleEventWatch(void* p_userdata, SDL_Event* p_event)
 // arriving meanwhile must not find a half-destructed IsleApp.
 static void CloseGame()
 {
+#ifdef ANDROID
+	Android_ClearTouchControls();
+#endif
 	if (g_closed) {
 		return;
 	}
@@ -480,6 +489,7 @@ static bool GameStateIsSaveable()
 // The prompt consumes releases, so start the next interaction from neutral input state.
 static void CancelInputForQuitPrompt()
 {
+	Android_ClearTouchControls();
 	g_mousedown = FALSE;
 	g_mousemoved = FALSE;
 	g_lastJoystickMouseX = 0;
@@ -709,9 +719,33 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv)
 	return SDL_APP_CONTINUE;
 }
 
+#ifdef ANDROID
+static void PublishTouchControls()
+{
+	bool visible = g_isle && g_isle->GetGameStarted() && !g_closed && !g_confirmingQuit && !g_androidBackgrounded &&
+				   Lego() && !Lego()->IsPaused() && InputManager() && window &&
+				   (SDL_GetWindowFlags(window) & SDL_WINDOW_INPUT_FOCUS);
+	TouchMovement::State movement;
+	if (visible) {
+		movement = InputManager()->GetTouchMovementState();
+	}
+	Android_PublishTouchControls(
+		window,
+		visible,
+		g_isle ? g_isle->GetTouchScheme() : -1,
+		g_targetWidth,
+		g_targetHeight,
+		movement
+	);
+}
+#endif
+
 SDL_AppResult SDL_AppIterate(void* appstate)
 {
 #ifdef ANDROID
+	if (Android_TakeTouchControlsReset()) {
+		CancelInputForQuitPrompt();
+	}
 	if (Android_TakeMenuRequest() && g_isle && g_isle->GetGameStarted() && !g_closed && !g_confirmingQuit) {
 		return HandleBackButton();
 	}
@@ -754,6 +788,10 @@ SDL_AppResult SDL_AppIterate(void* appstate)
 		g_isle->MoveVirtualMouseViaJoystick();
 	}
 
+#ifdef ANDROID
+	PublishTouchControls();
+#endif
+
 	return SDL_APP_CONTINUE;
 }
 
@@ -791,6 +829,19 @@ SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event)
 		// The repeat and the key-up are nothing to act on, and on API 33 and up the up arrives
 		// half a second after the down, well after the prompt has been answered.
 		return SDL_APP_CONTINUE;
+	}
+#endif
+
+#ifdef ANDROID
+	if (Android_TakeTouchControlsReset()) {
+		CancelInputForQuitPrompt();
+	}
+	Android_ObserveTouchControlsInput(*event, g_mouseWarped);
+	struct PublishAfterEvent {
+		~PublishAfterEvent() { PublishTouchControls(); }
+	} publishAfterEvent;
+	if (event->type == SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED || event->type == SDL_EVENT_WINDOW_FOCUS_LOST) {
+		CancelInputForQuitPrompt();
 	}
 #endif
 
@@ -1283,6 +1334,9 @@ SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event)
 
 void SDL_AppQuit(void* appstate, SDL_AppResult result)
 {
+#ifdef ANDROID
+	Android_ClearTouchControls();
+#endif
 	if (window) {
 		SDL_DestroyWindow(window);
 		window = NULL;
@@ -1756,6 +1810,9 @@ bool IsleApp::LoadConfig()
 	m_transitionType =
 		(MxTransitionManager::TransitionType) iniparser_getint(dict, "isle:Transition Type", m_transitionType);
 	m_touchScheme = (LegoInputManager::TouchScheme) iniparser_getint(dict, "isle:Touch Scheme", m_touchScheme);
+#ifdef ANDROID
+	Android_ConfigureTouchControls(iniparser_getboolean(dict, "isle:Show Touch Controls", true));
+#endif
 	m_haptic = iniparser_getboolean(dict, "isle:Haptic", m_haptic);
 	m_wasd = iniparser_getboolean(dict, "isle:WASD", m_wasd);
 	m_xRes = iniparser_getint(dict, "isle:Horizontal Resolution", m_xRes);

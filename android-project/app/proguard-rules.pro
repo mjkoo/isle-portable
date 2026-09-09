@@ -20,3 +20,7 @@
 }
 
 -keep class org.legoisland.isle.SettingsBridge { *; }
+
+-keep class org.legoisland.isle.TouchControlsView {
+    native <methods>;
+}

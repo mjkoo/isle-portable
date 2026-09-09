@@ -119,7 +119,8 @@ bool Android_ValidateSetting(const std::string& p_key, const char* p_value, cons
 		}
 		return false;
 	}
-	if (p_key == "isle:music" || p_key == "isle:3dsound" || p_key == "isle:haptic" || p_key == "isle:wasd") {
+	if (p_key == "isle:music" || p_key == "isle:3dsound" || p_key == "isle:haptic" || p_key == "isle:wasd" ||
+		p_key == "isle:show touch controls") {
 		return !p_value || std::string(p_value) == "true" || std::string(p_value) == "false";
 	}
 	bool sensitivity = p_key == "isle:cursor sensitivity";

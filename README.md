@@ -81,8 +81,12 @@ keeps the game and touch coordinates at 640 × 480, scales the rendered image to
 screen, and preserves its aspect ratio. GLES render targets are reduced proportionally when
 needed to fit the GPU's limits. The default content resolution is 640 × 480.
 
-The touch schemes currently use invisible movement regions or a virtual stick; the menu
-button is the only added on-screen control. Renderer choices reflect what the device could
+**Input > Show touch controls** enables movement hints, on by default. Arrow-key regions
+show direction markers and highlight held directions. Virtual stick shows an indicator at
+the first finger's starting point, with its marker reflecting the current movement axes.
+These hints do not intercept touches or change how game objects are clicked. They hide while
+using physical controls and return on touch. See [Android touch controls](docs/android-touch-controls.md)
+for region boundaries and gesture behavior. Renderer choices reflect what the device could
 initialize at startup. Vulkan is not enabled by this settings screen.
 
 Configuration (`isle.ini`) and default saves (`saves/`) live in private internal storage.

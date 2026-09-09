@@ -129,3 +129,19 @@ Test confirmation cancellation, incomplete archives, settings drafts, recreation
 process death with the picker open, startup-error access and minified release JNI.
 Use an isolated custom save directory for destructive storage-failure scenarios.
 Fixture-only and same-directory checks do not establish a real progress transfer.
+
+## Touch movement feedback
+
+The native `touchmovement` target exercises the same movement helpers used by the
+input manager: letterbox admission, region boundaries, multiple arrow fingers,
+neutral movement outside the viewport, stick ownership and per-axis clamping,
+release outside the viewport, and cancellation without reacquisition on motion.
+Configuration tests cover the visibility boolean and its scoped reset.
+
+Manually exercise Show touch controls in both movement schemes on GLES3, software
+and palette-software. Check viewport alignment, edge clipping, held-direction
+highlights, first-finger ownership, additional fingers and unchanged object clicks
+and dragging. Change resolution and rotate. Pause or background while holding a
+gesture, return and confirm it stays neutral until a new touch. Check physical-input
+hiding and touch restoration, Settings Save/Cancel/reset and minified release JNI.
+Preserve original device config and saves before testing, and restore them afterward.

@@ -31,6 +31,12 @@ target_compile_options(hresult PRIVATE -Wall -Wextra -Werror -UNDEBUG)
 target_include_directories(hresult PRIVATE ../../miniwin/include "${SDL3_INCLUDE_DIR}")
 add_test(NAME android_hresult_failure_codes COMMAND hresult)
 
+add_executable(touchmovement touchmovement.cpp)
+target_compile_features(touchmovement PRIVATE cxx_std_17)
+target_compile_options(touchmovement PRIVATE -Wall -Wextra -Werror -UNDEBUG)
+target_include_directories(touchmovement PRIVATE ../../util "${SDL3_INCLUDE_DIR}")
+add_test(NAME android_touch_movement COMMAND touchmovement)
+
 add_executable(saverestore saverestore.cpp ../../ISLE/android/saverestore.cpp)
 target_compile_features(saverestore PRIVATE cxx_std_17)
 target_compile_options(saverestore PRIVATE -Wall -Wextra -Werror -UNDEBUG)

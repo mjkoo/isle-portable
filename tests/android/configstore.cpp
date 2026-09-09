@@ -82,6 +82,18 @@ int main()
 	assert(Android_ValidateSetting("isle:music", nullptr, {}));
 	assert(Android_ValidateSetting("isle:music", "false", {}));
 	assert(!Android_ValidateSetting("isle:music", "garbage", {}));
+	assert(Android_ValidateSetting("isle:show touch controls", nullptr, {}));
+	assert(Android_ValidateSetting("isle:show touch controls", "true", {}));
+	assert(Android_ValidateSetting("isle:show touch controls", "false", {}));
+	assert(!Android_ValidateSetting("isle:show touch controls", "1", {}));
+	assert(Android_UpdateConfig(path, {{"isle:show touch controls", "false"}}).empty());
+	values.clear();
+	assert(Android_ReadConfig(path, {"isle:show touch controls"}, values).empty());
+	assert(values[0].first && values[0].second == "false");
+	assert(Android_UpdateConfig(path, {{"isle:show touch controls", nullptr}}).empty());
+	values.clear();
+	assert(Android_ReadConfig(path, {"isle:show touch controls", "extensions:multiplayer"}, values).empty());
+	assert(!values[0].first && values[1].second == "true");
 	assert(!Android_ValidateSetting("isle:savepath", nullptr, {}));
 	assert(Android_ValidateSetting("isle:cursor sensitivity", "0.1", {}));
 	assert(Android_ValidateSetting("isle:cursor sensitivity", "20", {}));
