@@ -15,6 +15,11 @@ default:
 android-apk:
     {{ android_shell }} ./gradlew assembleDebug -PcmakeArgs="{{ android_cmake_args }}"
 
+# Run Android view tests on connected devices without launching the game.
+[working-directory: 'android-project']
+android-test:
+    {{ android_shell }} ./gradlew connectedDebugAndroidTest -PcmakeArgs="{{ android_cmake_args }}"
+
 # Needs SIGNING_KEY_ALIAS, SIGNING_KEY_PASSWORD, SIGNING_STORE_FILE and
 # SIGNING_STORE_PASSWORD in the environment.
 [doc('Build the signed release APK')]

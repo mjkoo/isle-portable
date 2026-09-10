@@ -38,8 +38,10 @@ public class IsleActivity extends SDLActivity {
         mTouchControls = new TouchControlsView(this, mSurface);
         mLayout.addView(mTouchControls, new RelativeLayout.LayoutParams(
             RelativeLayout.LayoutParams.MATCH_PARENT, RelativeLayout.LayoutParams.MATCH_PARENT));
-        TouchActionButton space = new TouchActionButton(this, "Space", 1);
-        TouchActionButton escape = new TouchActionButton(this, "Esc", 2);
+        TouchActionButton space = new TouchActionButton(this, "Space",
+            generation -> TouchControlsView.submitAction(1, generation));
+        TouchActionButton escape = new TouchActionButton(this, "Esc",
+            generation -> TouchControlsView.submitAction(2, generation));
         mTouchControls.setActionButtons(space, escape);
         mMenuButton = new ImageButton(this);
         mMenuButton.setId(View.generateViewId());

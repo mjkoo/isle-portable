@@ -17,6 +17,7 @@ android {
         targetSdk 35
         versionCode 1
         versionName '1.0'
+        testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
 
         externalNativeBuild {
             cmake {
@@ -122,6 +123,8 @@ tasks.register('compileSDL3AndroidArchive', Exec) {
 }
 
 dependencies {
+    androidTestImplementation 'androidx.test:runner:1.7.0'
+    androidTestImplementation 'androidx.test.ext:junit:1.3.0'
     implementation "androidx.preference:preference:1.2.1"
     // Still unimplemented: with DOWNLOAD_DEPENDENCIES=OFF this should fetch the
     // matching 'devel android zip' release instead of building SDL from source, and

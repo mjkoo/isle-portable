@@ -145,3 +145,17 @@ and dragging. Change resolution and rotate. Pause or background while holding a
 gesture, return and confirm it stays neutral until a new touch. Check physical-input
 hiding and touch restoration, Settings Save/Cancel/reset and minified release JNI.
 Preserve original device config and saves before testing, and restore them afterward.
+
+## Touch action buttons
+
+Close the game and connect an Android device or start the existing emulator with
+`just android-emulator`, then run `just android-test`. AndroidJUnit4 tests exercise
+the production button with real `MotionEvent` objects on the UI thread. They do not
+launch the game, load game assets, or modify config and saves.
+
+The tests cover ordinary taps, batched movement outside and back inside the target,
+inside-only history, extra-pointer movement, whole-gesture cancellation and generation
+changes while held. On API 33 and newer, they also cover cancelled owner releases and
+cancelled extra pointers. These tests supplement the native `touchactions` queue
+tests; renderer, lifecycle and simultaneous surface/button integration still need
+the device checks described above.
