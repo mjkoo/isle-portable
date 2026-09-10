@@ -70,6 +70,7 @@ void Android_ClearSaveExport()
 void Android_SetSettingsPath(const char* p_path)
 {
 	g_settingsPath = p_path;
+	Android_BeginTouchSettings(g_settingsPath);
 }
 
 void Android_CaptureRenderers(SDL_Window* p_window)

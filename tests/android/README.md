@@ -161,3 +161,18 @@ changes while held. On API 33 and newer, they also cover cancelled owner release
 cancelled extra pointers. These tests supplement the native `touchactions` queue
 tests; renderer, lifecycle and simultaneous surface/button integration still need
 the device checks described above.
+
+## Runtime touch settings
+
+Configuration tests cover live update coalescing, partial changes, reset defaults,
+failed writes and retry, unrelated saves, path isolation and engine-session cleanup.
+The `touchinput` target covers contact ownership, late motion/releases after
+cancellation, independent touch devices, and double-tap history across cancellation.
+
+On device, save each of the four touch schemes and Resume without restarting the
+process. Check movement and overlay behavior, visibility, Cancel, reset/save,
+reset/cancel, failed writes and retry, repeated saves before Resume, and persistence
+after relaunch. Hold movement or an action while opening the menu, and verify stale
+releases do nothing after Resume. Check backgrounding and activity recreation;
+audio/display settings saved alongside touch settings must remain next-launch only.
+Run against GLES3, software and palette-software, including minified release.

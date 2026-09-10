@@ -1,8 +1,12 @@
 # Android touch controls
 
 Choose a touch scheme in Settings > Input. Show touch controls is enabled by default
-and can be switched off without disabling touch input. Save settings, then quit and
-relaunch to apply them. Reset these settings restores the default visibility.
+and can be switched off without disabling touch input. Save settings, then Resume
+to apply these two options to the current game. They also persist for the next
+launch. Other settings still require quitting and relaunching. Cancel leaves the
+settings unchanged. Reset these settings followed by Save restores Virtual mouse
+and visible controls. Changing schemes cancels held gestures; touch again after
+resuming. A failed save leaves the current controls unchanged and can be retried.
 
 With **Arrow-key regions**, the upper three quarters of the game image move forward.
 The bottom quarter is split evenly into left, backward and right. Faint lines show

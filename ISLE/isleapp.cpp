@@ -86,10 +86,14 @@
 #ifdef ANDROID
 #include "android/activity.h"
 #include "android/config.h"
+#include "android/configstore.h"
 #include "android/filepicker.h"
 #include "android/quitprompt.h"
 #include "android/settings.h"
 #include "android/touchcontrols.h"
+#include "android/touchinput.h"
+
+static Android_TouchInput g_androidTouchInput;
 #endif
 
 #ifdef __vita__
@@ -216,7 +220,8 @@ IsleApp::IsleApp()
 	m_transitionType = MxTransitionManager::e_mosaic;
 	m_cursorSensitivity = 4;
 #ifdef ANDROID
-	m_touchScheme = LegoInputManager::e_mouse;
+	m_touchScheme = static_cast<LegoInputManager::TouchScheme>(Android_TouchSettings{}.m_scheme);
+	g_androidTouchInput.Cancel();
 #else
 	m_touchScheme = LegoInputManager::e_gamepad;
 #endif
@@ -243,6 +248,9 @@ IsleApp::IsleApp()
 // FUNCTION: ISLE 0x4011a0
 IsleApp::~IsleApp()
 {
+#ifdef ANDROID
+	Android_EndTouchSettings();
+#endif
 	if (LegoOmni::GetInstance()) {
 		if (m_gameStarted) {
 			Close();
@@ -490,6 +498,7 @@ static bool GameStateIsSaveable()
 static void CancelInputForQuitPrompt()
 {
 	Android_ClearTouchControls();
+	g_androidTouchInput.Cancel();
 	g_mousedown = FALSE;
 	g_mousemoved = FALSE;
 	g_lastJoystickMouseX = 0;
@@ -550,6 +559,11 @@ static SDL_AppResult HandleBackButton()
 	CancelInputForQuitPrompt();
 	Android_TakeMenuRequest();
 	g_confirmingQuit = false;
+	Android_TouchSettings touch;
+	if (!quit && !g_closed && g_isle && g_isle->GetGameStarted() && Android_TakeTouchSettings(touch)) {
+		g_isle->SetTouchScheme(static_cast<LegoInputManager::TouchScheme>(touch.m_scheme));
+		Android_UpdateTouchControls(touch.m_visible);
+	}
 
 	// Resume even when quitting. IsleApp::Close queues a keypress that the input manager drops
 	// while the game is paused, and Close only resumes after it. Both are checked again because
@@ -848,6 +862,11 @@ SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event)
 #ifdef ANDROID
 	if (Android_TakeTouchControlsReset()) {
 		CancelInputForQuitPrompt();
+	}
+	if ((event->type == SDL_EVENT_FINGER_DOWN || event->type == SDL_EVENT_FINGER_MOTION ||
+		 event->type == SDL_EVENT_FINGER_UP || event->type == SDL_EVENT_FINGER_CANCELED) &&
+		!g_androidTouchInput.Accept(event->tfinger)) {
+		return SDL_APP_CONTINUE;
 	}
 	Android_ObserveTouchControlsInput(*event, g_mouseWarped);
 	struct PublishAfterEvent {
@@ -1824,7 +1843,9 @@ bool IsleApp::LoadConfig()
 		(MxTransitionManager::TransitionType) iniparser_getint(dict, "isle:Transition Type", m_transitionType);
 	m_touchScheme = (LegoInputManager::TouchScheme) iniparser_getint(dict, "isle:Touch Scheme", m_touchScheme);
 #ifdef ANDROID
-	Android_ConfigureTouchControls(iniparser_getboolean(dict, "isle:Show Touch Controls", true));
+	Android_ConfigureTouchControls(
+		iniparser_getboolean(dict, "isle:Show Touch Controls", Android_TouchSettings{}.m_visible)
+	);
 #endif
 	m_haptic = iniparser_getboolean(dict, "isle:Haptic", m_haptic);
 	m_wasd = iniparser_getboolean(dict, "isle:WASD", m_wasd);
@@ -2284,6 +2305,11 @@ void IsleApp::MoveVirtualMouseViaJoystick()
 
 void IsleApp::DetectDoubleTap(const SDL_TouchFingerEvent& p_event)
 {
+#ifdef ANDROID
+	if (g_androidTouchInput.DoubleTap(p_event) && InputManager()) {
+		InputManager()->QueueEvent(c_notificationKeyPress, SDLK_SPACE, 0, 0, SDLK_SPACE);
+	}
+#else
 	typedef std::pair<Uint64, std::array<float, 2>> LastTap;
 
 	const MxU32 doubleTapMs = 500;
@@ -2303,4 +2329,5 @@ void IsleApp::DetectDoubleTap(const SDL_TouchFingerEvent& p_event)
 	else {
 		lastTap = currentTap;
 	}
+#endif
 }

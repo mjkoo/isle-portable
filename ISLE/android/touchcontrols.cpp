@@ -20,8 +20,13 @@ static bool g_touchPreferred = true;
 
 void Android_ConfigureTouchControls(bool p_enabled)
 {
-	g_touchControlsEnabled = p_enabled;
 	g_touchPreferred = true;
+	Android_UpdateTouchControls(p_enabled);
+}
+
+void Android_UpdateTouchControls(bool p_enabled)
+{
+	g_touchControlsEnabled = p_enabled;
 	Android_ClearTouchControls();
 }
 

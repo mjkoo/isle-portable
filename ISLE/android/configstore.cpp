@@ -8,11 +8,37 @@
 #include <iniparser.h>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <sys/stat.h>
 #include <unistd.h>
 
 static std::mutex g_configMutex;
+static std::string g_touchSettingsPath;
+static std::optional<Android_TouchSettings> g_pendingTouchSettings;
 using ConfigDictionary = std::unique_ptr<dictionary, decltype(&iniparser_freedict)>;
+
+void Android_BeginTouchSettings(const std::string& p_path)
+{
+	std::lock_guard<std::mutex> lock(g_configMutex);
+	g_touchSettingsPath = p_path;
+	g_pendingTouchSettings.reset();
+}
+
+void Android_EndTouchSettings()
+{
+	Android_BeginTouchSettings({});
+}
+
+bool Android_TakeTouchSettings(Android_TouchSettings& p_settings)
+{
+	std::lock_guard<std::mutex> lock(g_configMutex);
+	if (!g_pendingTouchSettings) {
+		return false;
+	}
+	p_settings = *g_pendingTouchSettings;
+	g_pendingTouchSettings.reset();
+	return true;
+}
 
 std::string Android_ResolveSaveExportPath(
 	const std::string& p_config,
@@ -80,6 +106,18 @@ std::string Android_UpdateConfig(
 			iniparser_unset(dict.get(), change.first.c_str());
 		}
 	}
+	bool touchChanged = false;
+	for (const auto& change : p_changes) {
+		touchChanged |= change.first == "isle:touch scheme" || change.first == "isle:show touch controls";
+	}
+	Android_TouchSettings touch;
+	if (touchChanged) {
+		touch.m_scheme = iniparser_getint(dict.get(), "isle:touch scheme", touch.m_scheme);
+		touch.m_visible = iniparser_getboolean(dict.get(), "isle:show touch controls", touch.m_visible);
+		if (touch.m_scheme < -1 || touch.m_scheme > 2) {
+			return "Invalid touch scheme. Choose a supported value and try again.";
+		}
+	}
 	std::string temp = p_path + ".new";
 	FILE* file = fopen(temp.c_str(), "wb");
 	if (!file) {
@@ -102,6 +140,9 @@ std::string Android_UpdateConfig(
 	if (error) {
 		remove(temp.c_str());
 		return std::string("Could not save configuration: ") + strerror(error);
+	}
+	if (touchChanged && !g_touchSettingsPath.empty() && p_path == g_touchSettingsPath) {
+		g_pendingTouchSettings = touch;
 	}
 	return {};
 }

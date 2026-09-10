@@ -305,7 +305,7 @@ public final class SettingsActivity extends AppCompatActivity {
             invalidateOptionsMenu();
             if (result == SettingsModel.State.SAVED) {
                 setResult(RESULT_OK);
-                Toast.makeText(this, "Settings saved. Changes apply on the next game launch.", Toast.LENGTH_LONG).show();
+                Toast.makeText(this, "Settings saved. Touch scheme and Show touch controls apply when you resume. Other changes apply on the next game launch.", Toast.LENGTH_LONG).show();
                 finish();
             } else if (model.error != null) {
                 String message = model.error;
@@ -397,8 +397,8 @@ public final class SettingsActivity extends AppCompatActivity {
             PreferenceScreen screen = getPreferenceManager().createPreferenceScreen(requireContext());
             setPreferenceScreen(screen);
             Preference notice = new Preference(requireContext());
-            notice.setTitle("Changes apply on the next game launch");
-            notice.setSummary("Save keeps your changes. Cancel leaves your configuration unchanged.");
+            notice.setTitle("Save settings, then resume");
+            notice.setSummary("Touch scheme and Show touch controls apply when you resume the game. Other changes apply on the next game launch. Cancel leaves your settings unchanged.");
             notice.setSelectable(false);
             notice.setIconSpaceReserved(false);
             screen.addPreference(notice);

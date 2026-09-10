@@ -104,5 +104,51 @@ int main()
 	assert(!Android_ValidateSetting("isle:msaa", "3", {}));
 	assert(Android_ValidateSetting("isle:3d device id", "available", {"GLES", "available"}));
 	assert(!Android_ValidateSetting("isle:3d device id", "unavailable", {"GLES", "available"}));
+
+	Android_TouchSettings touch;
+	Android_BeginTouchSettings(path);
+	assert(!Android_TakeTouchSettings(touch));
+	assert(Android_UpdateConfig(path, {{"isle:touch scheme", "2"}}).empty());
+	assert(Android_TakeTouchSettings(touch) && touch.m_scheme == 2 && touch.m_visible);
+	assert(!Android_TakeTouchSettings(touch));
+	// A later partial update keeps the other saved value, even before Resume.
+	assert(Android_UpdateConfig(path, {{"isle:touch scheme", "1"}}).empty());
+	assert(Android_UpdateConfig(path, {{"isle:show touch controls", "false"}}).empty());
+	assert(Android_UpdateConfig(path, {{"isle:music", "false"}}).empty());
+	assert(Android_TakeTouchSettings(touch) && touch.m_scheme == 1 && !touch.m_visible);
+	assert(Android_UpdateConfig(path, {}).empty());
+	assert(!Android_TakeTouchSettings(touch));
+
+	assert(Android_UpdateConfig(path, {{"isle:touch scheme", "-1"}}).empty());
+	before = Read(path);
+	std::filesystem::create_directory(path + ".new");
+	assert(!Android_UpdateConfig(path, {{"isle:touch scheme", "2"}}).empty());
+	assert(Read(path) == before);
+	assert(Android_TakeTouchSettings(touch) && touch.m_scheme == -1 && !touch.m_visible);
+	assert(!Android_UpdateConfig(path, {{"isle:touch scheme", "2"}}).empty());
+	assert(!Android_TakeTouchSettings(touch));
+	std::filesystem::remove(path + ".new");
+	assert(Android_UpdateConfig(path, {{"isle:touch scheme", "2"}}).empty());
+	assert(Android_TakeTouchSettings(touch) && touch.m_scheme == 2 && !touch.m_visible);
+	assert(Android_UpdateConfig(path, {{"isle:touch scheme", nullptr}, {"isle:show touch controls", nullptr}}).empty());
+	assert(Android_TakeTouchSettings(touch) && touch.m_scheme == 0 && touch.m_visible);
+	assert(!Android_UpdateConfig(path, {{"isle:touch scheme", "3"}}).empty());
+	assert(!Android_TakeTouchSettings(touch));
+
+	std::string other = std::string(directory) + "/other.ini";
+	std::ofstream(other) << "[isle]\nmusic=true\n";
+	assert(Android_UpdateConfig(other, {{"isle:touch scheme", "2"}}).empty());
+	assert(!Android_TakeTouchSettings(touch));
+	assert(Android_UpdateConfig(path, {{"isle:touch scheme", "2"}}).empty());
+	Android_EndTouchSettings();
+	assert(!Android_TakeTouchSettings(touch));
+	assert(Android_UpdateConfig(path, {{"isle:touch scheme", "1"}}).empty());
+	assert(!Android_TakeTouchSettings(touch));
+	Android_BeginTouchSettings(path);
+	assert(!Android_TakeTouchSettings(touch));
+	assert(Android_UpdateConfig(path, {{"isle:touch scheme", "2"}}).empty());
+	Android_BeginTouchSettings(path);
+	assert(!Android_TakeTouchSettings(touch));
+	Android_EndTouchSettings();
 	std::filesystem::remove_all(directory);
 }
