@@ -6,6 +6,8 @@ def androidProject = projectDir.parentFile
 android {
     namespace "org.legoisland.isle"
     compileSdk 35
+    // Connected tests uninstall their target APK; keep it separate from the player's installation.
+    testBuildType 'touchTest'
     sourceSets.main {
         java.srcDir '../../CONFIG/android/src/main/java'
         res.srcDir '../../CONFIG/android/src/main/res'
@@ -46,6 +48,11 @@ android {
         }
     }
     buildTypes {
+        touchTest {
+            initWith debug
+            applicationIdSuffix '.touchtest'
+            matchingFallbacks = ['debug']
+        }
         release {
             minifyEnabled true
             signingConfig = signingConfigs.getByName("release")

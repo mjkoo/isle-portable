@@ -148,8 +148,10 @@ Preserve original device config and saves before testing, and restore them after
 
 ## Touch action buttons
 
-Close the game and connect an Android device or start the existing emulator with
-`just android-emulator`, then run `just android-test`. AndroidJUnit4 tests exercise
+Connect an Android device or start the existing emulator with
+`just android-emulator`, then run `just android-test`. The dedicated `touchTest`
+build uses `org.legoisland.isle.touchtest`, so Gradle's test installation and
+uninstallation do not affect the normal app or its data. AndroidJUnit4 tests exercise
 the production button with real `MotionEvent` objects on the UI thread. They do not
 launch the game, load game assets, or modify config and saves.
 
