@@ -892,7 +892,7 @@ static void HandleGamepadButton(const SDL_GamepadButtonEvent& p_event, bool p_do
 	GamepadBindings::Input input;
 	if (GamepadBindings::FromButton(static_cast<SDL_GamepadButton>(p_event.button), input)) {
 		bool eastIsA = GetGamepadClickButton(p_event.which) == SDL_GAMEPAD_BUTTON_EAST;
-		HandleGamepadAction(g_gamepad.Button(input, p_down, eastIsA));
+		HandleGamepadAction(g_gamepad.Button(p_event.which, input, p_down, eastIsA));
 	}
 }
 
@@ -1072,6 +1072,7 @@ SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event)
 		}
 		break;
 	case SDL_EVENT_GAMEPAD_REMOVED:
+		HandleGamepadAction(g_gamepad.Removed(event->gdevice.which, g_mousedown));
 		if (InputManager()) {
 			InputManager()->RemoveJoystick(event->jdevice.which);
 		}
@@ -1156,7 +1157,7 @@ SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event)
 #endif
 		GamepadBindings::Input trigger;
 		if (GamepadBindings::FromTrigger(static_cast<SDL_GamepadAxis>(event->gaxis.axis), trigger)) {
-			HandleGamepadAction(g_gamepad.Trigger(trigger, event->gaxis.value, g_mousedown));
+			HandleGamepadAction(g_gamepad.Trigger(event->gaxis.which, trigger, event->gaxis.value, g_mousedown));
 		}
 		break;
 	}

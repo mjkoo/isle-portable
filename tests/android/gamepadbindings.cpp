@@ -9,6 +9,7 @@
 using namespace GamepadBindings;
 
 static const Platform c_platforms[] = {e_platformDefault, e_platformVita, e_platformAndroid};
+static const SDL_JoystickID c_pad = 1;
 
 // The fixed mapping the table replaced: the face button labelled A clicks, the other face button
 // sends Space, Back sends Escape, Start pauses (except on Vita) and the right trigger clicks.
@@ -201,63 +202,63 @@ static void ExplicitBindingsApplyOnEveryPlatform()
 static void ButtonReleasesFollowTheirPress()
 {
 	Dispatcher pad(e_platformDefault);
-	assert(Same(pad.Button(e_south, true, false), e_click, true));
-	assert(Same(pad.Button(e_south, false, false), e_click, false));
-	assert(Same(pad.Button(e_east, true, false), e_space, true));
-	assert(Same(pad.Button(e_east, false, false), e_none, false));
-	assert(Same(pad.Button(e_back, true, false), e_escape, true));
-	assert(Same(pad.Button(e_back, false, false), e_none, false));
-	assert(Same(pad.Button(e_start, true, false), e_pause, true));
-	assert(Same(pad.Button(e_start, false, false), e_none, false));
-	assert(Same(pad.Button(e_north, true, false), e_none, true));
-	assert(Same(pad.Button(e_north, false, false), e_none, false));
+	assert(Same(pad.Button(c_pad, e_south, true, false), e_click, true));
+	assert(Same(pad.Button(c_pad, e_south, false, false), e_click, false));
+	assert(Same(pad.Button(c_pad, e_east, true, false), e_space, true));
+	assert(Same(pad.Button(c_pad, e_east, false, false), e_none, false));
+	assert(Same(pad.Button(c_pad, e_back, true, false), e_escape, true));
+	assert(Same(pad.Button(c_pad, e_back, false, false), e_none, false));
+	assert(Same(pad.Button(c_pad, e_start, true, false), e_pause, true));
+	assert(Same(pad.Button(c_pad, e_start, false, false), e_none, false));
+	assert(Same(pad.Button(c_pad, e_north, true, false), e_none, true));
+	assert(Same(pad.Button(c_pad, e_north, false, false), e_none, false));
 
 	// A layout toggle while held: the release still ends the click the press started.
-	assert(Same(pad.Button(e_south, true, false), e_click, true));
-	assert(Same(pad.Button(e_south, false, true), e_click, false));
-	assert(Same(pad.Button(e_east, true, false), e_space, true));
-	assert(Same(pad.Button(e_east, false, true), e_none, false));
+	assert(Same(pad.Button(c_pad, e_south, true, false), e_click, true));
+	assert(Same(pad.Button(c_pad, e_south, false, true), e_click, false));
+	assert(Same(pad.Button(c_pad, e_east, true, false), e_space, true));
+	assert(Same(pad.Button(c_pad, e_east, false, true), e_none, false));
 
 	// A rebind while held does the same.
-	assert(Same(pad.Button(e_south, true, false), e_click, true));
+	assert(Same(pad.Button(c_pad, e_south, true, false), e_click, true));
 	pad.SetTable(ParseMap({{"gamepad:south", "space"}}));
-	assert(Same(pad.Button(e_south, false, false), e_click, false));
-	assert(Same(pad.Button(e_south, true, false), e_space, true));
-	assert(Same(pad.Button(e_south, false, false), e_none, false));
+	assert(Same(pad.Button(c_pad, e_south, false, false), e_click, false));
+	assert(Same(pad.Button(c_pad, e_south, true, false), e_space, true));
+	assert(Same(pad.Button(c_pad, e_south, false, false), e_none, false));
 
 	// Cancelling forgets held presses, so their releases do nothing.
 	pad.SetTable(Table());
-	assert(Same(pad.Button(e_south, true, false), e_click, true));
+	assert(Same(pad.Button(c_pad, e_south, true, false), e_click, true));
 	pad.Cancel();
-	assert(Same(pad.Button(e_south, false, false), e_none, false));
+	assert(Same(pad.Button(c_pad, e_south, false, false), e_none, false));
 
 	// A release without a press does nothing.
-	assert(Same(pad.Button(e_east, false, true), e_none, false));
+	assert(Same(pad.Button(c_pad, e_east, false, true), e_none, false));
 }
 
 static void TriggersPressOnceAcrossTheDeadZone()
 {
 	Dispatcher pad(e_platformDefault);
-	assert(Same(pad.Trigger(e_rightTrigger, 8000, false), e_none, false));
-	assert(Same(pad.Trigger(e_rightTrigger, 8001, false), e_click, true));
-	assert(Same(pad.Trigger(e_rightTrigger, 20000, true), e_none, false));
-	assert(Same(pad.Trigger(e_rightTrigger, 32767, true), e_none, false));
-	assert(Same(pad.Trigger(e_rightTrigger, 8000, true), e_click, false));
-	assert(Same(pad.Trigger(e_rightTrigger, 0, false), e_none, false));
-	assert(Same(pad.Trigger(e_rightTrigger, -8001, false), e_click, true));
-	assert(Same(pad.Trigger(e_rightTrigger, 0, true), e_click, false));
+	assert(Same(pad.Trigger(c_pad, e_rightTrigger, 8000, false), e_none, false));
+	assert(Same(pad.Trigger(c_pad, e_rightTrigger, 8001, false), e_click, true));
+	assert(Same(pad.Trigger(c_pad, e_rightTrigger, 20000, true), e_none, false));
+	assert(Same(pad.Trigger(c_pad, e_rightTrigger, 32767, true), e_none, false));
+	assert(Same(pad.Trigger(c_pad, e_rightTrigger, 8000, true), e_click, false));
+	assert(Same(pad.Trigger(c_pad, e_rightTrigger, 0, false), e_none, false));
+	assert(Same(pad.Trigger(c_pad, e_rightTrigger, -8001, false), e_click, true));
+	assert(Same(pad.Trigger(c_pad, e_rightTrigger, 0, true), e_click, false));
 
 	// An unbound trigger never acts.
-	assert(Same(pad.Trigger(e_leftTrigger, 32767, false), e_none, true));
-	assert(Same(pad.Trigger(e_leftTrigger, 0, false), e_none, false));
+	assert(Same(pad.Trigger(c_pad, e_leftTrigger, 32767, false), e_none, true));
+	assert(Same(pad.Trigger(c_pad, e_leftTrigger, 0, false), e_none, false));
 
 	// A trigger bound to a key sends it once per pull.
 	pad.SetTable(ParseMap({{"gamepad:lefttrigger", "space"}}));
-	assert(Same(pad.Trigger(e_leftTrigger, 9000, false), e_space, true));
-	assert(Same(pad.Trigger(e_leftTrigger, 12000, false), e_none, false));
-	assert(Same(pad.Trigger(e_leftTrigger, 0, false), e_none, false));
-	assert(Same(pad.Trigger(e_leftTrigger, 9000, false), e_space, true));
-	assert(Same(pad.Trigger(e_leftTrigger, 0, false), e_none, false));
+	assert(Same(pad.Trigger(c_pad, e_leftTrigger, 9000, false), e_space, true));
+	assert(Same(pad.Trigger(c_pad, e_leftTrigger, 12000, false), e_none, false));
+	assert(Same(pad.Trigger(c_pad, e_leftTrigger, 0, false), e_none, false));
+	assert(Same(pad.Trigger(c_pad, e_leftTrigger, 9000, false), e_space, true));
+	assert(Same(pad.Trigger(c_pad, e_leftTrigger, 0, false), e_none, false));
 }
 
 static void TriggerClicksShareTheClickWithOtherSources()
@@ -266,41 +267,91 @@ static void TriggerClicksShareTheClickWithOtherSources()
 
 	// Another source already holds the click: the trigger does not press, and its release does
 	// not end that other click.
-	assert(Same(pad.Trigger(e_rightTrigger, 9000, true), e_none, true));
-	assert(Same(pad.Trigger(e_rightTrigger, 0, true), e_none, false));
+	assert(Same(pad.Trigger(c_pad, e_rightTrigger, 9000, true), e_none, true));
+	assert(Same(pad.Trigger(c_pad, e_rightTrigger, 0, true), e_none, false));
 
 	// The click was ended elsewhere while the trigger was held: the trigger neither presses
 	// again while still held nor sends a second release.
-	assert(Same(pad.Trigger(e_rightTrigger, 9000, false), e_click, true));
-	assert(Same(pad.Trigger(e_rightTrigger, 9500, false), e_none, false));
-	assert(Same(pad.Trigger(e_rightTrigger, 0, false), e_none, false));
+	assert(Same(pad.Trigger(c_pad, e_rightTrigger, 9000, false), e_click, true));
+	assert(Same(pad.Trigger(c_pad, e_rightTrigger, 9500, false), e_none, false));
+	assert(Same(pad.Trigger(c_pad, e_rightTrigger, 0, false), e_none, false));
 
 	// Two buttons bound to Click share one click: the first release ends it.
 	pad.SetTable(ParseMap({{"gamepad:north", "click"}}));
-	assert(Same(pad.Button(e_south, true, false), e_click, true));
-	assert(Same(pad.Button(e_north, true, false), e_click, true));
-	assert(Same(pad.Button(e_north, false, false), e_click, false));
-	assert(Same(pad.Button(e_south, false, false), e_click, false));
+	assert(Same(pad.Button(c_pad, e_south, true, false), e_click, true));
+	assert(Same(pad.Button(c_pad, e_north, true, false), e_click, true));
+	assert(Same(pad.Button(c_pad, e_north, false, false), e_click, false));
+	assert(Same(pad.Button(c_pad, e_south, false, false), e_click, false));
 }
 
 static void CancellingReleasesTheTriggerLatch()
 {
 	Dispatcher pad(e_platformDefault);
-	assert(Same(pad.Trigger(e_rightTrigger, 9000, false), e_click, true));
+	assert(Same(pad.Trigger(c_pad, e_rightTrigger, 9000, false), e_click, true));
 	pad.Cancel();
 
 	// Still held after the menu closes: the next event presses again, as before the table.
-	assert(Same(pad.Trigger(e_rightTrigger, 9100, false), e_click, true));
-	assert(Same(pad.Trigger(e_rightTrigger, 0, true), e_click, false));
+	assert(Same(pad.Trigger(c_pad, e_rightTrigger, 9100, false), e_click, true));
+	assert(Same(pad.Trigger(c_pad, e_rightTrigger, 0, true), e_click, false));
 }
 
 static void VitaLeavesStartUnboundUnlessConfigured()
 {
 	Dispatcher vita(e_platformVita);
-	assert(Same(vita.Button(e_start, true, false), e_none, true));
-	assert(Same(vita.Button(e_start, false, false), e_none, false));
+	assert(Same(vita.Button(c_pad, e_start, true, false), e_none, true));
+	assert(Same(vita.Button(c_pad, e_start, false, false), e_none, false));
 	vita.SetTable(ParseMap({{"gamepad:start", "pause"}}));
-	assert(Same(vita.Button(e_start, true, false), e_pause, true));
+	assert(Same(vita.Button(c_pad, e_start, true, false), e_pause, true));
+}
+
+static void TriggersLatchIndependently()
+{
+	Dispatcher pad(e_platformAndroid);
+	pad.SetTable(ParseMap({{"gamepad:lefttrigger", "menu"}}));
+	assert(Same(pad.Trigger(c_pad, e_rightTrigger, 9000, false), e_click, true));
+	assert(Same(pad.Trigger(c_pad, e_leftTrigger, 9000, true), e_menu, true));
+	assert(Same(pad.Trigger(c_pad, e_leftTrigger, 12000, true), e_none, false));
+	assert(Same(pad.Trigger(c_pad, e_rightTrigger, 12000, true), e_none, false));
+	assert(Same(pad.Trigger(c_pad, e_leftTrigger, 0, true), e_none, false));
+	assert(Same(pad.Trigger(c_pad, e_rightTrigger, 0, true), e_click, false));
+	assert(Same(pad.Trigger(c_pad, e_leftTrigger, 9000, false), e_menu, true));
+}
+
+static void EachPadKeepsItsOwnPresses()
+{
+	Dispatcher pads(e_platformDefault);
+	const SDL_JoystickID xbox = 1, nintendo = 2;
+
+	// The same button on two layouts: each release ends what that pad's press started.
+	assert(Same(pads.Button(xbox, e_south, true, false), e_click, true));
+	assert(Same(pads.Button(nintendo, e_south, true, true), e_space, true));
+	assert(Same(pads.Button(xbox, e_south, false, false), e_click, false));
+	assert(Same(pads.Button(nintendo, e_south, false, true), e_none, false));
+
+	// One pad's trigger at rest does not release another pad's pull.
+	assert(Same(pads.Trigger(xbox, e_rightTrigger, 9000, false), e_click, true));
+	assert(Same(pads.Trigger(nintendo, e_rightTrigger, 0, true), e_none, false));
+	assert(Same(pads.Trigger(nintendo, e_rightTrigger, 9000, true), e_none, true));
+	assert(Same(pads.Trigger(xbox, e_rightTrigger, 0, true), e_click, false));
+	assert(Same(pads.Trigger(nintendo, e_rightTrigger, 0, false), e_none, false));
+
+	// Cancelling forgets every pad's presses.
+	assert(Same(pads.Button(xbox, e_south, true, false), e_click, true));
+	assert(Same(pads.Button(nintendo, e_east, true, true), e_click, true));
+	pads.Cancel();
+	assert(Same(pads.Button(xbox, e_south, false, false), e_none, false));
+	assert(Same(pads.Button(nintendo, e_east, false, true), e_none, false));
+
+	// A pad removed with its trigger still pulled ends the click it started, once.
+	assert(Same(pads.Trigger(xbox, e_rightTrigger, 9000, false), e_click, true));
+	assert(Same(pads.Removed(xbox, true), e_click, false));
+	assert(Same(pads.Removed(xbox, true), e_none, false));
+	// Buttons released before removal, or a click already ended elsewhere, leave nothing to end.
+	assert(Same(pads.Button(nintendo, e_east, true, true), e_click, true));
+	assert(Same(pads.Button(nintendo, e_east, false, true), e_click, false));
+	assert(Same(pads.Removed(nintendo, true), e_none, false));
+	assert(Same(pads.Trigger(xbox, e_rightTrigger, 9000, false), e_click, true));
+	assert(Same(pads.Removed(xbox, false), e_none, false));
 }
 
 static void MenuOpensOnlyOnAndroid()
@@ -320,8 +371,8 @@ static void MenuOpensOnlyOnAndroid()
 	assert(Resolve(ParseMap({{"gamepad:start", "pause"}}), e_start, false, e_platformAndroid) == e_pause);
 
 	Dispatcher android(e_platformAndroid);
-	assert(Same(android.Button(e_start, true, false), e_menu, true));
-	assert(Same(android.Button(e_start, false, false), e_none, false));
+	assert(Same(android.Button(c_pad, e_start, true, false), e_menu, true));
+	assert(Same(android.Button(c_pad, e_start, false, false), e_none, false));
 }
 
 int main()
@@ -338,4 +389,6 @@ int main()
 	TriggerClicksShareTheClickWithOtherSources();
 	CancellingReleasesTheTriggerLatch();
 	VitaLeavesStartUnboundUnlessConfigured();
+	TriggersLatchIndependently();
+	EachPadKeepsItsOwnPresses();
 }

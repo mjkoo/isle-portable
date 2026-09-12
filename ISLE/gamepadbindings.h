@@ -2,6 +2,7 @@
 #define GAMEPADBINDINGS_H
 
 #include <SDL3/SDL_gamepad.h>
+#include <map>
 
 // Game actions bound to physical gamepad inputs through the [gamepad] section of isle.ini.
 // Bindings name SDL's positional buttons, so one set applies to every connected pad.
@@ -230,36 +231,38 @@ inline bool FromTrigger(SDL_GamepadAxis p_axis, Input& p_input)
 }
 
 // Turns input events into actions. A release acts on what its press did, so a binding or label
-// that changes while an input is held cannot leave a click held. Records are per input and shared
-// by every connected pad.
+// that changes while an input is held cannot leave a click held. Each pad keeps its own records.
 class Dispatcher {
 public:
-	explicit Dispatcher(Platform p_platform) : m_platform(p_platform) { Cancel(); }
+	explicit Dispatcher(Platform p_platform) : m_platform(p_platform) {}
 
 	void SetTable(const Table& p_table) { m_table = p_table; }
 
-	Result Button(Input p_input, bool p_down, bool p_eastIsA)
+	Result Button(SDL_JoystickID p_pad, Input p_input, bool p_down, bool p_eastIsA)
 	{
+		Action& held = m_pads[p_pad].m_held[p_input];
 		Result result;
 		if (p_down) {
-			result.m_action = m_held[p_input] = Resolve(m_table, p_input, p_eastIsA, m_platform);
+			result.m_action = held = Resolve(m_table, p_input, p_eastIsA, m_platform);
 			result.m_pressed = true;
 		}
 		else {
 			// Only a click is held; key actions act once, on the press.
-			if (m_held[p_input] == e_click) {
+			if (held == e_click) {
 				result.m_action = e_click;
 			}
-			m_held[p_input] = e_none;
+			held = e_none;
 		}
 		return result;
 	}
 
 	// A trigger acts once per pull past the sticks' dead zone. Its click defers to one another
 	// source already holds, and its release only ends a click it started.
-	Result Trigger(Input p_input, Sint16 p_value, bool p_clickDown)
+	Result Trigger(SDL_JoystickID p_pad, Input p_input, Sint16 p_value, bool p_clickDown)
 	{
-		bool& latched = m_latched[p_input == e_leftTrigger ? 0 : 1];
+		Pad& pad = m_pads[p_pad];
+		bool& latched = pad.m_latched[p_input == e_leftTrigger ? 0 : 1];
+		Action& held = pad.m_held[p_input];
 		bool pulled = p_value < -8000 || p_value > 8000;
 		Result result;
 		if (pulled == latched) {
@@ -269,32 +272,47 @@ public:
 		latched = pulled;
 		if (pulled) {
 			Action action = Resolve(m_table, p_input, false, m_platform);
-			result.m_action = m_held[p_input] = action == e_click && p_clickDown ? e_none : action;
+			result.m_action = held = action == e_click && p_clickDown ? e_none : action;
 			result.m_pressed = true;
 		}
 		else {
-			if (m_held[p_input] == e_click && p_clickDown) {
+			if (held == e_click && p_clickDown) {
 				result.m_action = e_click;
 			}
-			m_held[p_input] = e_none;
+			held = e_none;
+		}
+		return result;
+	}
+
+	// Ends a click a disconnected pad still holds, and forgets the pad. SDL releases a removed
+	// pad's buttons, but its triggers need not return below the dead zone.
+	Result Removed(SDL_JoystickID p_pad, bool p_clickDown)
+	{
+		Result result;
+		auto pad = m_pads.find(p_pad);
+		if (pad != m_pads.end()) {
+			for (Action held : pad->second.m_held) {
+				if (held == e_click && p_clickDown) {
+					result.m_action = e_click;
+				}
+			}
+			m_pads.erase(pad);
 		}
 		return result;
 	}
 
 	// Forgets held inputs without releasing them, for when the caller has cancelled input itself.
-	void Cancel()
-	{
-		for (Action& held : m_held) {
-			held = e_none;
-		}
-		m_latched[0] = m_latched[1] = false;
-	}
+	void Cancel() { m_pads.clear(); }
 
 private:
+	struct Pad {
+		Action m_held[e_inputCount] = {};
+		bool m_latched[2] = {};
+	};
+
 	Platform m_platform;
 	Table m_table;
-	Action m_held[e_inputCount];
-	bool m_latched[2];
+	std::map<SDL_JoystickID, Pad> m_pads;
 };
 } // namespace GamepadBindings
 
