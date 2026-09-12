@@ -507,7 +507,13 @@ public final class SettingsActivity extends AppCompatActivity {
                     edit.setSummaryProvider(p -> DEFAULT.equals(edit.getText()) ? "Game default" : edit.getText());
                     preference = edit;
                 } else {
-                    ListPreference list = new ListPreference(requireContext());
+                    // Redraw when the entries change: a controller row's default label follows Confirm button.
+                    ListPreference list = new ListPreference(requireContext()) {
+                        @Override public void setEntries(CharSequence[] entries) {
+                            super.setEntries(entries);
+                            notifyChanged();
+                        }
+                    };
                     list.setSummaryProvider(ListPreference.SimpleSummaryProvider.getInstance());
                     preference = list;
                 }
