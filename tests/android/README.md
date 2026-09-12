@@ -248,3 +248,14 @@ javac -d build/android-controller-java \
   tests/android/java/org/legoisland/isle/ControllerBindingsTest.java
 java -ea -cp build/android-controller-java org.legoisland.isle.ControllerBindingsTest
 ```
+
+A real pad is best on device. Without one, Android's `uinput` shell command registers a kernel
+input device (no root needed on the API 35 emulator): a pad declared with Xbox 360 ids
+(`045e:028e`) gets Android's own key layout and SDL opens it as a gamepad. `adb shell input
+gamepad` cannot stand in, because SDL ignores Android's virtual input device. A pad declared with
+Switch Pro ids produced no gamepad events on the API 35 emulator. Check every default with no
+`[gamepad]` section; Start opening the menu once the game has started and doing nothing while it
+starts; B closing the menu, the D-pad moving between its buttons and A choosing one; reaching
+Settings and its Save settings row with the pad alone, and B leaving without saving; a rebind
+applying on Resume; a button held across the menu releasing without a click; a trigger resting
+part-way pressing once; and unplugging a pad with a button or trigger held ending the click.
