@@ -13,6 +13,9 @@ import android.widget.Button;
 final class TouchActionButton extends Button {
     interface ActionListener { void onAction(long generation); }
 
+    /** The label size at the default button size; the layout scales it with the button. */
+    static final float TEXT_SIZE_SP = 14;
+
     private final ActionListener action;
     private long generation, pressedGeneration;
     private int pointer = -1;
@@ -22,7 +25,7 @@ final class TouchActionButton extends Button {
         super(context);
         this.action = action;
         setText(label);
-        setTextSize(14);
+        setTextSize(TEXT_SIZE_SP);
         setTextColor(Color.WHITE);
         setAllCaps(false);
         setPadding(0, 0, 0, 0);

@@ -194,3 +194,9 @@ javac -d build/android-touch-java \
   tests/android/java/org/legoisland/isle/TouchLayoutTest.java
 java -ea -cp build/android-touch-java org.legoisland.isle.TouchLayoutTest
 ```
+
+The instrumented tests (`just android-test`) lay out the production button layer
+beside the original fixed RelativeLayout rules and require identical bounds, then
+cover inset changes, window insets, buttons larger than the safe area, size, opacity,
+the menu icon's placement, touch pass-through, and later fingers reaching the game
+while a button is held.

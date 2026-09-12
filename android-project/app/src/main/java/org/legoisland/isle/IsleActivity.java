@@ -5,8 +5,12 @@ import android.widget.ImageButton;
 import android.widget.RelativeLayout;
 import android.content.Intent;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.View;
-import android.os.Build;
+
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.RejectedExecutionException;
 
 import org.libsdl.app.SDLActivity;
 
@@ -26,10 +30,19 @@ public class IsleActivity extends SDLActivity {
     }
 
     private static final int SETTINGS_REQUEST = 4801;
+    private static final String TAG = "IsleActivity";
     private ImageButton mMenuButton;
     private boolean mGameReady;
     private boolean mResumed;
     private TouchControlsView mTouchControls;
+    private TouchControlsLayer mControls;
+    // Reads the saved layout off the UI thread, completing in request order.
+    private final ExecutorService mLayoutIo = Executors.newSingleThreadExecutor();
+    private TouchLayout mTouchLayout = TouchLayout.DEFAULT;
+    private boolean mLayoutRequested;
+    // The buttons stay hidden until the saved layout has been read, so none first appears in the
+    // wrong place.
+    private boolean mLayoutLoaded;
 
     @Override protected void onCreate(Bundle state) {
         super.onCreate(state);
@@ -44,64 +57,76 @@ public class IsleActivity extends SDLActivity {
             generation -> TouchControlsView.submitAction(2, generation));
         mTouchControls.setActionButtons(space, escape);
         mMenuButton = new ImageButton(this);
-        mMenuButton.setId(View.generateViewId());
-        escape.setId(View.generateViewId());
         mMenuButton.setImageResource(R.drawable.game_menu);
         mMenuButton.setBackgroundResource(R.drawable.game_menu_background);
         mMenuButton.setContentDescription("Game menu");
         mMenuButton.setPadding(0, 0, 0, 0);
         mMenuButton.setVisibility(View.GONE);
-        int size = (int) (48 * getResources().getDisplayMetrics().density + 0.5f);
-        int margin = (int) (8 * getResources().getDisplayMetrics().density + 0.5f);
-        RelativeLayout.LayoutParams params = new RelativeLayout.LayoutParams(size, size);
-        params.addRule(RelativeLayout.ALIGN_PARENT_RIGHT);
-        params.setMargins(margin, margin, margin, margin);
-        mLayout.addView(mMenuButton, params);
-        int actionWidth = (int) (64 * getResources().getDisplayMetrics().density + 0.5f);
-        RelativeLayout.LayoutParams escapeParams = new RelativeLayout.LayoutParams(actionWidth, size);
-        escapeParams.addRule(RelativeLayout.LEFT_OF, mMenuButton.getId());
-        escapeParams.addRule(RelativeLayout.ALIGN_TOP, mMenuButton.getId());
-        // LEFT_OF already includes the menu button's left margin.
-        mLayout.addView(escape, escapeParams);
-        RelativeLayout.LayoutParams spaceParams = new RelativeLayout.LayoutParams(actionWidth, size);
-        spaceParams.addRule(RelativeLayout.LEFT_OF, escape.getId());
-        spaceParams.addRule(RelativeLayout.ALIGN_TOP, mMenuButton.getId());
-        spaceParams.rightMargin = margin;
-        mLayout.addView(space, spaceParams);
-        mMenuButton.setOnApplyWindowInsetsListener((view, insets) -> {
-            int right = insets.getSystemWindowInsetRight();
-            int top = insets.getSystemWindowInsetTop();
-            if (Build.VERSION.SDK_INT >= 28 && insets.getDisplayCutout() != null) {
-                right = Math.max(right, insets.getDisplayCutout().getSafeInsetRight());
-                top = Math.max(top, insets.getDisplayCutout().getSafeInsetTop());
-            }
-            RelativeLayout.LayoutParams layout = (RelativeLayout.LayoutParams) view.getLayoutParams();
-            layout.setMargins(margin, margin + top, margin + right, margin);
-            view.setLayoutParams(layout);
-            return insets;
-        });
         mMenuButton.setOnClickListener(view -> {
             view.setVisibility(View.GONE);
             mTouchControls.setRunning(false);
             SettingsBridge.requestMenu();
         });
+        // SDLActivity creates its layout as a RelativeLayout; the overlay above relies on that too.
+        mControls = new TouchControlsLayer((RelativeLayout) mLayout, mMenuButton, escape, space);
     }
 
     public void showMenuButton() {
-        runOnUiThread(() -> { mGameReady = true; restoreMenuButton(); });
+        runOnUiThread(() -> {
+            mGameReady = true;
+            // The game has started, so the settings path is known.
+            if (!mLayoutRequested) {
+                mLayoutRequested = true;
+                loadTouchLayout();
+            }
+            restoreMenuButton();
+        });
     }
 
     void restoreMenuButton() {
-        if (mGameReady && mMenuButton != null && !isFinishing()) {
+        if (mGameReady && mLayoutLoaded && mMenuButton != null && !isFinishing()) {
             mMenuButton.setVisibility(View.VISIBLE);
-            mMenuButton.requestApplyInsets();
+            mControls.requestApplyInsets();
         }
         updateTouchControls();
     }
 
+    private void loadTouchLayout() {
+        try {
+            mLayoutIo.execute(() -> {
+                TouchLayout loaded = null;
+                try {
+                    loaded = TouchLayout.parse(SettingsBridge.read(SettingsBridge.path(), TouchLayout.KEYS));
+                } catch (RuntimeException e) {
+                    Log.w(TAG, "Could not read the touch layout; using the default", e);
+                } finally {
+                    // Whatever the read did, the buttons must still appear, if only at the default.
+                    TouchLayout result = loaded;
+                    runOnUiThread(() -> applyTouchLayout(result));
+                }
+            });
+        } catch (RejectedExecutionException e) {
+            // Only after onDestroy, when there are no controls left to update.
+        }
+    }
+
+    private void applyTouchLayout(TouchLayout loaded) {
+        if (isDestroyed() || mControls == null) return;
+        if (loaded != null) mTouchLayout = loaded;
+        mControls.setTouchLayout(mTouchLayout);
+        mTouchControls.setOpacity(mTouchLayout.opacity);
+        if (!mLayoutLoaded) {
+            mLayoutLoaded = true;
+            // Back can open the menu before the first read finishes; the button stays down then.
+            QuitPrompt prompt = mQuitPrompt;
+            if (prompt == null || prompt.getStatus() != QuitPrompt.STATUS_PENDING) restoreMenuButton();
+            else updateTouchControls();
+        }
+    }
+
     private void updateTouchControls() {
         if (mTouchControls != null) {
-            mTouchControls.setRunning(mGameReady && mResumed && hasWindowFocus() && !isFinishing());
+            mTouchControls.setRunning(mGameReady && mLayoutLoaded && mResumed && hasWindowFocus() && !isFinishing());
         }
     }
 
@@ -131,6 +156,7 @@ public class IsleActivity extends SDLActivity {
 
     @Override protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == SETTINGS_REQUEST && resultCode == RESULT_OK) loadTouchLayout();
         if (requestCode == SETTINGS_REQUEST && mQuitPrompt != null) {
             mQuitPrompt.returnedFromSettings();
         }
@@ -165,6 +191,7 @@ public class IsleActivity extends SDLActivity {
     @Override
     protected void onDestroy() {
         if (mTouchControls != null) mTouchControls.setRunning(false);
+        mLayoutIo.shutdown();
         if (mRestoreStartup != null) mRestoreStartup.abandon();
         QuitPrompt prompt = mQuitPrompt;
         if (prompt != null) {
@@ -220,9 +247,11 @@ public class IsleActivity extends SDLActivity {
      * Called from native code (see ISLE/android/quitprompt.cpp); kept by proguard-rules.pro.
      */
     public void showQuitPrompt(int saveResult) {
-        runOnUiThread(() -> { if (mMenuButton != null) mMenuButton.setVisibility(View.GONE); });
         QuitPrompt prompt = new QuitPrompt(this, saveResult);
+        // Published before hiding the button, so a layout read finishing in between sees the
+        // pending prompt and does not bring the button back under it.
         mQuitPrompt = prompt;
+        runOnUiThread(() -> { if (mMenuButton != null) mMenuButton.setVisibility(View.GONE); });
         prompt.show();
     }
 

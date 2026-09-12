@@ -31,6 +31,7 @@ keyboard or controller use hides the hints; touchscreen use restores them. Menus
 Settings and backgrounding hide them as well. The game menu button stays separate.
 
 The **Space** and **Esc** buttons beside the menu send the corresponding game keys.
+All three buttons stay clear of the navigation bar and display cutouts.
 Space can interrupt animations or end free navigation; Esc can return to the
 infocenter. Their effect depends on the current scene. Esc does not open the Android
 menu. The existing double-tap gesture still sends Space.

@@ -41,6 +41,16 @@ final class TouchControlsView extends View {
     private final Path path = new Path();
     private boolean running;
     private long revision = -1;
+    private float opacity = 1;
+
+    /** Scales every hint's opacity, from the player's touch control opacity setting. */
+    void setOpacity(float next) {
+        if (opacity == next) return;
+        opacity = next;
+        invalidate();
+    }
+
+    private int alpha(int base) { return Math.round(base * opacity); }
 
     TouchControlsView(Context context, View surface) {
         super(context);
@@ -130,7 +140,7 @@ final class TouchControlsView extends View {
         stickBounds.set(x - radius, y - radius, x + radius, y + radius);
         path.rewind();
         path.addRoundRect(stickBounds, 12 * density, 12 * density, Path.Direction.CW);
-        stroke(canvas, IDLE_ALPHA, 1.5f);
+        stroke(canvas, alpha(IDLE_ALPHA), 1.5f);
         float thumbX = x + state[AXIS_X] * 32 * density;
         float thumbY = y + state[AXIS_Y] * 32 * density;
         path.rewind();
@@ -138,7 +148,7 @@ final class TouchControlsView extends View {
         path.lineTo(thumbX, thumbY);
         path.addCircle(x, y, 2 * density, Path.Direction.CW);
         path.addCircle(thumbX, thumbY, 8 * density, Path.Direction.CW);
-        stroke(canvas, ACTIVE_ALPHA, 2);
+        stroke(canvas, alpha(ACTIVE_ALPHA), 2);
     }
 
     private void drawArrows(Canvas canvas) {
@@ -151,7 +161,7 @@ final class TouchControlsView extends View {
             path.moveTo(x, split);
             path.lineTo(x, viewport.bottom);
         }
-        stroke(canvas, 45, 1);
+        stroke(canvas, alpha(45), 1);
         arrow(canvas, .5f, .375f, 0, DIRECTION_UP);
         arrow(canvas, 1f / 6, .875f, -90, DIRECTION_LEFT);
         arrow(canvas, .5f, .875f, 180, DIRECTION_DOWN);
@@ -170,7 +180,7 @@ final class TouchControlsView extends View {
         path.lineTo(0, -size);
         path.lineTo(size * .65f, -size * .3f);
         boolean active = ((int) state[FLAGS] & direction) != 0;
-        stroke(canvas, active ? ACTIVE_ALPHA : IDLE_ALPHA, active ? 3 : 2);
+        stroke(canvas, alpha(active ? ACTIVE_ALPHA : IDLE_ALPHA), active ? 3 : 2);
         canvas.restoreToCount(saved);
     }
 }
