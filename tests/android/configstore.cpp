@@ -221,6 +221,10 @@ int main()
 			assert(Android_ReadConfig(path, {"gamepad:start", "gamepad:confirm"}, values).empty());
 			assert(values[0].second == "pause" && values[1].second == "east");
 		}
+		// Later updates reuse the section rather than adding another.
+		assert(Android_UpdateConfig(path, {{"gamepad:north", "space"}}).empty());
+		assert(Android_UpdateConfig(path, {{"gamepad:west", "escape"}}).empty());
+		assert(Read(path).find("[gamepad]") == Read(path).rfind("[gamepad]"));
 		std::ofstream(path) << "[isle]\nmusic=true\n";
 		assert(Android_UpdateConfig(path, {{"gamepad:south", nullptr}}).empty());
 		assert(Read(path).find("[gamepad]") == std::string::npos);
@@ -234,7 +238,7 @@ int main()
 				assert(!Android_ValidateSetting(key, invalid, {}));
 			}
 		}
-		for (const char* valid : {"label", "south", "east"}) {
+		for (const char* valid : {"label", "south", "east", "East"}) {
 			assert(Android_ValidateSetting("gamepad:confirm", valid, {}));
 		}
 		assert(Android_ValidateSetting("gamepad:confirm", nullptr, {}));
@@ -264,6 +268,11 @@ int main()
 		).empty());
 		assert(Android_TakeGamepadSettings(gamepad));
 		assert(gamepad.m_actions[e_north] == e_unset && gamepad.m_confirm == e_confirmLabel);
+		// A hand-edited value the game cannot use keeps its default in the published table.
+		std::ofstream(path) << "[isle]\nmusic=true\n[gamepad]\nguide=jump\n";
+		assert(Android_UpdateConfig(path, {{"gamepad:west", "pause"}}).empty());
+		assert(Android_TakeGamepadSettings(gamepad));
+		assert(gamepad.m_actions[e_guide] == e_unset && gamepad.m_actions[e_west] == e_pause);
 		// Touch and controller updates are published separately.
 		assert(Android_UpdateConfig(path, {{"isle:touch scheme", "1"}, {"gamepad:back", "none"}}).empty());
 		assert(Android_TakeTouchSettings(touch) && touch.m_scheme == 1);

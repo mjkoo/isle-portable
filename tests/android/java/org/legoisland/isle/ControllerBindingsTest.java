@@ -1,5 +1,8 @@
 package org.legoisland.isle;
 
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
@@ -11,10 +14,23 @@ public final class ControllerBindingsTest {
         return draft;
     }
 
-    public static void main(String[] args) {
+    private static String label(String value) {
+        return ControllerBindings.ACTION_LABELS[Arrays.asList(ControllerBindings.ACTION_VALUES).indexOf(value)];
+    }
+
+    public static void main(String[] args) throws Exception {
         boolean assertions = false;
         assert assertions = true;
         if (!assertions) throw new AssertionError("Run with java -ea");
+
+        // The rows mirror the native table, run from the repository root: every key and value
+        // appears quoted in its header.
+        String header = new String(Files.readAllBytes(Paths.get("ISLE/gamepadbindings.h")), StandardCharsets.UTF_8);
+        for (String key : ControllerBindings.KEYS) assert header.contains('"' + key + '"') : key;
+        assert header.contains('"' + ControllerBindings.CONFIRM + '"');
+        for (String value : ControllerBindings.ACTION_VALUES) assert header.contains('"' + value + '"') : value;
+        for (String value : ControllerBindings.CONFIRM_VALUES) assert header.contains('"' + value + '"') : value;
+        assert label("escape").equals("Esc") && label("menu").equals("Open menu") && label("none").equals("Nothing");
 
         // One row per bindable input, in the native table's order.
         assert ControllerBindings.KEYS.length == 13 && ControllerBindings.TITLES.length == 13;
