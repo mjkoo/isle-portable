@@ -217,7 +217,10 @@ Done, Done without changes, the unsaved-settings toast, and a failed save (make
 `isle.ini.new` a directory) followed by a retry. Check Developer options > Display
 cutout variants in both landscape rotations, gesture and three-button navigation,
 transient system bars, 16:9, 20:9 and 4:3 shapes, and each size and opacity in both
-movement schemes. Press Home during a drag, kill the process while editing, and enable
-Don't keep activities: the game must stay paused, stale touches must do nothing after
-Resume, and edit mode must never return on relaunch. A controller does nothing in the
-editor. Check reading and saving the layout on the minified release APK as well.
+movement schemes. Press Home during a drag and kill the process while editing: the
+game must stay paused, stale touches must do nothing after Resume, and edit mode must
+never return on relaunch. With Don't keep activities, opening Settings ends the game
+activity (SDL finishes it once the game's main loop exits), so leaving Settings, even
+through Edit touch layout, returns to the launcher: nothing may crash, saved settings
+must apply on the next launch, and the editor must not open. A controller does nothing
+in the editor. Check reading and saving the layout on the minified release APK as well.
