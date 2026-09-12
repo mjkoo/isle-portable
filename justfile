@@ -1,8 +1,11 @@
 # Build recipes for isle-portable. `just --list` shows them all.
 
 # Everything the Android build needs (JDK 17, the NDK, the CMake version the
-# Android Gradle Plugin pins) lives in the flake's android devshell.
-android_shell := "nix develop 'path:" + justfile_directory() + "#android' --command"
+# Android Gradle Plugin pins) lives in the flake's android devshell. A plain
+# directory reference fetches the flake through git, copying only tracked files;
+# a path: reference would copy the whole tree, build outputs included, into the
+# Nix store on every run.
+android_shell := "nix develop '" + justfile_directory() + "#android' --command"
 
 # The flags CI passes through to the native build, from .github/workflows/ci.yml.
 android_cmake_args := "-DCMAKE_BUILD_TYPE=Release -DISLE_USE_DX5=false -DISLE_BUILD_CONFIG=false -DENABLE_CLANG_TIDY=false -DISLE_WERROR=true -Werror=dev"
@@ -36,7 +39,7 @@ android-stop:
 
 # --- Local Android device (arm64 AVD on Apple Silicon) ---------------------
 
-emulator_shell := "nix develop 'path:" + justfile_directory() + "#android-emulator' --command"
+emulator_shell := "nix develop '" + justfile_directory() + "#android-emulator' --command"
 avd_name := "isle-api35"
 avd_image := "system-images;android-35;google_apis;arm64-v8a"
 
