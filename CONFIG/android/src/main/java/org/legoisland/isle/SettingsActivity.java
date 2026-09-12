@@ -456,15 +456,32 @@ public final class SettingsActivity extends AppCompatActivity {
             previousSaves.setOnPreferenceClickListener(p -> { ((SettingsActivity) requireActivity()).startRestore(true); return true; });
             data.addPreference(previousSaves);
             boolean layoutEditor = requireActivity().getIntent().getBooleanExtra(EXTRA_TOUCH_LAYOUT_EDITOR, false);
+            Preference reset = new Preference(requireContext());
+            reset.setTitle("Reset these settings");
+            reset.setIconSpaceReserved(false);
+            // Edit touch layout is not offered over startup recovery, so only point to it when it is.
+            reset.setSummary("Use game defaults for Input, Audio and Display. Touch button positions, controller buttons, paths and other settings are kept"
+                + (layoutEditor ? "; reset positions in Edit touch layout" : "") + ". Choose Save to apply.");
+            reset.setOnPreferenceClickListener(p -> {
+                for (String key : model.draft.keySet()) {
+                    if (!ControllerBindings.isControllerKey(key)) model.draft.put(key, null);
+                }
+                refresh();
+                return true;
+            });
             String group = "";
-            PreferenceCategory category = null;
+            PreferenceCategory category = null, controller = null;
             for (Control control : CONTROLS) {
                 if (!group.equals(control.group)) {
+                    boolean controllerGroup = "Controller".equals(control.group);
+                    // Reset these settings follows the groups it resets, ahead of the controller rows.
+                    if (controllerGroup) screen.addPreference(reset);
                     category = new PreferenceCategory(requireContext());
                     category.setTitle(control.group);
                     category.setIconSpaceReserved(false);
                     screen.addPreference(category);
                     group = control.group;
+                    if (controllerGroup) controller = category;
                 }
                 Preference preference;
                 if (control.labels == null) {
@@ -514,14 +531,13 @@ public final class SettingsActivity extends AppCompatActivity {
                     category.addPreference(edit);
                 }
             }
-            // The Controller group comes last, so category is still its category here.
             Preference menuWarning = new Preference(requireContext());
             menuWarning.setKey("controller-menu-warning");
             menuWarning.setTitle("No controller button opens the menu");
             menuWarning.setSummary("Android Back and the touch menu button still open it.");
             menuWarning.setSelectable(false);
             menuWarning.setIconSpaceReserved(false);
-            category.addPreference(menuWarning);
+            controller.addPreference(menuWarning);
             Preference resetController = new Preference(requireContext());
             resetController.setTitle("Reset controller buttons");
             resetController.setSummary("Use game defaults for every controller button. Choose Save to apply.");
@@ -533,21 +549,7 @@ public final class SettingsActivity extends AppCompatActivity {
                 refresh();
                 return true;
             });
-            category.addPreference(resetController);
-            Preference reset = new Preference(requireContext());
-            reset.setTitle("Reset these settings");
-            reset.setIconSpaceReserved(false);
-            // Edit touch layout is not offered over startup recovery, so only point to it when it is.
-            reset.setSummary("Use game defaults for Input, Audio and Display. Touch button positions, controller buttons, paths and other settings are kept"
-                + (layoutEditor ? "; reset positions in Edit touch layout" : "") + ". Choose Save to apply.");
-            reset.setOnPreferenceClickListener(p -> {
-                for (String key : model.draft.keySet()) {
-                    if (!ControllerBindings.isControllerKey(key)) model.draft.put(key, null);
-                }
-                refresh();
-                return true;
-            });
-            screen.addPreference(reset);
+            controller.addPreference(resetController);
             refresh();
         }
 
