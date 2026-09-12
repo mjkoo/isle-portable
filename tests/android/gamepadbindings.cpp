@@ -284,34 +284,29 @@ static void TriggerClicksShareTheClickWithOtherSources()
 	assert(Same(pad.Button(c_pad, e_south, false, false), e_click, false));
 }
 
-static void SettledTriggersActOnlyAfterRelease()
+static void CancellingKeepsTriggerLatches()
 {
 	Dispatcher pad(e_platformDefault);
 	assert(Same(pad.Trigger(c_pad, e_rightTrigger, 9000, false), e_click, true));
 
-	// Still pulled when input is cancelled: settled, it does not act on its next movement, and
-	// its release ends nothing, since cancelling already ended the click.
+	// Still pulled when input is cancelled: it does not act on its next movement, and its release
+	// ends nothing, since cancelling already ended the click.
 	pad.Cancel();
-	pad.Settle(c_pad, e_rightTrigger, 9000);
 	assert(Same(pad.Trigger(c_pad, e_rightTrigger, 9100, false), e_none, false));
 	assert(Same(pad.Trigger(c_pad, e_rightTrigger, 0, false), e_none, false));
 	assert(Same(pad.Trigger(c_pad, e_rightTrigger, 9000, false), e_click, true));
 
-	// Released while input was cancelled, so its release never arrived: the next pull acts.
+	// Released while its events were discarded: an analog pull passes below the dead zone on the
+	// way, which clears the latch, so the pull still acts.
 	pad.Cancel();
-	pad.Settle(c_pad, e_rightTrigger, 0);
+	assert(Same(pad.Trigger(c_pad, e_rightTrigger, 3000, false), e_none, false));
 	assert(Same(pad.Trigger(c_pad, e_rightTrigger, 9000, false), e_click, true));
-
-	// Without settling, cancelling forgets the latch as well.
-	pad.Cancel();
-	assert(Same(pad.Trigger(c_pad, e_rightTrigger, 9100, false), e_click, true));
 
 	// A trigger that opened the menu does not reopen it when still held after the menu closes.
 	Dispatcher android(e_platformAndroid);
 	android.SetTable(ParseMap({{"gamepad:lefttrigger", "menu"}}));
 	assert(Same(android.Trigger(c_pad, e_leftTrigger, 20000, false), e_menu, true));
 	android.Cancel();
-	android.Settle(c_pad, e_leftTrigger, 20000);
 	assert(Same(android.Trigger(c_pad, e_leftTrigger, 21000, false), e_none, false));
 }
 
@@ -405,7 +400,7 @@ int main()
 	ButtonReleasesFollowTheirPress();
 	TriggersPressOnceAcrossTheDeadZone();
 	TriggerClicksShareTheClickWithOtherSources();
-	SettledTriggersActOnlyAfterRelease();
+	CancellingKeepsTriggerLatches();
 	VitaLeavesStartUnboundUnlessConfigured();
 	TriggersLatchIndependently();
 	EachPadKeepsItsOwnPresses();

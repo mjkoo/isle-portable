@@ -516,26 +516,6 @@ static void CancelInputForQuitPrompt()
 	g_lastJoystickMouseY = 0;
 	g_dpadUp = g_dpadDown = g_dpadLeft = g_dpadRight = false;
 	g_gamepad.Cancel();
-	// A trigger still pulled stays inert until released, rather than acting again on its next
-	// small movement.
-	int gamepadCount = 0;
-	SDL_JoystickID* gamepads = SDL_GetGamepads(&gamepadCount);
-	for (int i = 0; gamepads && i < gamepadCount; i++) {
-		SDL_Gamepad* gamepad = SDL_GetGamepadFromID(gamepads[i]);
-		if (gamepad) {
-			g_gamepad.Settle(
-				gamepads[i],
-				GamepadBindings::e_leftTrigger,
-				SDL_GetGamepadAxis(gamepad, SDL_GAMEPAD_AXIS_LEFT_TRIGGER)
-			);
-			g_gamepad.Settle(
-				gamepads[i],
-				GamepadBindings::e_rightTrigger,
-				SDL_GetGamepadAxis(gamepad, SDL_GAMEPAD_AXIS_RIGHT_TRIGGER)
-			);
-		}
-	}
-	SDL_free(gamepads);
 
 	if (g_isle && Lego() && InputManager()) {
 		InputManager()->CancelPointerInput();

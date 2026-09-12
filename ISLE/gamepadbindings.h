@@ -284,19 +284,21 @@ public:
 		return result;
 	}
 
-	// Records a trigger's position without acting, after the caller has cancelled input: a trigger
-	// still pulled then acts again only once released and pulled anew.
-	void Settle(SDL_JoystickID p_pad, Input p_input, Sint16 p_value)
-	{
-		m_pads[p_pad].m_latched[p_input == e_leftTrigger ? 0 : 1] = Pulled(p_value);
-	}
-
 	// Forgets a disconnected pad. SDL releases its buttons and returns its axes to rest before
 	// reporting the removal, so nothing it held is left to end.
 	void Removed(SDL_JoystickID p_pad) { m_pads.erase(p_pad); }
 
 	// Forgets held inputs without releasing them, for when the caller has cancelled input itself.
-	void Cancel() { m_pads.clear(); }
+	// Trigger latches stay: they record the last position the caller handled, so a trigger still
+	// pulled acts again only once released and pulled anew.
+	void Cancel()
+	{
+		for (auto& pad : m_pads) {
+			for (Action& held : pad.second.m_held) {
+				held = e_none;
+			}
+		}
+	}
 
 private:
 	static bool Pulled(Sint16 p_value) { return p_value < -8000 || p_value > 8000; }
