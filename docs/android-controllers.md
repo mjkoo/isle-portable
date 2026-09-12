@@ -32,7 +32,8 @@ warns when no button would open the menu; Android Back and the touch menu button
 
 Releasing a button always ends what pressing it started, even if its action or the pad's layout
 changed while it was held. Buttons held while the menu opens do nothing when released after
-Resume. A trigger acts once each time it is pulled past about a quarter of its travel.
+Resume, and a trigger still held when you resume does nothing until you release it. A trigger acts
+once each time it is pulled past about a quarter of its travel.
 
 ## Configuration file
 

@@ -284,15 +284,35 @@ static void TriggerClicksShareTheClickWithOtherSources()
 	assert(Same(pad.Button(c_pad, e_south, false, false), e_click, false));
 }
 
-static void CancellingReleasesTheTriggerLatch()
+static void SettledTriggersActOnlyAfterRelease()
 {
 	Dispatcher pad(e_platformDefault);
 	assert(Same(pad.Trigger(c_pad, e_rightTrigger, 9000, false), e_click, true));
-	pad.Cancel();
 
-	// Still held after the menu closes: the next event presses again, as before the table.
+	// Still pulled when input is cancelled: settled, it does not act on its next movement, and
+	// its release ends nothing, since cancelling already ended the click.
+	pad.Cancel();
+	pad.Settle(c_pad, e_rightTrigger, 9000);
+	assert(Same(pad.Trigger(c_pad, e_rightTrigger, 9100, false), e_none, false));
+	assert(Same(pad.Trigger(c_pad, e_rightTrigger, 0, false), e_none, false));
+	assert(Same(pad.Trigger(c_pad, e_rightTrigger, 9000, false), e_click, true));
+
+	// Released while input was cancelled, so its release never arrived: the next pull acts.
+	pad.Cancel();
+	pad.Settle(c_pad, e_rightTrigger, 0);
+	assert(Same(pad.Trigger(c_pad, e_rightTrigger, 9000, false), e_click, true));
+
+	// Without settling, cancelling forgets the latch as well.
+	pad.Cancel();
 	assert(Same(pad.Trigger(c_pad, e_rightTrigger, 9100, false), e_click, true));
-	assert(Same(pad.Trigger(c_pad, e_rightTrigger, 0, true), e_click, false));
+
+	// A trigger that opened the menu does not reopen it when still held after the menu closes.
+	Dispatcher android(e_platformAndroid);
+	android.SetTable(ParseMap({{"gamepad:lefttrigger", "menu"}}));
+	assert(Same(android.Trigger(c_pad, e_leftTrigger, 20000, false), e_menu, true));
+	android.Cancel();
+	android.Settle(c_pad, e_leftTrigger, 20000);
+	assert(Same(android.Trigger(c_pad, e_leftTrigger, 21000, false), e_none, false));
 }
 
 static void VitaLeavesStartUnboundUnlessConfigured()
@@ -342,16 +362,14 @@ static void EachPadKeepsItsOwnPresses()
 	assert(Same(pads.Button(xbox, e_south, false, false), e_none, false));
 	assert(Same(pads.Button(nintendo, e_east, false, true), e_none, false));
 
-	// A pad removed with its trigger still pulled ends the click it started, once.
+	// SDL returns a removed pad's trigger to rest before reporting the removal, which ends its
+	// click; the pad is then forgotten, so a pad given the same id starts afresh.
 	assert(Same(pads.Trigger(xbox, e_rightTrigger, 9000, false), e_click, true));
-	assert(Same(pads.Removed(xbox, true), e_click, false));
-	assert(Same(pads.Removed(xbox, true), e_none, false));
-	// Buttons released before removal, or a click already ended elsewhere, leave nothing to end.
-	assert(Same(pads.Button(nintendo, e_east, true, true), e_click, true));
-	assert(Same(pads.Button(nintendo, e_east, false, true), e_click, false));
-	assert(Same(pads.Removed(nintendo, true), e_none, false));
-	assert(Same(pads.Trigger(xbox, e_rightTrigger, 9000, false), e_click, true));
-	assert(Same(pads.Removed(xbox, false), e_none, false));
+	assert(Same(pads.Trigger(xbox, e_rightTrigger, 0, true), e_click, false));
+	pads.Removed(xbox);
+	assert(Same(pads.Trigger(nintendo, e_rightTrigger, 9000, false), e_click, true));
+	pads.Removed(nintendo);
+	assert(Same(pads.Trigger(nintendo, e_rightTrigger, 9000, false), e_click, true));
 }
 
 static void MenuOpensOnlyOnAndroid()
@@ -387,7 +405,7 @@ int main()
 	ButtonReleasesFollowTheirPress();
 	TriggersPressOnceAcrossTheDeadZone();
 	TriggerClicksShareTheClickWithOtherSources();
-	CancellingReleasesTheTriggerLatch();
+	SettledTriggersActOnlyAfterRelease();
 	VitaLeavesStartUnboundUnlessConfigured();
 	TriggersLatchIndependently();
 	EachPadKeepsItsOwnPresses();

@@ -263,7 +263,7 @@ public:
 		Pad& pad = m_pads[p_pad];
 		bool& latched = pad.m_latched[p_input == e_leftTrigger ? 0 : 1];
 		Action& held = pad.m_held[p_input];
-		bool pulled = p_value < -8000 || p_value > 8000;
+		bool pulled = Pulled(p_value);
 		Result result;
 		if (pulled == latched) {
 			return result;
@@ -284,27 +284,23 @@ public:
 		return result;
 	}
 
-	// Ends a click a disconnected pad still holds, and forgets the pad. SDL releases a removed
-	// pad's buttons, but its triggers need not return below the dead zone.
-	Result Removed(SDL_JoystickID p_pad, bool p_clickDown)
+	// Records a trigger's position without acting, after the caller has cancelled input: a trigger
+	// still pulled then acts again only once released and pulled anew.
+	void Settle(SDL_JoystickID p_pad, Input p_input, Sint16 p_value)
 	{
-		Result result;
-		auto pad = m_pads.find(p_pad);
-		if (pad != m_pads.end()) {
-			for (Action held : pad->second.m_held) {
-				if (held == e_click && p_clickDown) {
-					result.m_action = e_click;
-				}
-			}
-			m_pads.erase(pad);
-		}
-		return result;
+		m_pads[p_pad].m_latched[p_input == e_leftTrigger ? 0 : 1] = Pulled(p_value);
 	}
+
+	// Forgets a disconnected pad. SDL releases its buttons and returns its axes to rest before
+	// reporting the removal, so nothing it held is left to end.
+	void Removed(SDL_JoystickID p_pad) { m_pads.erase(p_pad); }
 
 	// Forgets held inputs without releasing them, for when the caller has cancelled input itself.
 	void Cancel() { m_pads.clear(); }
 
 private:
+	static bool Pulled(Sint16 p_value) { return p_value < -8000 || p_value > 8000; }
+
 	struct Pad {
 		Action m_held[e_inputCount] = {};
 		bool m_latched[2] = {};
