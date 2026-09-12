@@ -104,6 +104,41 @@ int main()
 	assert(!Android_ValidateSetting("isle:msaa", "3", {}));
 	assert(Android_ValidateSetting("isle:3d device id", "available", {"GLES", "available"}));
 	assert(!Android_ValidateSetting("isle:3d device id", "unavailable", {"GLES", "available"}));
+	assert(Android_ValidateSetting("isle:touch button scale", nullptr, {}));
+	assert(Android_ValidateSetting("isle:touch button scale", "0.5", {}));
+	assert(Android_ValidateSetting("isle:touch button scale", "2", {}));
+	for (const char* invalid : {"", "0.49", "2.01", "nan", "1x"}) {
+		assert(!Android_ValidateSetting("isle:touch button scale", invalid, {}));
+	}
+	assert(Android_ValidateSetting("isle:touch control opacity", nullptr, {}));
+	assert(Android_ValidateSetting("isle:touch control opacity", "0.1", {}));
+	assert(Android_ValidateSetting("isle:touch control opacity", "1", {}));
+	for (const char* invalid : {"0", "0.09", "1.01", "inf"}) {
+		assert(!Android_ValidateSetting("isle:touch control opacity", invalid, {}));
+	}
+	for (const char* key : {"isle:touch menu position", "isle:touch escape position", "isle:touch space position"}) {
+		assert(Android_ValidateSetting(key, nullptr, {}));
+		for (const char* valid : {"0,0", "1,1", "0.5000,0.2500"}) {
+			assert(Android_ValidateSetting(key, valid, {}));
+		}
+		// "0,5000,0,2500" is what a comma-decimal locale would produce.
+		for (const char* invalid :
+			 {"",
+			  "0.5",
+			  "0.5,",
+			  ",0.5",
+			  "0.5,0.5,0.5",
+			  "1.1,0",
+			  "-0.1,0",
+			  "nan,0",
+			  "0.5,inf",
+			  "0,5",
+			  "0.5;0.5",
+			  "0,5000,0,2500"}) {
+			assert(!Android_ValidateSetting(key, invalid, {}));
+		}
+	}
+	assert(!Android_ValidateSetting("isle:touch other position", "0.5,0.5", {}));
 
 	Android_TouchSettings touch;
 	Android_BeginTouchSettings(path);
@@ -117,6 +152,29 @@ int main()
 	assert(Android_UpdateConfig(path, {{"isle:music", "false"}}).empty());
 	assert(Android_TakeTouchSettings(touch) && touch.m_scheme == 1 && !touch.m_visible);
 	assert(Android_UpdateConfig(path, {}).empty());
+	assert(!Android_TakeTouchSettings(touch));
+	// Layout values are presentation only, so saving them publishes no live touch update.
+	assert(Android_UpdateConfig(
+			   path,
+			   {{"isle:touch menu position", "0.2500,0.7500"},
+				{"isle:touch button scale", "1.5"},
+				{"isle:touch control opacity", "0.5"}}
+	).empty());
+	assert(!Android_TakeTouchSettings(touch));
+	const std::vector<std::string> layoutKeys =
+		{"isle:touch menu position", "isle:touch button scale", "isle:touch control opacity"};
+	values.clear();
+	assert(Android_ReadConfig(path, layoutKeys, values).empty());
+	assert(values[0].second == "0.2500,0.7500" && values[1].second == "1.5" && values[2].second == "0.5");
+	assert(Android_UpdateConfig(
+			   path,
+			   {{"isle:touch menu position", nullptr},
+				{"isle:touch button scale", nullptr},
+				{"isle:touch control opacity", nullptr}}
+	).empty());
+	values.clear();
+	assert(Android_ReadConfig(path, layoutKeys, values).empty());
+	assert(!values[0].first && !values[1].first && !values[2].first);
 	assert(!Android_TakeTouchSettings(touch));
 
 	assert(Android_UpdateConfig(path, {{"isle:touch scheme", "-1"}}).empty());

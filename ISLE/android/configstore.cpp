@@ -147,8 +147,30 @@ std::string Android_UpdateConfig(
 	return {};
 }
 
+static bool IsFraction(double p_value)
+{
+	return std::isfinite(p_value) && p_value >= 0 && p_value <= 1;
+}
+
+// A touch control's center as "x,y", each a fraction of the area clear of system bars and cutouts.
+static bool IsTouchPosition(const char* p_value)
+{
+	char* end;
+	double x = strtod(p_value, &end);
+	if (end == p_value || *end != ',') {
+		return false;
+	}
+	const char* start = end + 1;
+	double y = strtod(start, &end);
+	return end != start && !*end && IsFraction(x) && IsFraction(y);
+}
+
 bool Android_ValidateSetting(const std::string& p_key, const char* p_value, const std::vector<std::string>& p_renderers)
 {
+	if (p_key == "isle:touch menu position" || p_key == "isle:touch escape position" ||
+		p_key == "isle:touch space position") {
+		return !p_value || IsTouchPosition(p_value);
+	}
 	if (p_key == "isle:3d device id") {
 		if (!p_value) {
 			return true;
@@ -170,7 +192,9 @@ bool Android_ValidateSetting(const std::string& p_key, const char* p_value, cons
 	bool height = p_key == "isle:vertical resolution";
 	bool msaa = p_key == "isle:msaa";
 	bool anisotropic = p_key == "isle:anisotropic";
-	if (!(sensitivity || touch || width || height || msaa || anisotropic)) {
+	bool buttonScale = p_key == "isle:touch button scale";
+	bool opacity = p_key == "isle:touch control opacity";
+	if (!(sensitivity || touch || width || height || msaa || anisotropic || buttonScale || opacity)) {
 		return false;
 	}
 	if (!p_value) {
@@ -183,6 +207,12 @@ bool Android_ValidateSetting(const std::string& p_key, const char* p_value, cons
 	}
 	if (sensitivity) {
 		return value >= 0.1 && value <= 20;
+	}
+	if (buttonScale) {
+		return value >= 0.5 && value <= 2;
+	}
+	if (opacity) {
+		return value >= 0.1 && value <= 1;
 	}
 	if (touch) {
 		return value == -1 || value == 0 || value == 1 || value == 2;
