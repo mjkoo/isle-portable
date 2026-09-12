@@ -66,11 +66,12 @@ The Android app launches directly into the game. Tap the menu button, in the upp
 corner by default, or use Android's Back button or gesture, to open Resume / Settings / Quit.
 
 Settings exposes touch schemes, touch button size and opacity, cursor sensitivity, haptics,
-WASD, audio, render resolution, available renderers and filtering. Choose **Save**: touch
-scheme, Show touch controls, button size and opacity apply when you resume, and other changes
-apply after quitting and launching the game again. **Cancel** discards edits. **Reset these
-settings** restores defaults for these controls when saved; it keeps game paths, saves, touch
-button positions and extension configuration. **Input > Edit touch layout** moves the menu,
+WASD, audio, render resolution, available renderers, filtering and controller buttons. Choose
+**Save**: touch scheme, Show touch controls, button size, opacity and controller buttons apply
+when you resume, and other changes apply after quitting and launching the game again.
+**Cancel** discards edits. **Reset these settings** restores defaults for these controls when
+saved; it keeps game paths, saves, touch button positions, controller buttons and extension
+configuration. **Input > Edit touch layout** moves the menu,
 Space and Esc buttons over the paused game. A startup error also offers Settings so an
 unsuitable display configuration can be reset.
 

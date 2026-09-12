@@ -103,7 +103,7 @@ void Android_ShowMenuButton()
 	}
 }
 
-// The game opens the menu on its next iteration, and only once it has started.
+// The game opens the menu on its next iteration; a request before it has started is dropped.
 void Android_RequestMenu()
 {
 	g_menuRequested = true;

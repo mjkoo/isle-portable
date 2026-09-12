@@ -14,7 +14,7 @@ stick and D-pad move the cursor. The buttons below can be changed in Settings.
 
 On Xbox and PlayStation layouts the bottom face button is labelled A (Cross); on Nintendo
 layouts the right one is. Start opens the same menu as Android Back and the touch menu button,
-so a controller alone can reach Settings. The menu opens once the game has started.
+so a controller alone can reach Settings. Start does nothing until the game has started.
 
 ## Changing buttons
 
@@ -50,7 +50,8 @@ Keys are `south`, `east`, `west`, `north`, `leftshoulder`, `rightshoulder`, `lef
 Values are `click`, `space`, `escape`, `pause`, `menu` or `none`, in any letter case; `confirm`
 is `label`, `south` or `east`. A missing or unusable value keeps the default, and the game logs
 the unusable ones. `menu` does nothing outside Android. On Vita, Start has no default action
-because Start with Select takes a screenshot; binding it brings that conflict back. The desktop
+because it is part of the system screenshot button combination; binding it brings that conflict
+back. The desktop
 isle-config program rewrites `isle.ini` without this section, so saving there removes custom
 buttons.
 

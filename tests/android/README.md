@@ -228,7 +228,8 @@ in the editor. Check reading and saving the layout on the minified release APK a
 ## Controller bindings
 
 Host tests cover the `[gamepad]` binding table every platform reads: defaults identical to
-the fixed mapping it replaced for every input, button label and platform, case-insensitive
+the fixed mapping it replaced for every input, button label and platform (except Start, which
+now opens the menu on Android), case-insensitive
 values, invalid values falling back to their defaults, the confirm choice, and releases
 acting on what their press did across label changes, rebinding, cancellation, trigger dead
 zones and clicks held by another source. When the desktop build's SDL3 library is present,
