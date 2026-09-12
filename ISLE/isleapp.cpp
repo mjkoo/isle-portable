@@ -4,6 +4,7 @@
 
 #include "3dmanager/lego3dmanager.h"
 #include "decomp.h"
+#include "gamepadbindings.h"
 #include "infocenter.h"
 #include "legoanimationmanager.h"
 #include "legobuildingmanager.h"
@@ -119,6 +120,16 @@ MxU8 g_mousemoved = FALSE;
 MxS32 g_closed = FALSE;
 
 static char g_startupError[1024] = "";
+
+static GamepadBindings::Dispatcher g_gamepad(
+#if defined(__vita__)
+	GamepadBindings::e_platformVita
+#elif defined(ANDROID)
+	GamepadBindings::e_platformAndroid
+#else
+	GamepadBindings::e_platformDefault
+#endif
+);
 
 // GLOBAL: ISLE 0x410050
 MxS32 g_rmDisabled = FALSE;
@@ -504,6 +515,7 @@ static void CancelInputForQuitPrompt()
 	g_lastJoystickMouseX = 0;
 	g_lastJoystickMouseY = 0;
 	g_dpadUp = g_dpadDown = g_dpadLeft = g_dpadRight = false;
+	g_gamepad.Cancel();
 
 	if (g_isle && Lego() && InputManager()) {
 		InputManager()->CancelPointerInput();
@@ -831,6 +843,50 @@ static SDL_GamepadButton GetGamepadClickButton(SDL_JoystickID p_joystickID)
 	return SDL_GAMEPAD_BUTTON_SOUTH;
 }
 
+static void HandleGamepadAction(GamepadBindings::Result p_result)
+{
+	switch (p_result.m_action) {
+	case GamepadBindings::e_click:
+		g_mousedown = p_result.m_pressed ? TRUE : FALSE;
+		if (InputManager()) {
+			InputManager()->QueueEvent(
+				p_result.m_pressed ? c_notificationButtonDown : c_notificationButtonUp,
+				LegoEventNotificationParam::c_lButtonState,
+				g_lastMouseX,
+				g_lastMouseY,
+				0
+			);
+		}
+		break;
+	case GamepadBindings::e_space:
+		if (InputManager()) {
+			InputManager()->QueueEvent(c_notificationKeyPress, SDLK_SPACE, 0, 0, SDLK_SPACE);
+		}
+		break;
+	case GamepadBindings::e_escape:
+		if (InputManager()) {
+			InputManager()->QueueEvent(c_notificationKeyPress, SDLK_ESCAPE, 0, 0, SDLK_ESCAPE);
+		}
+		break;
+	case GamepadBindings::e_pause:
+		if (InputManager()) {
+			InputManager()->QueueEvent(c_notificationKeyPress, 0, 0, 0, SDLK_PAUSE);
+		}
+		break;
+	default:
+		break;
+	}
+}
+
+static void HandleGamepadButton(const SDL_GamepadButtonEvent& p_event, bool p_down)
+{
+	GamepadBindings::Input input;
+	if (GamepadBindings::FromButton(static_cast<SDL_GamepadButton>(p_event.button), input)) {
+		bool eastIsA = GetGamepadClickButton(p_event.which) == SDL_GAMEPAD_BUTTON_EAST;
+		HandleGamepadAction(g_gamepad.Button(input, p_down, eastIsA));
+	}
+}
+
 SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event)
 {
 	if (!g_isle) {
@@ -1025,38 +1081,9 @@ SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event)
 		case SDL_GAMEPAD_BUTTON_DPAD_RIGHT:
 			g_dpadRight = true;
 			break;
-		case SDL_GAMEPAD_BUTTON_EAST:
-		case SDL_GAMEPAD_BUTTON_SOUTH:
-			if (event->gbutton.button == GetGamepadClickButton(event->gbutton.which)) {
-				g_mousedown = TRUE;
-				if (InputManager()) {
-					InputManager()->QueueEvent(
-						c_notificationButtonDown,
-						LegoEventNotificationParam::c_lButtonState,
-						g_lastMouseX,
-						g_lastMouseY,
-						0
-					);
-				}
-			}
-			else if (InputManager()) {
-				InputManager()->QueueEvent(c_notificationKeyPress, SDLK_SPACE, 0, 0, SDLK_SPACE);
-			}
+		default:
+			HandleGamepadButton(event->gbutton, true);
 			break;
-
-		case SDL_GAMEPAD_BUTTON_BACK:
-			if (InputManager()) {
-				InputManager()->QueueEvent(c_notificationKeyPress, SDLK_ESCAPE, 0, 0, SDLK_ESCAPE);
-			}
-			break;
-
-#ifndef __vita__ // conflicts with screenshot button combination
-		case SDL_GAMEPAD_BUTTON_START:
-			if (InputManager()) {
-				InputManager()->QueueEvent(c_notificationKeyPress, 0, 0, 0, SDLK_PAUSE);
-			}
-			break;
-#endif
 		}
 		break;
 	}
@@ -1075,20 +1102,8 @@ SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event)
 		case SDL_GAMEPAD_BUTTON_DPAD_RIGHT:
 			g_dpadRight = false;
 			break;
-		case SDL_GAMEPAD_BUTTON_EAST:
-		case SDL_GAMEPAD_BUTTON_SOUTH:
-			if (event->gbutton.button == GetGamepadClickButton(event->gbutton.which)) {
-				g_mousedown = FALSE;
-				if (InputManager()) {
-					InputManager()->QueueEvent(
-						c_notificationButtonUp,
-						LegoEventNotificationParam::c_lButtonState,
-						g_lastMouseX,
-						g_lastMouseY,
-						0
-					);
-				}
-			}
+		default:
+			HandleGamepadButton(event->gbutton, false);
 			break;
 		}
 		break;
@@ -1130,33 +1145,9 @@ SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event)
 			g_lastJoystickMouseY = ((MxFloat) axisValue) / SDL_JOYSTICK_AXIS_MAX * g_isle->GetCursorSensitivity();
 		}
 #endif
-		if (event->gaxis.axis == SDL_GAMEPAD_AXIS_RIGHT_TRIGGER) {
-			if (axisValue != 0 && !g_mousedown) {
-				g_mousedown = TRUE;
-
-				if (InputManager()) {
-					InputManager()->QueueEvent(
-						c_notificationButtonDown,
-						LegoEventNotificationParam::c_lButtonState,
-						g_lastMouseX,
-						g_lastMouseY,
-						0
-					);
-				}
-			}
-			else if (axisValue == 0 && g_mousedown) {
-				g_mousedown = FALSE;
-
-				if (InputManager()) {
-					InputManager()->QueueEvent(
-						c_notificationButtonUp,
-						LegoEventNotificationParam::c_lButtonState,
-						g_lastMouseX,
-						g_lastMouseY,
-						0
-					);
-				}
-			}
+		GamepadBindings::Input trigger;
+		if (GamepadBindings::FromTrigger(static_cast<SDL_GamepadAxis>(event->gaxis.axis), trigger)) {
+			HandleGamepadAction(g_gamepad.Trigger(trigger, event->gaxis.value, g_mousedown));
 		}
 		break;
 	}
@@ -1849,6 +1840,12 @@ bool IsleApp::LoadConfig()
 #endif
 	m_haptic = iniparser_getboolean(dict, "isle:Haptic", m_haptic);
 	m_wasd = iniparser_getboolean(dict, "isle:WASD", m_wasd);
+	g_gamepad.SetTable(GamepadBindings::Parse(
+		[dict](const char* p_key) { return iniparser_getstring(dict, p_key, NULL); },
+		[](const char* p_key, const char* p_value) {
+			SDL_Log("Ignoring invalid %s value \"%s\"; using its default", p_key, p_value);
+		}
+	));
 	m_xRes = iniparser_getint(dict, "isle:Horizontal Resolution", m_xRes);
 	m_yRes = iniparser_getint(dict, "isle:Vertical Resolution", m_yRes);
 	m_exclusiveXRes = iniparser_getint(dict, "isle:Exclusive X Resolution", m_exclusiveXRes);
