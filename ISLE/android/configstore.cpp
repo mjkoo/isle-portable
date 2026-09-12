@@ -165,6 +165,7 @@ static bool IsTouchPosition(const char* p_value)
 	return end != start && !*end && IsFraction(x) && IsFraction(y);
 }
 
+// The touch button scale, opacity and position keys and ranges mirror TouchLayout.java; keep them in step.
 bool Android_ValidateSetting(const std::string& p_key, const char* p_value, const std::vector<std::string>& p_renderers)
 {
 	if (p_key == "isle:touch menu position" || p_key == "isle:touch escape position" ||

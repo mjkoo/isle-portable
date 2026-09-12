@@ -19,6 +19,8 @@ import java.util.Objects;
 final class TouchLayout {
     static final int MENU = 0, ESCAPE = 1, SPACE = 2, COUNT = 3;
 
+    // Mirrored in ISLE/android/configstore.cpp, which validates these keys on write, and offered
+    // by SettingsActivity; keep the names in step.
     static final String SCALE_KEY = "isle:touch button scale";
     static final String OPACITY_KEY = "isle:touch control opacity";
     static final String[] POSITION_KEYS = {
