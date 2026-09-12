@@ -38,6 +38,10 @@ public final class SettingsActivity extends AppCompatActivity {
     private static final String RESOLUTION = "resolution";
     private static final String WIDTH = "isle:horizontal resolution";
     private static final String HEIGHT = "isle:vertical resolution";
+    /** Asks the game to open the touch layout editor over the paused game. */
+    static final int RESULT_EDIT_TOUCH_LAYOUT = RESULT_FIRST_USER;
+    /** Whether the game can open the editor: only when Settings was opened over a running game. */
+    static final String EXTRA_TOUCH_LAYOUT_EDITOR = "touchLayoutEditor";
 
     private static final class Control {
         final String group, key, title;
@@ -189,6 +193,17 @@ public final class SettingsActivity extends AppCompatActivity {
             try { restoreSource.launch(new String[] {"application/zip", "application/x-zip-compressed", "application/octet-stream"}); }
             catch (RuntimeException e) { restore.error("Could not open the archive picker: " + e.getMessage()); }
         }
+    }
+
+    private void editTouchLayout() {
+        if (!model.original.equals(model.draft)) {
+            Toast.makeText(this, "Choose Save or Cancel for your settings edits, then reopen Settings to edit the touch layout.",
+                Toast.LENGTH_LONG).show();
+            return;
+        }
+        if (export.isBusy() || restore.busy() || model.isBusy()) return;
+        setResult(RESULT_EDIT_TOUCH_LAYOUT);
+        finish();
     }
 
     public static final class RestoreDialog extends DialogFragment {
@@ -427,6 +442,7 @@ public final class SettingsActivity extends AppCompatActivity {
             previousSaves.setIconSpaceReserved(false);
             previousSaves.setOnPreferenceClickListener(p -> { ((SettingsActivity) requireActivity()).startRestore(true); return true; });
             data.addPreference(previousSaves);
+            boolean layoutEditor = requireActivity().getIntent().getBooleanExtra(EXTRA_TOUCH_LAYOUT_EDITOR, false);
             String group = "";
             PreferenceCategory category = null;
             for (Control control : CONTROLS) {
@@ -472,11 +488,25 @@ public final class SettingsActivity extends AppCompatActivity {
                 updating = true;
                 category.addPreference(preference);
                 updating = false;
+                if ("isle:touch control opacity".equals(control.key) && layoutEditor) {
+                    Preference edit = new Preference(requireContext());
+                    edit.setKey("edit-touch-layout");
+                    edit.setTitle("Edit touch layout");
+                    edit.setSummary("Drag the menu, Esc and Space buttons over the paused game.");
+                    edit.setIconSpaceReserved(false);
+                    edit.setOnPreferenceClickListener(p -> {
+                        ((SettingsActivity) requireActivity()).editTouchLayout();
+                        return true;
+                    });
+                    category.addPreference(edit);
+                }
             }
             Preference reset = new Preference(requireContext());
             reset.setTitle("Reset these settings");
             reset.setIconSpaceReserved(false);
-            reset.setSummary("Use game defaults for Input, Audio and Display. Paths and other settings are kept. Choose Save to apply.");
+            // Edit touch layout is not offered over startup recovery, so only point to it when it is.
+            reset.setSummary("Use game defaults for Input, Audio and Display. Touch button positions, paths and other settings are kept"
+                + (layoutEditor ? "; reset positions in Edit touch layout" : "") + ". Choose Save to apply.");
             reset.setOnPreferenceClickListener(p -> {
                 for (String key : model.draft.keySet()) model.draft.put(key, null);
                 refresh();

@@ -6,8 +6,10 @@ import android.widget.RelativeLayout;
 import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.KeyEvent;
 import android.view.View;
 
+import java.util.ArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionException;
@@ -41,8 +43,12 @@ public class IsleActivity extends SDLActivity {
     private TouchLayout mTouchLayout = TouchLayout.DEFAULT;
     private boolean mLayoutRequested;
     // The buttons stay hidden until the saved layout has been read, so none first appears in the
-    // wrong place.
+    // wrong place, and the editor never starts from positions that were not read yet.
     private boolean mLayoutLoaded;
+    // Only while the layout editor is open over the paused game.
+    private TouchLayoutEditor mEditor;
+    private TouchLayout mEditorOriginal;
+    private Runnable mEditorClosed;
 
     @Override protected void onCreate(Bundle state) {
         super.onCreate(state);
@@ -115,6 +121,7 @@ public class IsleActivity extends SDLActivity {
         if (loaded != null) mTouchLayout = loaded;
         mControls.setTouchLayout(mTouchLayout);
         mTouchControls.setOpacity(mTouchLayout.opacity);
+        if (mEditor != null) mEditor.setAppearance(mTouchLayout);
         if (!mLayoutLoaded) {
             mLayoutLoaded = true;
             // Back can open the menu before the first read finishes; the button stays down then.
@@ -122,6 +129,84 @@ public class IsleActivity extends SDLActivity {
             if (prompt == null || prompt.getStatus() != QuitPrompt.STATUS_PENDING) restoreMenuButton();
             else updateTouchControls();
         }
+    }
+
+    /**
+     * Opens the layout editor over the paused game, for the quit prompt returning from Settings.
+     * onClosed runs when Done or Back closes the editor, never after the activity has gone.
+     */
+    boolean startTouchLayoutEditor(Runnable onClosed) {
+        if (mControls == null || !mGameReady || !mLayoutLoaded || mEditor != null || isFinishing()) return false;
+        mEditorOriginal = mTouchLayout;
+        mEditorClosed = onClosed;
+        mEditor = new TouchLayoutEditor(this, mTouchLayout, this::saveTouchLayout);
+        mControls.showEditor(mEditor);
+        return true;
+    }
+
+    private void saveTouchLayout(TouchLayout draft) {
+        ArrayList<String> keys = new ArrayList<>(), values = new ArrayList<>();
+        draft.changedPositions(mEditorOriginal, keys, values);
+        if (keys.isEmpty()) {
+            closeTouchLayoutEditor();
+            return;
+        }
+        TouchLayoutEditor editor = mEditor;
+        editor.setBusy(true);
+        String path = SettingsBridge.path();
+        try {
+            mLayoutIo.execute(() -> {
+                String failure;
+                try {
+                    failure = SettingsBridge.write(path, keys.toArray(new String[0]),
+                        values.toArray(new String[0]), new String[0]);
+                } catch (RuntimeException e) {
+                    Log.w(TAG, "Could not save the touch layout", e);
+                    failure = "Could not save the touch layout.";
+                }
+                String message = failure;
+                runOnUiThread(() -> {
+                    if (isDestroyed() || mEditor != editor) return;
+                    if (message != null) {
+                        Log.w(TAG, "Touch layout not saved: " + message);
+                        // Stay in the editor with the draft intact, so Done can be retried. The
+                        // message already says what failed.
+                        editor.setBusy(false);
+                        Toast.makeText(this, message + " Choose Done to try again.", Toast.LENGTH_LONG).show();
+                        return;
+                    }
+                    mTouchLayout = draft.withAppearanceOf(mTouchLayout);
+                    mControls.setTouchLayout(mTouchLayout);
+                    closeTouchLayoutEditor();
+                });
+            });
+        } catch (RejectedExecutionException e) {
+            Log.w(TAG, "Touch layout not saved: the activity is closing", e);
+            editor.setBusy(false);
+        }
+    }
+
+    private void closeTouchLayoutEditor() {
+        if (mEditor == null) return;
+        mControls.hideEditor();
+        mEditor = null;
+        mEditorOriginal = null;
+        Runnable closed = mEditorClosed;
+        mEditorClosed = null;
+        if (closed != null) closed.run();
+    }
+
+    @Override public boolean dispatchKeyEvent(KeyEvent event) {
+        // Back cancels the editor and discards its draft, and never reaches the game. This relies
+        // on Back arriving as a key event; an app opted into predictive back would need an
+        // OnBackInvokedCallback here instead.
+        if (mEditor != null && event.getKeyCode() == KeyEvent.KEYCODE_BACK) {
+            if (event.getAction() == KeyEvent.ACTION_UP && !event.isCanceled() && !mEditor.isBusy()) {
+                closeTouchLayoutEditor();
+            }
+            return true;
+        }
+        return super.dispatchKeyEvent(event);
     }
 
     private void updateTouchControls() {
@@ -147,18 +232,21 @@ public class IsleActivity extends SDLActivity {
         updateTouchControls();
     }
 
-    void openSettings() {
+    /** The layout editor is offered only over a running game, never from startup recovery. */
+    void openSettings(boolean layoutEditor) {
         startActivityForResult(new Intent(this, SettingsActivity.class)
             .putExtra("configPath", SettingsBridge.path())
             .putExtra("exportId", SettingsBridge.exportId())
-            .putExtra("renderers", SettingsBridge.renderers()), SETTINGS_REQUEST);
+            .putExtra("renderers", SettingsBridge.renderers())
+            .putExtra(SettingsActivity.EXTRA_TOUCH_LAYOUT_EDITOR, layoutEditor && mGameReady && mLayoutLoaded),
+            SETTINGS_REQUEST);
     }
 
     @Override protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
         if (requestCode == SETTINGS_REQUEST && resultCode == RESULT_OK) loadTouchLayout();
         if (requestCode == SETTINGS_REQUEST && mQuitPrompt != null) {
-            mQuitPrompt.returnedFromSettings();
+            mQuitPrompt.returnedFromSettings(resultCode == SettingsActivity.RESULT_EDIT_TOUCH_LAYOUT);
         }
     }
 

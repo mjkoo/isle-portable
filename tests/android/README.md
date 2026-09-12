@@ -199,4 +199,20 @@ The instrumented tests (`just android-test`) lay out the production button layer
 beside the original fixed RelativeLayout rules and require identical bounds, then
 cover inset changes, window insets, buttons larger than the safe area, size, opacity,
 the menu icon's placement, touch pass-through, and later fingers reaching the game
-while a button is held.
+while a button is held. Editor tests cover single and two-finger drags, a second finger
+on a held button, the touch slop, batched moves, cancellation, rejected lifts, focus
+loss, safe-area and appearance changes during a drag, toolbar release and excursions,
+a button lying over Done, Reset during a drag, Done with an unfinished drag, the saving
+state, safe-area clamping, and large default buttons starting clear of the toolbar.
+The layer's pre-draw placement runs only in an attached window, so it is checked on
+device rather than by these tests.
+
+On device, open Menu > Settings > Edit touch layout and check Done, Back, Reset then
+Done, Done without changes, the unsaved-settings toast, and a failed save (make
+`isle.ini.new` a directory) followed by a retry. Check Developer options > Display
+cutout variants in both landscape rotations, gesture and three-button navigation,
+transient system bars, 16:9, 20:9 and 4:3 shapes, and each size and opacity in both
+movement schemes. Press Home during a drag, kill the process while editing, and enable
+Don't keep activities: the game must stay paused, stale touches must do nothing after
+Resume, and edit mode must never return on relaunch. A controller does nothing in the
+editor. Check reading and saving the layout on the minified release APK as well.

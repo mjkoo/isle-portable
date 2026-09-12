@@ -62,14 +62,17 @@ To achieve our goal of platform independence, we need to replace any Windows-onl
 
 ## Android settings
 
-The Android app launches directly into the game. Tap the menu button in the upper-right
-corner, or use Android's Back button or gesture, to open Resume / Settings / Quit.
+The Android app launches directly into the game. Tap the menu button, in the upper-right
+corner by default, or use Android's Back button or gesture, to open Resume / Settings / Quit.
 
-Settings exposes touch schemes, cursor sensitivity, haptics, WASD, audio, render resolution,
-available renderers and filtering. Choose **Save**, then quit and launch the game again to
-apply changes. **Cancel** discards edits. **Reset these settings** restores defaults for these
-controls when saved; it keeps game paths, saves and extension configuration. A startup error
-also offers Settings so an unsuitable display configuration can be reset.
+Settings exposes touch schemes, touch button size and opacity, cursor sensitivity, haptics,
+WASD, audio, render resolution, available renderers and filtering. Choose **Save**: touch
+scheme, Show touch controls, button size and opacity apply when you resume, and other changes
+apply after quitting and launching the game again. **Cancel** discards edits. **Reset these
+settings** restores defaults for these controls when saved; it keeps game paths, saves, touch
+button positions and extension configuration. **Input > Edit touch layout** moves the menu,
+Space and Esc buttons over the paused game. A startup error also offers Settings so an
+unsuitable display configuration can be reset.
 
 **Data > Export saves** writes a ZIP of the save files captured when the menu opened.
 Choose a destination in the system picker; no storage permission is required. Export

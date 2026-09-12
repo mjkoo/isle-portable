@@ -23,6 +23,7 @@ import android.widget.TextView;
  * lands while a button is held, and none of them would reach the game surface.
  */
 final class TouchControlsLayer {
+    private final RelativeLayout host;
     private final View[] controls = new View[TouchLayout.COUNT];
     // Fills the host without taking touches, to report its size and the window insets.
     private final View frame;
@@ -31,8 +32,10 @@ final class TouchControlsLayer {
     private final Matrix iconMatrix = new Matrix();
     private TouchLayout layout = TouchLayout.DEFAULT;
     private int insetLeft, insetTop, insetRight, insetBottom;
+    private TouchLayoutEditor editor;
 
     TouchControlsLayer(RelativeLayout host, View menu, View escape, View space) {
+        this.host = host;
         Context context = host.getContext();
         density = context.getResources().getDisplayMetrics().density;
         controls[TouchLayout.MENU] = menu;
@@ -104,6 +107,21 @@ final class TouchControlsLayer {
         refresh();
     }
 
+    /** Shows the editor over everything, sharing this layer's safe area. */
+    void showEditor(TouchLayoutEditor next) {
+        hideEditor();
+        editor = next;
+        host.addView(next, new RelativeLayout.LayoutParams(
+            RelativeLayout.LayoutParams.MATCH_PARENT, RelativeLayout.LayoutParams.MATCH_PARENT));
+        refresh();
+    }
+
+    void hideEditor() {
+        if (editor == null) return;
+        host.removeView(editor);
+        editor = null;
+    }
+
     /** Places every button for the current layout, insets and host size; true if any moved. */
     boolean refresh() {
         int width = frame.getWidth(), height = frame.getHeight();
@@ -127,6 +145,7 @@ final class TouchControlsLayer {
             }
             if (controls[i] instanceof ImageView) scaleIcon((ImageView) controls[i], boxWidth, boxHeight);
         }
+        if (editor != null) editor.setSafeArea(insetLeft, insetTop, width - insetRight, height - insetBottom);
         return moved;
     }
 

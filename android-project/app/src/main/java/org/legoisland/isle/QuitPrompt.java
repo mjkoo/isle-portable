@@ -101,7 +101,7 @@ final class QuitPrompt {
         builder.setNeutralButton("Settings", (dialog, which) -> {
             mDialog = null;
             try {
-                mActivity.openSettings();
+                mActivity.openSettings(mStartupError == null);
             } catch (RuntimeException e) {
                 Log.e(TAG, "Could not open settings", e);
                 showDialog();
@@ -126,9 +126,15 @@ final class QuitPrompt {
         }
     }
 
-    void returnedFromSettings() {
+    /**
+     * The editor runs while this prompt is still pending, so the game stays paused and the SDL
+     * thread keeps discarding input until the player is back at this dialog.
+     */
+    void returnedFromSettings(boolean editLayout) {
         if (SettingsBridge.restoreClosing()) { finish(STATUS_QUIT); return; }
-        if (!mAbandoned && mStatus == STATUS_PENDING) showDialog();
+        if (mAbandoned || mStatus != STATUS_PENDING) return;
+        if (editLayout && mStartupError == null && mActivity.startTouchLayoutEditor(this::showDialog)) return;
+        showDialog();
     }
 
     private String saveMessage() {
