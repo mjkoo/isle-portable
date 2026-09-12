@@ -60,6 +60,11 @@ public final class SettingsActivity extends AppCompatActivity {
             new String[] {"Virtual mouse", "Arrow-key regions", "Virtual stick", "Disabled"},
             new String[] {"0", "1", "2", "-1"}),
         new Control("Input", "isle:show touch controls", "Show touch controls", BOOL_LABELS, BOOL_VALUES),
+        new Control("Input", "isle:touch button scale", "Touch button size",
+            new String[] {"50%", "75%", "100%", "125%", "150%", "200%"},
+            new String[] {"0.5", "0.75", "1", "1.25", "1.5", "2"}),
+        new Control("Input", "isle:touch control opacity", "Touch control opacity",
+            new String[] {"10%", "25%", "50%", "75%", "100%"}, new String[] {"0.1", "0.25", "0.5", "0.75", "1"}),
         new Control("Input", "isle:cursor sensitivity", "Cursor sensitivity", null, null),
         new Control("Input", "isle:haptic", "Haptics", BOOL_LABELS, BOOL_VALUES),
         new Control("Input", "isle:wasd", "WASD", BOOL_LABELS, BOOL_VALUES),
@@ -305,7 +310,7 @@ public final class SettingsActivity extends AppCompatActivity {
             invalidateOptionsMenu();
             if (result == SettingsModel.State.SAVED) {
                 setResult(RESULT_OK);
-                Toast.makeText(this, "Settings saved. Touch scheme and Show touch controls apply when you resume. Other changes apply on the next game launch.", Toast.LENGTH_LONG).show();
+                Toast.makeText(this, "Settings saved. Touch scheme, Show touch controls, button size and opacity apply when you resume. Other changes apply on the next game launch.", Toast.LENGTH_LONG).show();
                 finish();
             } else if (model.error != null) {
                 String message = model.error;
@@ -398,7 +403,7 @@ public final class SettingsActivity extends AppCompatActivity {
             setPreferenceScreen(screen);
             Preference notice = new Preference(requireContext());
             notice.setTitle("Save settings, then resume");
-            notice.setSummary("Touch scheme and Show touch controls apply when you resume the game. Other changes apply on the next game launch. Cancel leaves your settings unchanged.");
+            notice.setSummary("Touch scheme, Show touch controls, Touch button size and Touch control opacity apply when you resume the game. Other changes apply on the next game launch. Cancel leaves your settings unchanged.");
             notice.setSelectable(false);
             notice.setIconSpaceReserved(false);
             screen.addPreference(notice);
