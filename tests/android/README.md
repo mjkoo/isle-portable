@@ -176,3 +176,21 @@ after relaunch. Hold movement or an action while opening the menu, and verify st
 releases do nothing after Resume. Check backgrounding and activity recreation;
 audio/display settings saved alongside touch settings must remain next-launch only.
 Run against GLES3, software and palette-software, including minified release.
+
+## Touch layout
+
+Configuration tests cover the button size, control opacity and button position keys:
+range edges, malformed and comma-decimal positions, removal, and that saving them
+publishes no live touch update. Standalone Java tests cover the layout geometry:
+default placement identical to the original fixed layout across densities and insets,
+clamping inside the safe area at every size, stored centers reproducing their boxes,
+per-field fallback for unusable values, locale-independent formatting and writing only
+changed positions.
+
+```sh
+mkdir -p build/android-touch-java
+javac -d build/android-touch-java \
+  android-project/app/src/main/java/org/legoisland/isle/TouchLayout.java \
+  tests/android/java/org/legoisland/isle/TouchLayoutTest.java
+java -ea -cp build/android-touch-java org.legoisland.isle.TouchLayoutTest
+```
