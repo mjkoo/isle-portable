@@ -57,7 +57,10 @@ static void DefaultsMatchTheFixedMapping()
 		for (bool eastIsA : {false, true}) {
 			for (Platform platform : c_platforms) {
 				Input in = static_cast<Input>(input);
-				assert(Resolve(table, in, eastIsA, platform) == Today(in, eastIsA, platform));
+				// The one deliberate change: on Android, Start opens the Android menu, which no
+				// controller input could reach before.
+				bool menu = in == e_start && platform == e_platformAndroid;
+				assert(Resolve(table, in, eastIsA, platform) == (menu ? e_menu : Today(in, eastIsA, platform)));
 			}
 		}
 	}
@@ -300,8 +303,30 @@ static void VitaLeavesStartUnboundUnlessConfigured()
 	assert(Same(vita.Button(e_start, true, false), e_pause, true));
 }
 
+static void MenuOpensOnlyOnAndroid()
+{
+	Action action = e_none;
+	assert(ParseAction("Menu", action) && action == e_menu);
+
+	Table table = ParseMap({{"gamepad:start", "menu"}, {"gamepad:north", "menu"}});
+	assert(Resolve(table, e_start, false, e_platformAndroid) == e_menu);
+	assert(Resolve(table, e_north, false, e_platformAndroid) == e_menu);
+	for (Platform platform : {e_platformDefault, e_platformVita}) {
+		assert(Resolve(table, e_start, false, platform) == e_none);
+		assert(Resolve(table, e_north, false, platform) == e_none);
+	}
+
+	// Pause stays available on Android when chosen explicitly.
+	assert(Resolve(ParseMap({{"gamepad:start", "pause"}}), e_start, false, e_platformAndroid) == e_pause);
+
+	Dispatcher android(e_platformAndroid);
+	assert(Same(android.Button(e_start, true, false), e_menu, true));
+	assert(Same(android.Button(e_start, false, false), e_none, false));
+}
+
 int main()
 {
+	MenuOpensOnlyOnAndroid();
 	DefaultsMatchTheFixedMapping();
 	KeysAreLowercaseAndDistinct();
 	ButtonsAndTriggersMapToInputs();

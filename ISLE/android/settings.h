@@ -8,6 +8,7 @@ bool Android_SaveRestoreClosing();
 void Android_SetSettingsPath(const char* p_path);
 void Android_CaptureRenderers(SDL_Window* p_window);
 void Android_ShowMenuButton();
+void Android_RequestMenu();
 bool Android_TakeMenuRequest();
 void Android_CaptureSaveExport(const char* p_savePath, int p_saveResult);
 void Android_ClearSaveExport();

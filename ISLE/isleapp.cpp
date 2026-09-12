@@ -873,6 +873,11 @@ static void HandleGamepadAction(GamepadBindings::Result p_result)
 			InputManager()->QueueEvent(c_notificationKeyPress, 0, 0, 0, SDLK_PAUSE);
 		}
 		break;
+#ifdef ANDROID
+	case GamepadBindings::e_menu:
+		Android_RequestMenu();
+		break;
+#endif
 	default:
 		break;
 	}

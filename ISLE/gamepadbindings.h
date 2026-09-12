@@ -30,7 +30,8 @@ enum Action {
 	e_click,
 	e_space,
 	e_escape,
-	e_pause
+	e_pause,
+	e_menu // Opens the Android menu; does nothing on other platforms.
 };
 
 // Which of South and East clicks by default: the one labelled A, or a fixed choice.
@@ -104,7 +105,7 @@ inline bool Matches(const char* p_value, const char* p_name)
 
 inline bool ParseAction(const char* p_value, Action& p_action)
 {
-	static const char* const names[] = {"none", "click", "space", "escape", "pause"};
+	static const char* const names[] = {"none", "click", "space", "escape", "pause", "menu"};
 	for (int i = 0; i < (int) (sizeof(names) / sizeof(names[0])); i++) {
 		if (Matches(p_value, names[i])) {
 			p_action = static_cast<Action>(i);
@@ -147,7 +148,8 @@ Table Parse(Get p_get, Invalid p_invalid)
 inline Action Resolve(const Table& p_table, Input p_input, bool p_eastIsA, Platform p_platform)
 {
 	if (p_table.m_actions[p_input] != e_unset) {
-		return p_table.m_actions[p_input];
+		Action action = p_table.m_actions[p_input];
+		return action == e_menu && p_platform != e_platformAndroid ? e_none : action;
 	}
 
 	switch (p_input) {
@@ -161,6 +163,10 @@ inline Action Resolve(const Table& p_table, Input p_input, bool p_eastIsA, Platf
 	case e_back:
 		return e_escape;
 	case e_start:
+		if (p_platform == e_platformAndroid) {
+			// No other controller input reaches the Android menu.
+			return e_menu;
+		}
 		// On Vita, Start conflicts with the screenshot button combination.
 		return p_platform == e_platformVita ? e_none : e_pause;
 	default:

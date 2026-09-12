@@ -103,6 +103,12 @@ void Android_ShowMenuButton()
 	}
 }
 
+// The game opens the menu on its next iteration, and only once it has started.
+void Android_RequestMenu()
+{
+	g_menuRequested = true;
+}
+
 bool Android_TakeMenuRequest()
 {
 	return g_menuRequested.exchange(false);
@@ -229,7 +235,7 @@ Java_org_legoisland_isle_SettingsBridge_exportData(JNIEnv* p_env, jclass, jstrin
 
 extern "C" JNIEXPORT void JNICALL Java_org_legoisland_isle_SettingsBridge_requestMenu(JNIEnv*, jclass)
 {
-	g_menuRequested = true;
+	Android_RequestMenu();
 }
 
 extern "C" JNIEXPORT jstring JNICALL Java_org_legoisland_isle_SettingsBridge_path(JNIEnv* p_env, jclass)
