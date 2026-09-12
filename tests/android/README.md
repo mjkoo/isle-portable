@@ -203,9 +203,14 @@ while a button is held. Editor tests cover single and two-finger drags, a second
 on a held button, the touch slop, batched moves, cancellation, rejected lifts, focus
 loss, safe-area and appearance changes during a drag, toolbar release and excursions,
 a button lying over Done, Reset during a drag, Done with an unfinished drag, the saving
-state, safe-area clamping, and large default buttons starting clear of the toolbar.
-The layer's pre-draw placement runs only in an attached window, so it is checked on
-device rather than by these tests.
+state, safe-area clamping, large default buttons starting clear of the toolbar, and
+the editor drawing each button pixel for pixel as the game draws it. A window test
+attaches the layer to an activity built only into the touchTest APK and requires every
+draw after a resize to show the new placement. Controller tests use a fake config file:
+the first read reported once and later reads in order, an unreadable layout still
+showing the buttons, the editor waiting for the first read, a failed save kept for a
+retry, Back ignored while saving and honored only on a real release, and results after
+the activity is destroyed dropped.
 
 On device, open Menu > Settings > Edit touch layout and check Done, Back, Reset then
 Done, Done without changes, the unsaved-settings toast, and a failed save (make
