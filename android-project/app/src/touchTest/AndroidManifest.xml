@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Only in the touchTest build: a window for instrumented tests that need attached views. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <activity
+            android:name=".TouchTestActivity"
+            android:exported="false"
+            android:theme="@style/AppTheme" />
+    </application>
+</manifest>
