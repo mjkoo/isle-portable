@@ -15,6 +15,7 @@
 static std::mutex g_configMutex;
 static std::string g_touchSettingsPath;
 static std::optional<Android_TouchSettings> g_pendingTouchSettings;
+static std::optional<GamepadBindings::Table> g_pendingGamepadSettings;
 using ConfigDictionary = std::unique_ptr<dictionary, decltype(&iniparser_freedict)>;
 
 void Android_BeginTouchSettings(const std::string& p_path)
@@ -22,6 +23,7 @@ void Android_BeginTouchSettings(const std::string& p_path)
 	std::lock_guard<std::mutex> lock(g_configMutex);
 	g_touchSettingsPath = p_path;
 	g_pendingTouchSettings.reset();
+	g_pendingGamepadSettings.reset();
 }
 
 void Android_EndTouchSettings()
@@ -37,6 +39,17 @@ bool Android_TakeTouchSettings(Android_TouchSettings& p_settings)
 	}
 	p_settings = *g_pendingTouchSettings;
 	g_pendingTouchSettings.reset();
+	return true;
+}
+
+bool Android_TakeGamepadSettings(GamepadBindings::Table& p_table)
+{
+	std::lock_guard<std::mutex> lock(g_configMutex);
+	if (!g_pendingGamepadSettings) {
+		return false;
+	}
+	p_table = *g_pendingGamepadSettings;
+	g_pendingGamepadSettings.reset();
 	return true;
 }
 
@@ -93,12 +106,13 @@ std::string Android_UpdateConfig(
 	if (!dict || dict->n == 0) {
 		return "Could not read isle.ini. The existing configuration has not been changed.";
 	}
-	if (!iniparser_find_entry(dict.get(), "isle") && iniparser_set(dict.get(), "isle", nullptr) != 0) {
-		return "Not enough memory to update the configuration.";
-	}
 	for (const auto& change : p_changes) {
 		if (change.second) {
-			if (iniparser_set(dict.get(), change.first.c_str(), change.second) != 0) {
+			// iniparser writes a key only under an existing section entry.
+			std::string section = change.first.substr(0, change.first.find(':'));
+			if ((!iniparser_find_entry(dict.get(), section.c_str()) &&
+				 iniparser_set(dict.get(), section.c_str(), nullptr) != 0) ||
+				iniparser_set(dict.get(), change.first.c_str(), change.second) != 0) {
 				return "Not enough memory to update the configuration.";
 			}
 		}
@@ -106,9 +120,17 @@ std::string Android_UpdateConfig(
 			iniparser_unset(dict.get(), change.first.c_str());
 		}
 	}
-	bool touchChanged = false;
+	bool touchChanged = false, gamepadChanged = false;
 	for (const auto& change : p_changes) {
 		touchChanged |= change.first == "isle:touch scheme" || change.first == "isle:show touch controls";
+		gamepadChanged |= change.first.compare(0, 8, "gamepad:") == 0;
+	}
+	GamepadBindings::Table gamepad;
+	if (gamepadChanged) {
+		gamepad = GamepadBindings::Parse(
+			[&dict](const char* p_key) { return iniparser_getstring(dict.get(), p_key, nullptr); },
+			[](const char*, const char*) {}
+		);
 	}
 	Android_TouchSettings touch;
 	if (touchChanged) {
@@ -141,8 +163,13 @@ std::string Android_UpdateConfig(
 		remove(temp.c_str());
 		return std::string("Could not save configuration: ") + strerror(error);
 	}
-	if (touchChanged && !g_touchSettingsPath.empty() && p_path == g_touchSettingsPath) {
-		g_pendingTouchSettings = touch;
+	if (!g_touchSettingsPath.empty() && p_path == g_touchSettingsPath) {
+		if (touchChanged) {
+			g_pendingTouchSettings = touch;
+		}
+		if (gamepadChanged) {
+			g_pendingGamepadSettings = gamepad;
+		}
 	}
 	return {};
 }
@@ -168,6 +195,20 @@ static bool IsTouchPosition(const char* p_value)
 // The touch button scale, opacity and position keys and ranges mirror TouchLayout.java; keep them in step.
 bool Android_ValidateSetting(const std::string& p_key, const char* p_value, const std::vector<std::string>& p_renderers)
 {
+	// The controller keys and values are listed for Settings in ControllerBindings.java.
+	if (p_key.compare(0, 8, "gamepad:") == 0) {
+		if (p_key == GamepadBindings::ConfirmKey()) {
+			GamepadBindings::Confirm confirm;
+			return !p_value || GamepadBindings::ParseConfirm(p_value, confirm);
+		}
+		for (int i = 0; i < GamepadBindings::e_inputCount; i++) {
+			if (p_key == GamepadBindings::Key(static_cast<GamepadBindings::Input>(i))) {
+				GamepadBindings::Action action;
+				return !p_value || GamepadBindings::ParseAction(p_value, action);
+			}
+		}
+		return false;
+	}
 	if (p_key == "isle:touch menu position" || p_key == "isle:touch escape position" ||
 		p_key == "isle:touch space position") {
 		return !p_value || IsTouchPosition(p_value);

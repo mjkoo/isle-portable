@@ -576,6 +576,10 @@ static SDL_AppResult HandleBackButton()
 		g_isle->SetTouchScheme(static_cast<LegoInputManager::TouchScheme>(touch.m_scheme));
 		Android_UpdateTouchControls(touch.m_visible);
 	}
+	GamepadBindings::Table gamepad;
+	if (!quit && !g_closed && g_isle && g_isle->GetGameStarted() && Android_TakeGamepadSettings(gamepad)) {
+		g_gamepad.SetTable(gamepad);
+	}
 
 	// Resume even when quitting. IsleApp::Close queues a keypress that the input manager drops
 	// while the game is paused, and Close only resumes after it. Both are checked again because

@@ -208,5 +208,80 @@ int main()
 	Android_BeginTouchSettings(path);
 	assert(!Android_TakeTouchSettings(touch));
 	Android_EndTouchSettings();
+
+	{
+		using namespace GamepadBindings;
+
+		// Controller bindings live in their own section, which a config may not have yet.
+		for (const char* start : {"[isle]\nmusic=true\n", "[extensions]\nmultiplayer=true\n"}) {
+			std::ofstream(path) << start;
+			assert(Android_UpdateConfig(path, {{"gamepad:start", "pause"}, {"gamepad:confirm", "east"}}).empty());
+			assert(Read(path).find("[gamepad]") != std::string::npos);
+			values.clear();
+			assert(Android_ReadConfig(path, {"gamepad:start", "gamepad:confirm"}, values).empty());
+			assert(values[0].second == "pause" && values[1].second == "east");
+		}
+		std::ofstream(path) << "[isle]\nmusic=true\n";
+		assert(Android_UpdateConfig(path, {{"gamepad:south", nullptr}}).empty());
+		assert(Read(path).find("[gamepad]") == std::string::npos);
+
+		for (const char* key : {"gamepad:south", "gamepad:guide", "gamepad:lefttrigger"}) {
+			assert(Android_ValidateSetting(key, nullptr, {}));
+			for (const char* valid : {"click", "space", "escape", "pause", "menu", "none", "Click"}) {
+				assert(Android_ValidateSetting(key, valid, {}));
+			}
+			for (const char* invalid : {"", "jump", "label", "click "}) {
+				assert(!Android_ValidateSetting(key, invalid, {}));
+			}
+		}
+		for (const char* valid : {"label", "south", "east"}) {
+			assert(Android_ValidateSetting("gamepad:confirm", valid, {}));
+		}
+		assert(Android_ValidateSetting("gamepad:confirm", nullptr, {}));
+		assert(!Android_ValidateSetting("gamepad:confirm", "click", {}));
+		assert(!Android_ValidateSetting("gamepad:dpup", "click", {}));
+		assert(!Android_ValidateSetting("isle:south", "click", {}));
+
+		Table gamepad;
+		Android_BeginTouchSettings(path);
+		assert(!Android_TakeGamepadSettings(gamepad));
+		assert(Android_UpdateConfig(path, {{"isle:music", "false"}}).empty());
+		assert(!Android_TakeGamepadSettings(gamepad));
+		assert(Android_UpdateConfig(path, {{"gamepad:north", "menu"}, {"gamepad:confirm", "south"}}).empty());
+		assert(!Android_TakeTouchSettings(touch));
+		assert(Android_TakeGamepadSettings(gamepad));
+		assert(gamepad.m_actions[e_north] == e_menu && gamepad.m_confirm == e_confirmSouth);
+		assert(gamepad.m_actions[e_south] == e_unset);
+		assert(!Android_TakeGamepadSettings(gamepad));
+		// A later partial update keeps the other saved bindings.
+		assert(Android_UpdateConfig(path, {{"gamepad:south", "space"}}).empty());
+		assert(Android_TakeGamepadSettings(gamepad));
+		assert(gamepad.m_actions[e_north] == e_menu && gamepad.m_actions[e_south] == e_space);
+		// Removed keys return to the game's defaults.
+		assert(Android_UpdateConfig(
+				   path,
+				   {{"gamepad:north", nullptr}, {"gamepad:south", nullptr}, {"gamepad:confirm", nullptr}}
+		).empty());
+		assert(Android_TakeGamepadSettings(gamepad));
+		assert(gamepad.m_actions[e_north] == e_unset && gamepad.m_confirm == e_confirmLabel);
+		// Touch and controller updates are published separately.
+		assert(Android_UpdateConfig(path, {{"isle:touch scheme", "1"}, {"gamepad:back", "none"}}).empty());
+		assert(Android_TakeTouchSettings(touch) && touch.m_scheme == 1);
+		assert(Android_TakeGamepadSettings(gamepad) && gamepad.m_actions[e_back] == e_none);
+		// A failed write publishes nothing.
+		std::filesystem::create_directory(path + ".new");
+		assert(!Android_UpdateConfig(path, {{"gamepad:back", "escape"}}).empty());
+		assert(!Android_TakeGamepadSettings(gamepad));
+		std::filesystem::remove(path + ".new");
+		// Only the running game's own config publishes, and only while it runs.
+		assert(Android_UpdateConfig(other, {{"gamepad:back", "escape"}}).empty());
+		assert(!Android_TakeGamepadSettings(gamepad));
+		assert(Android_UpdateConfig(path, {{"gamepad:back", "escape"}}).empty());
+		Android_BeginTouchSettings(path);
+		assert(!Android_TakeGamepadSettings(gamepad));
+		Android_EndTouchSettings();
+		assert(Android_UpdateConfig(path, {{"gamepad:back", "pause"}}).empty());
+		assert(!Android_TakeGamepadSettings(gamepad));
+	}
 	std::filesystem::remove_all(directory);
 }
