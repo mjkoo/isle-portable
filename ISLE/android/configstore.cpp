@@ -18,6 +18,11 @@ static std::optional<Android_TouchSettings> g_pendingTouchSettings;
 static std::optional<GamepadBindings::Table> g_pendingGamepadSettings;
 using ConfigDictionary = std::unique_ptr<dictionary, decltype(&iniparser_freedict)>;
 
+static bool IsGamepadKey(const std::string& p_key)
+{
+	return p_key.compare(0, 8, "gamepad:") == 0;
+}
+
 void Android_BeginTouchSettings(const std::string& p_path)
 {
 	std::lock_guard<std::mutex> lock(g_configMutex);
@@ -123,7 +128,7 @@ std::string Android_UpdateConfig(
 	bool touchChanged = false, gamepadChanged = false;
 	for (const auto& change : p_changes) {
 		touchChanged |= change.first == "isle:touch scheme" || change.first == "isle:show touch controls";
-		gamepadChanged |= change.first.compare(0, 8, "gamepad:") == 0;
+		gamepadChanged |= IsGamepadKey(change.first);
 	}
 	GamepadBindings::Table gamepad;
 	if (gamepadChanged) {
@@ -196,7 +201,7 @@ static bool IsTouchPosition(const char* p_value)
 bool Android_ValidateSetting(const std::string& p_key, const char* p_value, const std::vector<std::string>& p_renderers)
 {
 	// The controller keys and values are listed for Settings in ControllerBindings.java.
-	if (p_key.compare(0, 8, "gamepad:") == 0) {
+	if (IsGamepadKey(p_key)) {
 		if (p_key == GamepadBindings::ConfirmKey()) {
 			GamepadBindings::Confirm confirm;
 			return !p_value || GamepadBindings::ParseConfirm(p_value, confirm);
