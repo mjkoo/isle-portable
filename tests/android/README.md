@@ -224,3 +224,13 @@ activity (SDL finishes it once the game's main loop exits), so leaving Settings,
 through Edit touch layout, returns to the launcher: nothing may crash, saved settings
 must apply on the next launch, and the editor must not open. A controller does nothing
 in the editor. Check reading and saving the layout on the minified release APK as well.
+
+## Controller bindings
+
+Host tests cover the `[gamepad]` binding table every platform reads: defaults identical to
+the fixed mapping it replaced for every input, button label and platform, case-insensitive
+values, invalid values falling back to their defaults, the confirm choice, and releases
+acting on what their press did across label changes, rebinding, cancellation, trigger dead
+zones and clicks held by another source. When the desktop build's SDL3 library is present,
+`gamepad_labels` also checks against SDL which layouts label East as A. Both run with the
+configuration tests above.
