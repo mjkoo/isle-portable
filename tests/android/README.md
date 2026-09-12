@@ -233,4 +233,17 @@ values, invalid values falling back to their defaults, the confirm choice, and r
 acting on what their press did across label changes, rebinding, cancellation, trigger dead
 zones and clicks held by another source. When the desktop build's SDL3 library is present,
 `gamepad_labels` also checks against SDL which layouts label East as A. Both run with the
-configuration tests above.
+configuration tests above, which also cover the controller keys: validation, creating the
+`[gamepad]` section in a configuration without one, and publishing saved bindings for Resume
+only after a successful write to the running game's configuration.
+
+Standalone Java tests cover the Settings rows: their order, the default shown for each confirm
+choice, lowercase handling of hand-edited values and the warning when no button opens the menu.
+
+```sh
+mkdir -p build/android-controller-java
+javac -d build/android-controller-java \
+  CONFIG/android/src/main/java/org/legoisland/isle/ControllerBindings.java \
+  tests/android/java/org/legoisland/isle/ControllerBindingsTest.java
+java -ea -cp build/android-controller-java org.legoisland.isle.ControllerBindingsTest
+```

@@ -92,6 +92,9 @@ using physical controls and return on touch. See [Android touch controls](docs/a
 for region boundaries and gesture behavior. Renderer choices reflect what the device could
 initialize at startup. Vulkan is not enabled by this settings screen.
 
+**Controller** chooses what each gamepad button does; Start opens the game menu by default, so
+a controller alone can reach Settings. See [Android controllers](docs/android-controllers.md).
+
 Configuration (`isle.ini`) and default saves (`saves/`) live in private internal storage.
 Imported game assets remain in app-scoped external storage. Settings preserves custom paths
 and other INI keys. Android backup eligibility does not guarantee that a backup or restore

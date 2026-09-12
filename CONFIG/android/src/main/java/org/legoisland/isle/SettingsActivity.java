@@ -59,7 +59,7 @@ public final class SettingsActivity extends AppCompatActivity {
     private static final String[] BOOL_LABELS = {"On", "Off"};
     private static final String[] BOOL_VALUES = {"true", "false"};
     // The UI's complete INI mapping. Engine defaults remain in native configuration loading.
-    private static final Control[] CONTROLS = {
+    private static final Control[] CONTROLS = withController(new Control[] {
         new Control("Input", "isle:touch scheme", "Touch scheme",
             new String[] {"Virtual mouse", "Arrow-key regions", "Virtual stick", "Disabled"},
             new String[] {"0", "1", "2", "-1"}),
@@ -82,7 +82,18 @@ public final class SettingsActivity extends AppCompatActivity {
             new String[] {"Off", "2×", "4×", "8×", "16×"}, new String[] {"0", "2", "4", "8", "16"}),
         new Control("Display", "isle:anisotropic", "Anisotropic filtering",
             new String[] {"Off", "2×", "4×", "8×", "16×"}, new String[] {"0", "2", "4", "8", "16"})
-    };
+    });
+
+    private static Control[] withController(Control[] base) {
+        ArrayList<Control> controls = new ArrayList<>(Arrays.asList(base));
+        controls.add(new Control("Controller", ControllerBindings.CONFIRM, "Confirm button",
+            ControllerBindings.CONFIRM_LABELS, ControllerBindings.CONFIRM_VALUES));
+        for (int i = 0; i < ControllerBindings.KEYS.length; i++) {
+            controls.add(new Control("Controller", ControllerBindings.KEYS[i], ControllerBindings.TITLES[i],
+                ControllerBindings.ACTION_LABELS, ControllerBindings.ACTION_VALUES));
+        }
+        return controls.toArray(new Control[0]);
+    }
 
     public static final class SettingsModel extends ViewModel {
         enum State { LOADING, READY, SAVING, SAVED, ERROR }
@@ -120,9 +131,9 @@ public final class SettingsActivity extends AppCompatActivity {
                     String[] values = SettingsBridge.read(configPath, keys.toArray(new String[0]));
                     main.post(() -> {
                         for (int i = 0; i < values.length; i++) {
-                            String key = keys.get(i);
-                            original.put(key, values[i]);
-                            if (!draft.containsKey(key)) draft.put(key, values[i]);
+                            String key = keys.get(i), value = ControllerBindings.normalize(key, values[i]);
+                            original.put(key, value);
+                            if (!draft.containsKey(key)) draft.put(key, value);
                         }
                         loaded = true;
                         state.setValue(State.READY);
@@ -325,7 +336,7 @@ public final class SettingsActivity extends AppCompatActivity {
             invalidateOptionsMenu();
             if (result == SettingsModel.State.SAVED) {
                 setResult(RESULT_OK);
-                Toast.makeText(this, "Settings saved. Touch scheme, Show touch controls, button size and opacity apply when you resume. Other changes apply on the next game launch.", Toast.LENGTH_LONG).show();
+                Toast.makeText(this, "Settings saved. Touch scheme, Show touch controls, button size, opacity and controller buttons apply when you resume. Other changes apply on the next game launch.", Toast.LENGTH_LONG).show();
                 finish();
             } else if (model.error != null) {
                 String message = model.error;
@@ -405,6 +416,8 @@ public final class SettingsActivity extends AppCompatActivity {
                         model.draft.put(WIDTH, "default".equals(pair[0]) ? null : pair[0]);
                         model.draft.put(HEIGHT, "default".equals(pair[1]) ? null : pair[1]);
                     } else model.draft.put(key, value);
+                    // Confirm changes the face buttons' defaults, and any row can change the menu warning.
+                    if (ControllerBindings.isControllerKey(key)) model.main.post(() -> { if (isAdded()) refresh(); });
                 }
             });
             buildPreferences();
@@ -418,7 +431,7 @@ public final class SettingsActivity extends AppCompatActivity {
             setPreferenceScreen(screen);
             Preference notice = new Preference(requireContext());
             notice.setTitle("Save settings, then resume");
-            notice.setSummary("Touch scheme, Show touch controls, Touch button size and Touch control opacity apply when you resume the game. Other changes apply on the next game launch. Cancel leaves your settings unchanged.");
+            notice.setSummary("Touch scheme, Show touch controls, Touch button size, Touch control opacity and controller buttons apply when you resume the game. Other changes apply on the next game launch. Cancel leaves your settings unchanged.");
             notice.setSelectable(false);
             notice.setIconSpaceReserved(false);
             screen.addPreference(notice);
@@ -501,14 +514,36 @@ public final class SettingsActivity extends AppCompatActivity {
                     category.addPreference(edit);
                 }
             }
+            // The Controller group comes last, so category is still its category here.
+            Preference menuWarning = new Preference(requireContext());
+            menuWarning.setKey("controller-menu-warning");
+            menuWarning.setTitle("No controller button opens the menu");
+            menuWarning.setSummary("Android Back and the touch menu button still open it.");
+            menuWarning.setSelectable(false);
+            menuWarning.setIconSpaceReserved(false);
+            category.addPreference(menuWarning);
+            Preference resetController = new Preference(requireContext());
+            resetController.setTitle("Reset controller buttons");
+            resetController.setSummary("Use game defaults for every controller button. Choose Save to apply.");
+            resetController.setIconSpaceReserved(false);
+            resetController.setOnPreferenceClickListener(p -> {
+                for (String key : model.draft.keySet()) {
+                    if (ControllerBindings.isControllerKey(key)) model.draft.put(key, null);
+                }
+                refresh();
+                return true;
+            });
+            category.addPreference(resetController);
             Preference reset = new Preference(requireContext());
             reset.setTitle("Reset these settings");
             reset.setIconSpaceReserved(false);
             // Edit touch layout is not offered over startup recovery, so only point to it when it is.
-            reset.setSummary("Use game defaults for Input, Audio and Display. Touch button positions, paths and other settings are kept"
+            reset.setSummary("Use game defaults for Input, Audio and Display. Touch button positions, controller buttons, paths and other settings are kept"
                 + (layoutEditor ? "; reset positions in Edit touch layout" : "") + ". Choose Save to apply.");
             reset.setOnPreferenceClickListener(p -> {
-                for (String key : model.draft.keySet()) model.draft.put(key, null);
+                for (String key : model.draft.keySet()) {
+                    if (!ControllerBindings.isControllerKey(key)) model.draft.put(key, null);
+                }
                 refresh();
                 return true;
             });
@@ -535,7 +570,10 @@ public final class SettingsActivity extends AppCompatActivity {
                     ((EditTextPreference) preference).setText(current);
                 } else {
                     ListPreference list = (ListPreference) preference;
-                    ArrayList<String> labels = new ArrayList<>(Arrays.asList("Game default"));
+                    String fallback = ControllerBindings.isControllerKey(control.key)
+                        ? ControllerBindings.defaultLabel(control.key, model.draft.get(ControllerBindings.CONFIRM))
+                        : "Game default";
+                    ArrayList<String> labels = new ArrayList<>(Arrays.asList(fallback));
                     ArrayList<String> values = new ArrayList<>(Arrays.asList(DEFAULT));
                     if ("isle:3d device id".equals(control.key)) {
                         for (int i = 0; i + 1 < model.renderers.length; i += 2) {
@@ -552,6 +590,7 @@ public final class SettingsActivity extends AppCompatActivity {
                     list.setValue(current);
                 }
             }
+            findPreference("controller-menu-warning").setVisible(ControllerBindings.menuUnbound(model.draft));
             updating = false;
             getPreferenceScreen().setEnabled(model.loaded && !model.isBusy() && !restore.busy() && !export.isBusy());
         }
