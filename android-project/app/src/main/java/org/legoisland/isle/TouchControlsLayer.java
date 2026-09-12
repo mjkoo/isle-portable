@@ -9,6 +9,7 @@ import android.util.TypedValue;
 import android.view.DisplayCutout;
 import android.view.View;
 import android.view.WindowInsets;
+import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
@@ -33,6 +34,19 @@ final class TouchControlsLayer {
     private TouchLayout layout = TouchLayout.DEFAULT;
     private int insetLeft, insetTop, insetRight, insetBottom;
     private TouchLayoutEditor editor;
+
+    /** The action buttons' labels, by control; the menu button shows an icon instead. */
+    static final String[] LABELS = {null, "Esc", "Space"};
+
+    /** The game menu button as it looks, without what it does. */
+    static ImageButton createMenuButton(Context context) {
+        ImageButton menu = new ImageButton(context);
+        menu.setImageResource(R.drawable.game_menu);
+        menu.setBackgroundResource(R.drawable.game_menu_background);
+        menu.setContentDescription("Game menu");
+        menu.setPadding(0, 0, 0, 0);
+        return menu;
+    }
 
     TouchControlsLayer(RelativeLayout host, View menu, View escape, View space) {
         this.host = host;
@@ -100,9 +114,7 @@ final class TouchControlsLayer {
         layout = next;
         for (View control : controls) {
             control.setAlpha(next.opacity);
-            if (control instanceof TextView) {
-                ((TextView) control).setTextSize(TypedValue.COMPLEX_UNIT_SP, TouchActionButton.TEXT_SIZE_SP * next.scale);
-            }
+            if (control instanceof TextView) scaleLabel((TextView) control, next.scale);
         }
         refresh();
     }
@@ -143,25 +155,31 @@ final class TouchControlsLayer {
                 controls[i].setLayoutParams(params);
                 moved = true;
             }
-            if (controls[i] instanceof ImageView) scaleIcon((ImageView) controls[i], boxWidth, boxHeight);
+            if (controls[i] instanceof ImageView) {
+                scaleIcon((ImageView) controls[i], layout.scale, boxWidth, boxHeight, iconMatrix);
+            }
         }
         if (editor != null) editor.setSafeArea(insetLeft, insetTop, width - insetRight, height - insetBottom);
         return moved;
     }
 
+    /** Sizes a button's label for the button scale. */
+    static void scaleLabel(TextView label, float scale) {
+        label.setTextSize(TypedValue.COMPLEX_UNIT_SP, TouchActionButton.TEXT_SIZE_SP * scale);
+    }
+
     /**
-     * Centers the icon at its own size times the button scale. At the default size this is the
-     * same placement the button's centered image had, so the icon grows with the button without
-     * changing the default look.
+     * Centers the icon of a width by height button at its own size times the button scale, using
+     * matrix as scratch. At the default size this is the same placement the button's centered image
+     * had, so the icon grows with the button without changing the default look.
      */
-    private void scaleIcon(ImageView view, int width, int height) {
+    static void scaleIcon(ImageView view, float scale, int width, int height, Matrix matrix) {
         Drawable icon = view.getDrawable();
         if (icon == null) return;
-        float scale = layout.scale;
-        iconMatrix.setScale(scale, scale);
-        iconMatrix.postTranslate(Math.round((width - icon.getIntrinsicWidth() * scale) * 0.5f),
+        matrix.setScale(scale, scale);
+        matrix.postTranslate(Math.round((width - icon.getIntrinsicWidth() * scale) * 0.5f),
             Math.round((height - icon.getIntrinsicHeight() * scale) * 0.5f));
         view.setScaleType(ImageView.ScaleType.MATRIX);
-        view.setImageMatrix(iconMatrix);
+        view.setImageMatrix(matrix);
     }
 }

@@ -4,15 +4,17 @@ import android.annotation.SuppressLint;
 import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.Matrix;
 import android.graphics.Paint;
 import android.graphics.Rect;
 import android.graphics.RectF;
-import android.graphics.drawable.Drawable;
 import android.os.Build;
 import android.util.TypedValue;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewConfiguration;
+import android.widget.ImageView;
+import android.widget.TextView;
 
 /**
  * Moves the touch buttons by dragging them over the paused game.
@@ -24,20 +26,21 @@ import android.view.ViewConfiguration;
  * Every touch is consumed, so none reaches the game or the real buttons, which stay hidden while
  * editing.
  */
-// Created by IsleActivity, never inflated from XML. Dragging has no click equivalent, so there is
+// Created by TouchLayoutController, never inflated from XML. Dragging has no click equivalent, so there is
 // no performClick to call; Back, which the activity handles, remains the accessible way out.
 @SuppressLint({"ViewConstructor", "ClickableViewAccessibility"})
 final class TouchLayoutEditor extends View {
     interface Listener { void onDone(TouchLayout draft); }
 
     static final int RESET = 0, DONE = 1;
-    private static final String[] LABELS = {null, "Esc", "Space"};
     private static final String[] TOOL_LABELS = {"Reset", "Done"};
     private static final int ACCENT = 0xFF4FC3F7;
 
     private final Listener listener;
     private final float density;
-    private final Drawable background, icon;
+    // The game's own button views, never attached: drawn here, sized and scaled as the real ones.
+    private final View[] previews = new View[TouchLayout.COUNT];
+    private final Matrix iconMatrix = new Matrix();
     private final Paint fill = new Paint(Paint.ANTI_ALIAS_FLAG), outline = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint text = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Rect[] boxes = new Rect[TouchLayout.COUNT], dragStart = new Rect[TouchLayout.COUNT];
@@ -60,8 +63,10 @@ final class TouchLayoutEditor extends View {
         draft = layout;
         density = getResources().getDisplayMetrics().density;
         touchSlop = ViewConfiguration.get(context).getScaledTouchSlop();
-        background = context.getDrawable(R.drawable.game_menu_background).mutate();
-        icon = context.getDrawable(R.drawable.game_menu).mutate();
+        previews[TouchLayout.MENU] = TouchControlsLayer.createMenuButton(context);
+        for (int i = TouchLayout.ESCAPE; i <= TouchLayout.SPACE; i++) {
+            previews[i] = new TouchActionButton(context, TouchControlsLayer.LABELS[i], generation -> { });
+        }
         for (int i = 0; i < TouchLayout.COUNT; i++) {
             boxes[i] = new Rect();
             dragStart[i] = new Rect();
@@ -126,8 +131,22 @@ final class TouchLayoutEditor extends View {
         for (int i = 0; i < TouchLayout.COUNT; i++) {
             draft.bounds(i, safeLeft, safeTop, safeRight, safeBottom, density, bounds);
             boxes[i].set(bounds[0], bounds[1], bounds[2], bounds[3]);
+            sizePreview(i);
         }
         invalidate();
+    }
+
+    /** Lays a preview out at its box's size, scaled as TouchControlsLayer scales the game's button. */
+    private void sizePreview(int control) {
+        View preview = previews[control];
+        int width = boxes[control].width(), height = boxes[control].height();
+        if (preview instanceof TextView) TouchControlsLayer.scaleLabel((TextView) preview, draft.scale);
+        preview.measure(MeasureSpec.makeMeasureSpec(width, MeasureSpec.EXACTLY),
+            MeasureSpec.makeMeasureSpec(height, MeasureSpec.EXACTLY));
+        preview.layout(0, 0, width, height);
+        if (preview instanceof ImageView) {
+            TouchControlsLayer.scaleIcon((ImageView) preview, draft.scale, width, height, iconMatrix);
+        }
     }
 
     /** Returns every button being dragged to where its drag began, and drops any toolbar press. */
@@ -311,6 +330,20 @@ final class TouchLayoutEditor extends View {
         canvas.drawText(label, box.exactCenterX(), box.exactCenterY() - (text.descent() + text.ascent()) / 2, text);
     }
 
+    /**
+     * Draws a button as the game shows it. A view with a background fades through one layer, so its
+     * icon or label does not let the background show through; the preview fades the same way.
+     */
+    void drawControl(Canvas canvas, int control) {
+        Rect box = boxes[control];
+        int saved = draft.opacity < 1
+            ? canvas.saveLayerAlpha(box.left, box.top, box.right, box.bottom, (int) (255 * draft.opacity))
+            : canvas.save();
+        canvas.translate(box.left, box.top);
+        previews[control].draw(canvas);
+        canvas.restoreToCount(saved);
+    }
+
     @Override protected void onDraw(Canvas canvas) {
         super.onDraw(canvas);
         canvas.drawColor(0x99000000);
@@ -332,23 +365,9 @@ final class TouchLayoutEditor extends View {
             canvas.drawRoundRect(shape, dp(8), dp(8), outline);
             drawLabel(canvas, TOOL_LABELS[tool], tools[tool], sp(16), busy ? 90 : 255);
         }
-        int alpha = Math.round(255 * draft.opacity);
         for (int i = 0; i < TouchLayout.COUNT; i++) {
+            drawControl(canvas, i);
             Rect box = boxes[i];
-            background.setBounds(box);
-            background.setAlpha(alpha);
-            background.draw(canvas);
-            if (i == TouchLayout.MENU) {
-                // Centered at its own size times the button scale, as TouchControlsLayer places it.
-                float width = icon.getIntrinsicWidth() * draft.scale, height = icon.getIntrinsicHeight() * draft.scale;
-                int left = box.left + Math.round((box.width() - width) * 0.5f);
-                int top = box.top + Math.round((box.height() - height) * 0.5f);
-                icon.setBounds(left, top, left + Math.round(width), top + Math.round(height));
-                icon.setAlpha(alpha);
-                icon.draw(canvas);
-            } else {
-                drawLabel(canvas, LABELS[i], box, sp(TouchActionButton.TEXT_SIZE_SP * draft.scale), alpha);
-            }
             boolean dragging = dragPointer[i] >= 0;
             float stroke = (dragging ? 3 : 2) * density;
             outline.setColor(dragging ? ACCENT : Color.WHITE);

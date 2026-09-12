@@ -40,16 +40,12 @@ public class IsleActivity extends SDLActivity {
         mTouchControls = new TouchControlsView(this, mSurface);
         mLayout.addView(mTouchControls, new RelativeLayout.LayoutParams(
             RelativeLayout.LayoutParams.MATCH_PARENT, RelativeLayout.LayoutParams.MATCH_PARENT));
-        TouchActionButton space = new TouchActionButton(this, "Space",
+        TouchActionButton space = new TouchActionButton(this, TouchControlsLayer.LABELS[TouchLayout.SPACE],
             generation -> TouchControlsView.submitAction(1, generation));
-        TouchActionButton escape = new TouchActionButton(this, "Esc",
+        TouchActionButton escape = new TouchActionButton(this, TouchControlsLayer.LABELS[TouchLayout.ESCAPE],
             generation -> TouchControlsView.submitAction(2, generation));
         mTouchControls.setActionButtons(space, escape);
-        mMenuButton = new ImageButton(this);
-        mMenuButton.setImageResource(R.drawable.game_menu);
-        mMenuButton.setBackgroundResource(R.drawable.game_menu_background);
-        mMenuButton.setContentDescription("Game menu");
-        mMenuButton.setPadding(0, 0, 0, 0);
+        mMenuButton = TouchControlsLayer.createMenuButton(this);
         mMenuButton.setVisibility(View.GONE);
         mMenuButton.setOnClickListener(view -> {
             view.setVisibility(View.GONE);

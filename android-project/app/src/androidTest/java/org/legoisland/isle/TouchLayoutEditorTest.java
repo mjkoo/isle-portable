@@ -1,12 +1,17 @@
 package org.legoisland.isle;
 
 import android.annotation.TargetApi;
+import android.content.Context;
+import android.graphics.Bitmap;
+import android.graphics.Canvas;
 import android.graphics.Rect;
 import android.os.SystemClock;
 import android.view.ContextThemeWrapper;
 import android.view.InputDevice;
 import android.view.MotionEvent;
+import android.view.View;
 import android.view.ViewConfiguration;
+import android.widget.RelativeLayout;
 
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.SdkSuppress;
@@ -21,6 +26,7 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 /** Drags the production editor's buttons with real Android events, without starting the game. */
 @RunWith(AndroidJUnit4.class)
@@ -105,6 +111,72 @@ public final class TouchLayoutEditorTest {
     private static void assertCenter(Rect box, float x, float y) {
         assertEquals(x, box.exactCenterX(), 1.5f);
         assertEquals(y, box.exactCenterY(), 1.5f);
+    }
+
+    private interface Painting { void paint(Canvas canvas); }
+
+    /** What painting draws inside box, as a bitmap of the box's size. */
+    private static Bitmap render(Rect box, Painting painting) {
+        Bitmap bitmap = Bitmap.createBitmap(box.width(), box.height(), Bitmap.Config.ARGB_8888);
+        Canvas canvas = new Canvas(bitmap);
+        canvas.translate(-box.left, -box.top);
+        painting.paint(canvas);
+        return bitmap;
+    }
+
+    private static void assertSamePixels(String what, Bitmap expected, Bitmap actual) {
+        for (int y = 0; y < expected.getHeight(); y++) {
+            for (int x = 0; x < expected.getWidth(); x++) {
+                int want = expected.getPixel(x, y), got = actual.getPixel(x, y);
+                if (want != got) {
+                    fail(String.format("%s first differs at (%d, %d): expected %08X but was %08X",
+                        what, x, y, want, got));
+                }
+            }
+        }
+    }
+
+    private static void layOut(View view) {
+        view.measure(View.MeasureSpec.makeMeasureSpec(WIDTH, View.MeasureSpec.EXACTLY),
+            View.MeasureSpec.makeMeasureSpec(HEIGHT, View.MeasureSpec.EXACTLY));
+        view.layout(0, 0, WIDTH, HEIGHT);
+    }
+
+    @Test public void previewDrawsTheGameButtons() {
+        onMain(() -> {
+            Context context = new ContextThemeWrapper(
+                InstrumentationRegistry.getInstrumentation().getTargetContext(), R.style.AppTheme);
+            // Fractional icon sizes and partial opacities, where a copy of the look would drift.
+            for (String[] appearance : new String[][] {{"0.75", "0.25"}, {"1.25", "0.5"}, {"2", "1"}}) {
+                TouchLayout layout = TouchLayout.parse(new String[] {appearance[0], appearance[1], null, null, null});
+                TouchActionButton escape = new TouchActionButton(context, TouchControlsLayer.LABELS[TouchLayout.ESCAPE],
+                    generation -> { });
+                TouchActionButton space = new TouchActionButton(context, TouchControlsLayer.LABELS[TouchLayout.SPACE],
+                    generation -> { });
+                // Shown, as while the game runs.
+                escape.updateGeneration(1);
+                space.updateGeneration(1);
+                View[] game = {TouchControlsLayer.createMenuButton(context), escape, space};
+                RelativeLayout host = new RelativeLayout(context);
+                TouchControlsLayer layer = new TouchControlsLayer(host, game[0], game[1], game[2]);
+                layer.setTouchLayout(layout);
+                layOut(host);
+                layer.refresh();
+                layOut(host);
+
+                TouchLayoutEditor preview = new TouchLayoutEditor(context, layout, draft -> { });
+                preview.layout(0, 0, WIDTH, HEIGHT);
+                preview.setSafeArea(0, 0, WIDTH, HEIGHT);
+                for (int i = 0; i < TouchLayout.COUNT; i++) {
+                    int control = i;
+                    Rect box = new Rect(game[i].getLeft(), game[i].getTop(), game[i].getRight(), game[i].getBottom());
+                    String what = "control " + i + " at size " + appearance[0] + " and opacity " + appearance[1];
+                    assertEquals(what + " bounds", box, preview.controlBounds(i));
+                    assertSamePixels(what, render(box, host::draw),
+                        render(box, canvas -> preview.drawControl(canvas, control)));
+                }
+            }
+        });
     }
 
     @Test public void dragCommitsOnLift() {
