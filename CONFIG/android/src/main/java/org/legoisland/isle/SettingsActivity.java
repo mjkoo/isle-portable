@@ -550,6 +550,14 @@ public final class SettingsActivity extends AppCompatActivity {
                 return true;
             });
             controller.addPreference(resetController);
+            // A controller's D-pad cannot reach the action bar, so Save is offered in the list too.
+            Preference save = new Preference(requireContext());
+            save.setKey("save-settings");
+            save.setTitle("Save settings");
+            save.setSummary("Save your changes and close Settings.");
+            save.setIconSpaceReserved(false);
+            save.setOnPreferenceClickListener(p -> { model.save(); return true; });
+            screen.addPreference(save);
             refresh();
         }
 

@@ -25,7 +25,8 @@ bottom and right face buttons clicks by default: the one labelled A, or always t
 the right one. A row you have set yourself keeps its own action.
 
 Save settings, then Resume to use the new buttons in the current game; they also apply on later
-launches. Cancel leaves them unchanged. **Reset controller buttons** followed by Save returns
+launches. Cancel leaves them unchanged. With only a controller, **Save settings** at the bottom of
+the list saves, and B leaves Settings without saving. **Reset controller buttons** followed by Save returns
 every row to its default, and Reset these settings leaves controller buttons alone. Settings
 warns when no button would open the menu; Android Back and the touch menu button still open it.
 
