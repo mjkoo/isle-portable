@@ -1,5 +1,6 @@
 package org.legoisland.isle;
 
+import android.annotation.SuppressLint;
 import android.app.Application;
 import android.net.Uri;
 import android.os.Handler;
@@ -139,6 +140,9 @@ public final class GameFilesModel extends AndroidViewModel {
         worker.execute(() -> copy(tree));
     }
 
+    // The staged copy must fit beside the current files in space that is free now. Cache the system
+    // could clear is not ours to count on, so getAllocatableBytes is the wrong question here.
+    @SuppressLint("UsableSpace")
     private void copy(Uri tree) {
         GameFileCopier current = new GameFileCopier(
             new DocumentTreeSource(getApplication().getContentResolver(), tree), cancelled::get);
