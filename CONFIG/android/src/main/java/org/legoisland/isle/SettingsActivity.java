@@ -59,7 +59,7 @@ public final class SettingsActivity extends AppCompatActivity {
     private static final String[] BOOL_LABELS = {"On", "Off"};
     private static final String[] BOOL_VALUES = {"true", "false"};
     // The UI's complete INI mapping. Engine defaults remain in native configuration loading.
-    private static final Control[] CONTROLS = withController(new Control[] {
+    private static final Control[] CONTROLS = withController(withGraphics(new Control[] {
         new Control("Input", "isle:touch scheme", "Touch scheme",
             new String[] {"Virtual mouse", "Arrow-key regions", "Virtual stick", "Disabled"},
             new String[] {"0", "1", "2", "-1"}),
@@ -82,7 +82,16 @@ public final class SettingsActivity extends AppCompatActivity {
             new String[] {"Off", "2×", "4×", "8×", "16×"}, new String[] {"0", "2", "4", "8", "16"}),
         new Control("Display", "isle:anisotropic", "Anisotropic filtering",
             new String[] {"Off", "2×", "4×", "8×", "16×"}, new String[] {"0", "2", "4", "8", "16"})
-    });
+    }));
+
+    private static Control[] withGraphics(Control[] base) {
+        ArrayList<Control> controls = new ArrayList<>(Arrays.asList(base));
+        for (int i = 0; i < GraphicsSettings.KEYS.length; i++) {
+            controls.add(new Control("Graphics", GraphicsSettings.KEYS[i], GraphicsSettings.TITLES[i],
+                GraphicsSettings.LABELS[i], GraphicsSettings.VALUES[i]));
+        }
+        return controls.toArray(new Control[0]);
+    }
 
     private static Control[] withController(Control[] base) {
         ArrayList<Control> controls = new ArrayList<>(Arrays.asList(base));
@@ -131,7 +140,8 @@ public final class SettingsActivity extends AppCompatActivity {
                     String[] values = SettingsBridge.read(configPath, keys.toArray(new String[0]));
                     main.post(() -> {
                         for (int i = 0; i < values.length; i++) {
-                            String key = keys.get(i), value = ControllerBindings.normalize(key, values[i]);
+                            String key = keys.get(i);
+                            String value = GraphicsSettings.normalize(key, ControllerBindings.normalize(key, values[i]));
                             original.put(key, value);
                             if (!draft.containsKey(key)) draft.put(key, value);
                         }
@@ -460,7 +470,7 @@ public final class SettingsActivity extends AppCompatActivity {
             reset.setTitle("Reset these settings");
             reset.setIconSpaceReserved(false);
             // Edit touch layout is not offered over startup recovery, so only point to it when it is.
-            reset.setSummary("Use game defaults for Input, Audio and Display. Touch button positions, controller buttons, paths and other settings are kept"
+            reset.setSummary("Use game defaults for Input, Audio, Display and Graphics. Touch button positions, controller buttons, paths and other settings are kept"
                 + (layoutEditor ? "; reset positions in Edit touch layout" : "") + ". Choose Save to apply.");
             reset.setOnPreferenceClickListener(p -> {
                 for (String key : model.draft.keySet()) {
