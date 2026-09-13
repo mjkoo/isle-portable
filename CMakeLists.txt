@@ -855,6 +855,7 @@ if (ISLE_BUILD_APP)
             ISLE/android/touchcontrols.cpp
             ISLE/android/savesnapshot.cpp
             ISLE/android/saverestore.cpp
+            ISLE/android/gamefiles.cpp
             ISLE/android/filepicker.cpp
             ISLE/android/quitprompt.cpp
     )

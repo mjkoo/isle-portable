@@ -43,6 +43,14 @@ target_compile_options(saverestore PRIVATE -Wall -Wextra -Werror -UNDEBUG)
 target_include_directories(saverestore PRIVATE ../../ISLE/android)
 add_test(NAME android_save_restore COMMAND saverestore)
 
+add_executable(gamefiles gamefiles.cpp ../../ISLE/android/gamefiles.cpp ../../ISLE/android/configstore.cpp
+  ../../ISLE/islefiles.cpp)
+target_compile_features(gamefiles PRIVATE cxx_std_17)
+target_compile_options(gamefiles PRIVATE -Wall -Wextra -Werror -UNDEBUG)
+target_include_directories(gamefiles PRIVATE ../../ISLE/android "${INIPARSER_INCLUDE_DIR}" "${SDL3_INCLUDE_DIR}")
+target_link_libraries(gamefiles PRIVATE "${INIPARSER_LIBRARY}" Threads::Threads)
+add_test(NAME android_game_files COMMAND gamefiles)
+
 add_executable(touchactions touchactions.cpp)
 target_compile_features(touchactions PRIVATE cxx_std_17)
 target_compile_options(touchactions PRIVATE -Wall -Wextra -Werror -UNDEBUG)
