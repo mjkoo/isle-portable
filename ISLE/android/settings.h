@@ -3,6 +3,9 @@
 
 #include <SDL3/SDL.h>
 
+// Applies a game file replacement or removal that Settings scheduled, and deletes what earlier
+// ones left behind. Must run before the game is constructed.
+void Android_ApplyGameFilesBeforeStartup();
 bool Android_RestoreBeforeStartup();
 // Whether Settings recorded work that applies before the next engine start, in which case
 // the game closes rather than resuming.

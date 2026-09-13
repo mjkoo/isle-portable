@@ -161,6 +161,15 @@ public class IsleActivity extends SDLActivity {
         return prompt != null && prompt.getStatus() == QuitPrompt.STATUS_PENDING;
     }
 
+    /**
+     * Tells the player what a change applied at startup did, such as replacing the game files.
+     *
+     * Called from native code (see ISLE/android/settings.cpp); kept by proguard-rules.pro.
+     */
+    public void showStartupMessage(String message) {
+        runOnUiThread(() -> Toast.makeText(this, message, Toast.LENGTH_LONG).show());
+    }
+
 
     // Unlike mImport, which only the SDL thread touches, this is written by the SDL thread in
     // showQuitPrompt and read by the UI thread in onDestroy.

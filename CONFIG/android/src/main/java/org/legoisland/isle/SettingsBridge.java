@@ -15,6 +15,15 @@ final class SettingsBridge {
     static native String scheduleRestore(String id, String[] names, byte[][] data, boolean previous);
     // Settings recorded work that applies before the next engine start, so the game must close.
     static native boolean startupWorkScheduled();
+    // Id, then the directory to copy the new LEGO folder into. Claimed until endGameFilesStaging,
+    // so a startup in this process does not collect it meanwhile.
+    static native String[] beginGameFilesStaging(String root);
+    static native void endGameFilesStaging(String id);
+    // The first required game file missing under root, or null when the tree is complete.
+    static native String missingGameFile(String root);
+    static native boolean gameFilesPending(String filesDir, String root);
+    // Error, or null once the change waits for the next startup. A null id removes the game files.
+    static native String scheduleGameFiles(String filesDir, String root, String config, String id);
     static native void requestMenu();
     static native String exportId();
     // Metadata is error, capture time in milliseconds, warning, then canonical filenames.

@@ -2,6 +2,7 @@
 
 #include "activity.h"
 #include "configstore.h"
+#include "gamefiles.h"
 #include "mxdirectx/legodxinfo.h"
 #include "saverestore.h"
 #include "savesnapshot.h"
@@ -10,6 +11,7 @@
 #include <chrono>
 #include <jni.h>
 #include <mutex>
+#include <set>
 #include <stdexcept>
 #include <sys/stat.h>
 
@@ -28,6 +30,10 @@ static bool g_restoreStartup = false;
 // Set once Settings has recorded work for the next startup, such as a save restore. The game
 // must then close instead of resuming over state that is about to change.
 static std::atomic<bool> g_startupWorkScheduled{false};
+static std::mutex g_gameFilesMutex;
+// Staging directories that a Settings screen in this process is still copying into. Settings can
+// outlive the game, so a later startup in the same process must not collect them.
+static std::set<std::string> g_gameFilesClaims;
 
 void Android_CaptureSaveExport(const char* p_savePath, int p_saveResult)
 {
@@ -518,6 +524,136 @@ extern "C" JNIEXPORT jstring JNICALL Java_org_legoisland_isle_SettingsBridge_sch
 		// old game with that confirmed request outstanding.
 		try {
 			if (Android_SaveRestore(g_restoreRoot).Pending()) {
+				g_startupWorkScheduled = true;
+			}
+		}
+		catch (...) {
+			g_startupWorkScheduled = true;
+		}
+		return p_env->NewStringUTF(error.what());
+	}
+}
+
+static void ShowStartupMessage(const std::string& p_message)
+{
+	Android_ActivityCall call;
+	if (!Android_BeginActivityCall(&call, "showStartupMessage", "(Ljava/lang/String;)V")) {
+		return;
+	}
+	jstring message = call.m_env->NewStringUTF(p_message.c_str());
+	call.m_env->CallVoidMethod(call.m_activity, call.m_method, message);
+	call.m_env->DeleteLocalRef(message);
+	Android_EndActivityCall(&call);
+}
+
+void Android_ApplyGameFilesBeforeStartup()
+{
+	const char* internal = SDL_GetAndroidInternalStoragePath();
+	const char* external = SDL_GetAndroidExternalStoragePath();
+	if (!internal || !*internal || !external || !*external) {
+		// Loading the configuration reports unavailable storage itself.
+		return;
+	}
+
+	std::vector<std::string> garbage;
+	std::string message;
+	{
+		std::lock_guard<std::mutex> lock(g_gameFilesMutex);
+		try {
+			message =
+				Android_GameFiles(std::string(internal) + "/game-files", external).Apply(garbage, g_gameFilesClaims);
+		}
+		catch (const std::exception& error) {
+			message = std::string("A waiting game file change could not be applied. ") + error.what();
+		}
+	}
+	if (!message.empty()) {
+		SDL_Log("%s", message.c_str());
+		ShowStartupMessage(message);
+	}
+	if (garbage.empty()) {
+		return;
+	}
+
+	// Deleted before the game starts rather than behind it: removing the game files is how a
+	// player frees space, and the import that follows needs that space. Pumping keeps the Android
+	// UI thread running meanwhile.
+	Uint64 started = SDL_GetTicksNS();
+	uint64_t bytes = 0;
+	size_t failed = 0;
+	for (const std::string& path : garbage) {
+		if (!Android_DeleteTree(path, bytes, [] { Android_DrainInputEvents(); })) {
+			failed++;
+		}
+	}
+	SDL_Log(
+		"Deleted %zu game file work directories (%.1f MB) in %.0f ms%s",
+		garbage.size() - failed,
+		bytes / 1000000.0,
+		(SDL_GetTicksNS() - started) / 1000000.0,
+		failed ? "; some entries could not be deleted" : ""
+	);
+}
+
+// Settings can outlive the game in this process, or be restored after process death before any
+// game has started, so it passes the storage paths itself rather than asking SDL's activity.
+extern "C" JNIEXPORT jobjectArray JNICALL
+Java_org_legoisland_isle_SettingsBridge_beginGameFilesStaging(JNIEnv* p_env, jclass, jstring p_root)
+{
+	std::lock_guard<std::mutex> lock(g_gameFilesMutex);
+	std::string id = Android_GameFiles::NewId();
+	g_gameFilesClaims.insert(id);
+	return ToJava(p_env, {id, FromJava(p_env, p_root) + "/" + Android_GameFiles::StagingName(id)});
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_org_legoisland_isle_SettingsBridge_endGameFilesStaging(JNIEnv* p_env, jclass, jstring p_id)
+{
+	std::lock_guard<std::mutex> lock(g_gameFilesMutex);
+	g_gameFilesClaims.erase(FromJava(p_env, p_id));
+}
+
+extern "C" JNIEXPORT jstring JNICALL
+Java_org_legoisland_isle_SettingsBridge_missingGameFile(JNIEnv* p_env, jclass, jstring p_root)
+{
+	const char* missing = Android_FindMissingGameFile(FromJava(p_env, p_root));
+	return missing ? p_env->NewStringUTF(missing) : nullptr;
+}
+
+extern "C" JNIEXPORT jboolean JNICALL
+Java_org_legoisland_isle_SettingsBridge_gameFilesPending(JNIEnv* p_env, jclass, jstring p_filesDir, jstring p_root)
+{
+	std::lock_guard<std::mutex> lock(g_gameFilesMutex);
+	try {
+		return Android_GameFiles(FromJava(p_env, p_filesDir) + "/game-files", FromJava(p_env, p_root)).Pending();
+	}
+	catch (const std::exception&) {
+		// An unreadable record is set aside at the next startup; until then, treat it as waiting.
+		return true;
+	}
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_org_legoisland_isle_SettingsBridge_scheduleGameFiles(
+	JNIEnv* p_env,
+	jclass,
+	jstring p_filesDir,
+	jstring p_root,
+	jstring p_config,
+	jstring p_id
+)
+{
+	std::lock_guard<std::mutex> lock(g_gameFilesMutex);
+	std::string records = FromJava(p_env, p_filesDir) + "/game-files", root = FromJava(p_env, p_root);
+	try {
+		Android_GameFiles(records, root).Schedule(FromJava(p_env, p_config), FromJava(p_env, p_id));
+		g_startupWorkScheduled = true;
+		return nullptr;
+	}
+	catch (const std::exception& error) {
+		// A failed directory sync can follow a published record. Do not resume the game over a
+		// change that is already waiting for the next startup.
+		try {
+			if (Android_GameFiles(records, root).Pending()) {
 				g_startupWorkScheduled = true;
 			}
 		}

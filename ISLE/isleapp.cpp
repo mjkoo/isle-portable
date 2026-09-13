@@ -658,6 +658,8 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv)
 	// We don't really need that.
 
 #ifdef ANDROID
+	// Both change what the engine reads, so both finish before it exists.
+	Android_ApplyGameFilesBeforeStartup();
 	if (!Android_RestoreBeforeStartup()) {
 		return SDL_APP_FAILURE;
 	}

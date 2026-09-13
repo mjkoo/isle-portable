@@ -1,5 +1,6 @@
-# Methods called from native code via JNI (see ISLE/android/filepicker.cpp and
-# ISLE/android/quitprompt.cpp). Every entry point lives on IsleActivity, so this list is the
+# Methods called from native code via JNI (see ISLE/android/filepicker.cpp,
+# ISLE/android/quitprompt.cpp and ISLE/android/settings.cpp). Every entry point lives on
+# IsleActivity, so this list is the
 # whole JNI surface; the GameImport and QuitPrompt classes it delegates to are reached only from
 # Java and deliberately have no keep rule of their own.
 #
@@ -16,6 +17,7 @@
     void showMenuButton();
     void showStartupSettings(java.lang.String);
     boolean isStartupSettingsOpen();
+    void showStartupMessage(java.lang.String);
     int getQuitPromptStatus();
 }
 
