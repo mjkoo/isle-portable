@@ -289,3 +289,44 @@ each frame rate limit, read the game surface's average and present-to-present hi
 `dumpsys SurfaceFlinger --timestats` (`--latency` reports nothing for it on API 35). Reset
 followed by Save removes the keys; a hand-edited value outside the list shows as its current
 value and is not rewritten.
+
+## Game files
+
+The `gamefiles` native target covers the startup step that Settings > Data > Game files
+schedules: the required-file check (case-insensitive per path component, regular files only),
+refusals, replacement with and without an earlier installation or configuration, removal, a
+configuration that cannot be written, a staged copy lost or a game folder reappearing after the
+old one was retired, collection of work directories other than those a running Settings owns, a
+retired tree coming back when its record was lost, damaged and moved records, and deletion that
+never follows symlinks. Every filesystem step of scheduling, replacement and removal is
+interrupted in turn: each run must leave a game folder in place or the change still waiting, and
+the next run must finish it. It builds with the configuration tests above.
+
+Standalone Java tests cover the copier shared by the startup import and Settings (folder rules,
+unusable names, cancellation and every failure the player is told about) and the Settings space
+check, location and wording:
+
+```sh
+mkdir -p build/android-game-files-java
+javac -d build/android-game-files-java \
+  CONFIG/android/src/main/java/org/legoisland/isle/GameFileCopier.java \
+  CONFIG/android/src/main/java/org/legoisland/isle/GameFilesPolicy.java \
+  tests/android/java/org/legoisland/isle/GameFileCopierTest.java \
+  tests/android/java/org/legoisland/isle/GameFilesPolicyTest.java
+java -ea -cp build/android-game-files-java org.legoisland.isle.GameFileCopierTest
+java -ea -cp build/android-game-files-java org.legoisland.isle.GameFilesPolicyTest
+```
+
+On device, preserve the config, saves and game assets first, and keep a source copy of the game
+in a shared folder such as Download. Replace from the in-game menu: the game closes, and the next
+launch reports the replacement, starts, and leaves one `LEGO` folder and no `.isle-*`
+directories, with `diskpath` naming the app's directory and other keys and saves unchanged.
+Replace from startup-error Settings with the game files missing and with `diskpath` naming a
+missing folder; from an `imported-*` diskpath; and from a hand-set one, which must be left
+untouched. Fill the disk to see the space refusal and check that no staging directory remains.
+Pick a wrong folder and one missing a single file. Cancel while copying and at the confirmation;
+rotate, press Home, enable Don't keep activities and kill the process during the copy: the
+current files must stay playable and the staged copy must be gone after the next launch. Kill the
+process right after confirming: the change must apply on the next launch. Remove, reopen, import
+through the prompt and play; saves must be unchanged. Check the startup import still behaves as
+before, a controller through every dialog, and the minified release.

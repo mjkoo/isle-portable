@@ -76,6 +76,13 @@ configuration. **Input > Edit touch layout** moves the menu,
 Space and Esc buttons over the paused game. A startup error also offers Settings so an
 unsuitable display configuration can be reset.
 
+**Data > Game files** shows where the game reads its files from and how much space they take.
+**Replace game files** copies a folder you pick beside the current files and puts it in place
+the next time the game starts; **Remove game files** deletes the copy in app storage, keeping
+saves and settings, and the game asks for a folder again when it next starts. Both close the
+game, and the current files stay playable until then. See
+[Android game files](docs/android-game-files.md).
+
 **Data > Export saves** writes a ZIP of the save files captured when the menu opened.
 Choose a destination in the system picker; no storage permission is required. Export
 preserves staged settings edits and excludes config and game assets. See
