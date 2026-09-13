@@ -259,3 +259,33 @@ starts; B closing the menu, the D-pad moving between its buttons and A choosing 
 Settings and its Save settings row with the pad alone, and B leaving without saving; a rebind
 applying on Resume; a button held across the menu releasing without a click; a trigger resting
 part-way pressing once; and unplugging a pad with a button or trigger held ending the click.
+
+## Graphics settings
+
+Configuration tests cover the graphics keys: range edges, the plain decimal the game needs
+for whole-number keys, the refused Low model quality and transition types, removal, and that
+saving them publishes no live touch or controller update. Standalone Java tests read the
+native validator's range table and check that every row is listed there, that every value
+Settings offers is within its range, that both sides agree on which rows are whole numbers,
+and that Reset these settings clears every row. They also check that values the game writes
+as `%f` show as their listed entry and that whole-number values are shown as written. Run
+them from the repository root:
+
+```sh
+mkdir -p build/android-graphics-java
+javac -d build/android-graphics-java \
+  CONFIG/android/src/main/java/org/legoisland/isle/GraphicsSettings.java \
+  CONFIG/android/src/main/java/org/legoisland/isle/ControllerBindings.java \
+  tests/android/java/org/legoisland/isle/GraphicsSettingsTest.java
+java -ea -cp build/android-graphics-java org.legoisland.isle.GraphicsSettingsTest
+```
+
+On device, a fresh configuration must show each row's value as a listed entry rather than
+"Current: 3.600000". A saved change must reach `isle.ini` without rewriting other keys, and
+must apply only after relaunching. Compare screenshots of Medium and High model quality in
+the Infocenter. Every transition uses the configured effect, and tapping the Infocenter's left
+or right arrow starts one without registering a player: record that under two transitions. For
+each frame rate limit, read the game surface's average and present-to-present histogram from
+`dumpsys SurfaceFlinger --timestats` (`--latency` reports nothing for it on API 35). Reset
+followed by Save removes the keys; a hand-edited value outside the list shows as its current
+value and is not rewritten.
