@@ -140,6 +140,41 @@ int main()
 	}
 	assert(!Android_ValidateSetting("isle:touch other position", "0.5,0.5", {}));
 
+	// Range edges and hand-edited "%f" values. GraphicsSettingsTest checks every value Settings offers
+	// against these ranges.
+	const std::vector<std::pair<const char*, std::vector<const char*>>> validGraphics = {
+		{"isle:island quality", {"1", "2"}},
+		{"isle:island texture", {"0", "1"}},
+		{"isle:max lod", {"0", "3.600000", "6"}},
+		{"isle:max allowed extras", {"5", "40"}},
+		{"isle:transition type", {"1", "5"}},
+		{"isle:frame delta", {"1", "16.666666", "1000"}},
+	};
+	// Whole-number keys take plain decimal only: the game reads them with strtol's base detection, so
+	// "010" would be 8 and "0.2e1" would be 0.
+	const std::vector<std::pair<const char*, std::vector<const char*>>> invalidGraphics = {
+		{"isle:island quality", {"0", "3", "1.5", "02", "0.2e1", "+2", " 2", "2.0"}},
+		{"isle:island texture", {"-1", "2", "0.5", "01", "+1", "1.0"}},
+		{"isle:max lod", {"-0.1", "6.1"}},
+		{"isle:max allowed extras", {"4", "41", "20.5", "010", "0.1e2", "+10", " 10", "10.0"}},
+		{"isle:transition type", {"0", "6", "2.5", "02", "0.2e1", "0x2"}},
+		{"isle:frame delta", {"0", "0.5", "1001"}},
+	};
+	for (const auto& [key, valid] : validGraphics) {
+		assert(Android_ValidateSetting(key, nullptr, {}));
+		for (const char* value : valid) {
+			assert(Android_ValidateSetting(key, value, {}));
+		}
+	}
+	for (const auto& [key, invalid] : invalidGraphics) {
+		for (const char* value : invalid) {
+			assert(!Android_ValidateSetting(key, value, {}));
+		}
+		for (const char* value : {"", "nan", "inf", "2garbage"}) {
+			assert(!Android_ValidateSetting(key, value, {}));
+		}
+	}
+
 	Android_TouchSettings touch;
 	Android_BeginTouchSettings(path);
 	assert(!Android_TakeTouchSettings(touch));
@@ -176,6 +211,28 @@ int main()
 	assert(Android_ReadConfig(path, layoutKeys, values).empty());
 	assert(!values[0].first && !values[1].first && !values[2].first);
 	assert(!Android_TakeTouchSettings(touch));
+	// Graphics settings apply on the next launch, so saving them publishes no live touch or controller
+	// update, and the music setting saved earlier is left as it was. Game default removes them again.
+	const std::vector<std::string> graphicsKeys =
+		{"isle:island quality", "isle:max lod", "isle:frame delta", "isle:music"};
+	assert(Android_UpdateConfig(
+			   path,
+			   {{"isle:island quality", "1"}, {"isle:max lod", "1.5"}, {"isle:frame delta", "31"}}
+	).empty());
+	assert(!Android_TakeTouchSettings(touch));
+	GamepadBindings::Table unchanged;
+	assert(!Android_TakeGamepadSettings(unchanged));
+	values.clear();
+	assert(Android_ReadConfig(path, graphicsKeys, values).empty());
+	assert(values[0].second == "1" && values[1].second == "1.5" && values[2].second == "31");
+	assert(values[3].second == "false");
+	assert(Android_UpdateConfig(
+			   path,
+			   {{"isle:island quality", nullptr}, {"isle:max lod", nullptr}, {"isle:frame delta", nullptr}}
+	).empty());
+	values.clear();
+	assert(Android_ReadConfig(path, graphicsKeys, values).empty());
+	assert(!values[0].first && !values[1].first && !values[2].first && values[3].second == "false");
 
 	assert(Android_UpdateConfig(path, {{"isle:touch scheme", "-1"}}).empty());
 	before = Read(path);

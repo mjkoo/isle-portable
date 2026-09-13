@@ -197,6 +197,50 @@ static bool IsTouchPosition(const char* p_value)
 	return end != start && !*end && IsFraction(x) && IsFraction(y);
 }
 
+struct GraphicsRange {
+	const char* m_key;
+	double m_min;
+	double m_max;
+	bool m_whole;
+};
+
+// The graphics keys mirror GraphicsSettings.java; keep them in step. The level of detail and actor ranges
+// follow the desktop configuration tool; quality and transition leave out what it marks broken.
+static const GraphicsRange g_graphicsRanges[] = {
+	// The desktop tool marks Low (0) broken.
+	{"isle:island quality", 1, 2, true},
+	{"isle:island texture", 0, 1, true},
+	{"isle:max lod", 0, 6, false},
+	{"isle:max allowed extras", 5, 40, true},
+	// The desktop tool marks idle (0) and the last type (6) broken; 6 also locks the game up.
+	{"isle:transition type", 1, 5, true},
+	// The game truncates the frame delta to whole milliseconds, so below 1 would mean no limit; 1000 (1 fps)
+	// is a sanity bound.
+	{"isle:frame delta", 1, 1000, false},
+};
+
+static bool ParseNumber(const char* p_value, double& p_number)
+{
+	char* end;
+	p_number = strtod(p_value, &end);
+	return end != p_value && !*end && std::isfinite(p_number);
+}
+
+// Plain decimal digits: the game reads whole-number keys with strtol's base detection, which would
+// read "010" as 8 and stop "0.2e1" at the decimal point.
+static bool IsPlainWholeNumber(const char* p_value)
+{
+	if (!*p_value || (p_value[0] == '0' && p_value[1])) {
+		return false;
+	}
+	for (const char* c = p_value; *c; c++) {
+		if (*c < '0' || *c > '9') {
+			return false;
+		}
+	}
+	return true;
+}
+
 // The touch button scale, opacity and position keys and ranges mirror TouchLayout.java; keep them in step.
 bool Android_ValidateSetting(const std::string& p_key, const char* p_value, const std::vector<std::string>& p_renderers)
 {
@@ -233,6 +277,16 @@ bool Android_ValidateSetting(const std::string& p_key, const char* p_value, cons
 		p_key == "isle:show touch controls") {
 		return !p_value || std::string(p_value) == "true" || std::string(p_value) == "false";
 	}
+	for (const GraphicsRange& range : g_graphicsRanges) {
+		if (p_key == range.m_key) {
+			if (!p_value) {
+				return true;
+			}
+			double value;
+			return (!range.m_whole || IsPlainWholeNumber(p_value)) && ParseNumber(p_value, value) &&
+				   value >= range.m_min && value <= range.m_max;
+		}
+	}
 	bool sensitivity = p_key == "isle:cursor sensitivity";
 	bool touch = p_key == "isle:touch scheme";
 	bool width = p_key == "isle:horizontal resolution";
@@ -247,9 +301,8 @@ bool Android_ValidateSetting(const std::string& p_key, const char* p_value, cons
 	if (!p_value) {
 		return true;
 	}
-	char* end;
-	double value = strtod(p_value, &end);
-	if (end == p_value || *end || !std::isfinite(value)) {
+	double value;
+	if (!ParseNumber(p_value, value)) {
 		return false;
 	}
 	if (sensitivity) {
