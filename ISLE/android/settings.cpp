@@ -25,7 +25,9 @@ static std::string g_restorePath;
 static std::mutex g_restoreMutex;
 static std::string g_restoreRoot;
 static bool g_restoreStartup = false;
-static std::atomic<bool> g_restoreQuit{false};
+// Set once Settings has recorded work for the next startup, such as a save restore. The game
+// must then close instead of resuming over state that is about to change.
+static std::atomic<bool> g_startupWorkScheduled{false};
 
 void Android_CaptureSaveExport(const char* p_savePath, int p_saveResult)
 {
@@ -130,7 +132,7 @@ void Android_ShowStartupSettings(const char* p_error, const char* p_savePath, in
 	if (!Android_EndActivityCall(&call)) {
 		return;
 	}
-	while (!g_restoreQuit.load() && Android_CallActivityBooleanMethod("isStartupSettingsOpen")) {
+	while (!g_startupWorkScheduled.load() && Android_CallActivityBooleanMethod("isStartupSettingsOpen")) {
 		Android_DrainInputEvents();
 		SDL_Delay(100);
 	}
@@ -357,9 +359,9 @@ std::string MenuRestorePath(JNIEnv* p_env, jstring p_id)
 }
 } // namespace
 
-bool Android_SaveRestoreClosing()
+bool Android_StartupWorkScheduled()
 {
-	return g_restoreQuit.load();
+	return g_startupWorkScheduled.load();
 }
 
 bool Android_RestoreBeforeStartup()
@@ -369,7 +371,7 @@ bool Android_RestoreBeforeStartup()
 		std::lock_guard<std::mutex> lock(g_restoreMutex);
 		g_restoreRoot = internal && *internal ? std::string(internal) + "/save-restore" : "";
 		g_restoreStartup = true;
-		g_restoreQuit = false;
+		g_startupWorkScheduled = false;
 	}
 	Android_ActivityCall call;
 	bool success = false;
@@ -461,9 +463,9 @@ Java_org_legoisland_isle_SettingsBridge_restoreInfo(JNIEnv* p_env, jclass, jstri
 	}
 }
 
-extern "C" JNIEXPORT jboolean JNICALL Java_org_legoisland_isle_SettingsBridge_restoreClosing(JNIEnv*, jclass)
+extern "C" JNIEXPORT jboolean JNICALL Java_org_legoisland_isle_SettingsBridge_startupWorkScheduled(JNIEnv*, jclass)
 {
-	return g_restoreQuit.load();
+	return g_startupWorkScheduled.load();
 }
 
 extern "C" JNIEXPORT jstring JNICALL Java_org_legoisland_isle_SettingsBridge_scheduleRestore(
@@ -508,7 +510,7 @@ extern "C" JNIEXPORT jstring JNICALL Java_org_legoisland_isle_SettingsBridge_sch
 		}
 		EnsureDefaultRestoreDirectory(path);
 		Android_SaveRestore(g_restoreRoot).Schedule(path, files, p_previous);
-		g_restoreQuit = true;
+		g_startupWorkScheduled = true;
 		return nullptr;
 	}
 	catch (const std::exception& error) {
@@ -516,11 +518,11 @@ extern "C" JNIEXPORT jstring JNICALL Java_org_legoisland_isle_SettingsBridge_sch
 		// old game with that confirmed request outstanding.
 		try {
 			if (Android_SaveRestore(g_restoreRoot).Pending()) {
-				g_restoreQuit = true;
+				g_startupWorkScheduled = true;
 			}
 		}
 		catch (...) {
-			g_restoreQuit = true;
+			g_startupWorkScheduled = true;
 		}
 		return p_env->NewStringUTF(error.what());
 	}

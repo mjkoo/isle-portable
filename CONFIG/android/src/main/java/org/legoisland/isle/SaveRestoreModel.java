@@ -113,9 +113,9 @@ public final class SaveRestoreModel extends AndroidViewModel {
                 failure = SettingsBridge.scheduleRestore(id,
                     restorePrevious ? null : selected.files.keySet().toArray(new String[0]),
                     restorePrevious ? null : selected.files.values().toArray(new byte[0][]), restorePrevious);
-                closing = SettingsBridge.restoreClosing();
+                closing = SettingsBridge.startupWorkScheduled();
             } catch (RuntimeException | OutOfMemoryError e) {
-                failure = e.getMessage(); closing = SettingsBridge.restoreClosing();
+                failure = e.getMessage(); closing = SettingsBridge.startupWorkScheduled();
             }
             final String result = failure;
             final boolean closeGame = closing;

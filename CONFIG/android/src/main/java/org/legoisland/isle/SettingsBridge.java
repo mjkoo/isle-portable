@@ -13,7 +13,8 @@ final class SettingsBridge {
     // Error, then timestamp and empty/saved marker for the previous set.
     static native String[] restoreInfo(String id);
     static native String scheduleRestore(String id, String[] names, byte[][] data, boolean previous);
-    static native boolean restoreClosing();
+    // Settings recorded work that applies before the next engine start, so the game must close.
+    static native boolean startupWorkScheduled();
     static native void requestMenu();
     static native String exportId();
     // Metadata is error, capture time in milliseconds, warning, then canonical filenames.

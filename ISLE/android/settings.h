@@ -4,7 +4,9 @@
 #include <SDL3/SDL.h>
 
 bool Android_RestoreBeforeStartup();
-bool Android_SaveRestoreClosing();
+// Whether Settings recorded work that applies before the next engine start, in which case
+// the game closes rather than resuming.
+bool Android_StartupWorkScheduled();
 void Android_SetSettingsPath(const char* p_path);
 void Android_CaptureRenderers(SDL_Window* p_window);
 void Android_ShowMenuButton();

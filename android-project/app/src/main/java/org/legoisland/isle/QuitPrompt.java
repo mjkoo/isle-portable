@@ -131,7 +131,7 @@ final class QuitPrompt {
      * thread keeps discarding input until the player is back at this dialog.
      */
     void returnedFromSettings(boolean editLayout) {
-        if (SettingsBridge.restoreClosing()) { finish(STATUS_QUIT); return; }
+        if (SettingsBridge.startupWorkScheduled()) { finish(STATUS_QUIT); return; }
         if (mAbandoned || mStatus != STATUS_PENDING) return;
         if (editLayout && mStartupError == null && mActivity.startTouchLayoutEditor(this::showDialog)) return;
         showDialog();

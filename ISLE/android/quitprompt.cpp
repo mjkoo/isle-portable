@@ -51,7 +51,7 @@ bool Android_ConfirmQuit(bool (*p_abandoned)(), QuitPromptSaveResult p_saveResul
 		// input queued behind it must not arrive in one burst afterwards.
 		Android_DrainInputEvents();
 
-		if (Android_SaveRestoreClosing()) {
+		if (Android_StartupWorkScheduled()) {
 			return true;
 		}
 		QuitPromptStatus status = GetQuitPromptStatus();
