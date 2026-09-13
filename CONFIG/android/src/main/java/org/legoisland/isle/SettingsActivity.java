@@ -1,12 +1,19 @@
 package org.legoisland.isle;
 
 import android.app.Dialog;
+import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.text.InputType;
+import android.text.format.Formatter;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.view.ViewGroup;
+import android.view.WindowManager;
+import android.widget.LinearLayout;
+import android.widget.ProgressBar;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AlertDialog;
@@ -28,6 +35,7 @@ import androidx.preference.PreferenceScreen;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ExecutorService;
@@ -203,17 +211,31 @@ public final class SettingsActivity extends AppCompatActivity {
     private final ActivityResultLauncher<String[]> restoreSource = registerForActivityResult(
         new ActivityResultContracts.OpenDocument(), uri -> restore.selected(uri));
 
+    private GameFilesModel gameFiles;
+    private final ActivityResultLauncher<Uri> gameFilesSource = registerForActivityResult(
+        new ActivityResultContracts.OpenDocumentTree(), uri -> gameFiles.selected(uri));
+
     private void startRestore(boolean previous) {
         if (!model.original.equals(model.draft)) {
             Toast.makeText(this, "Choose Save or Cancel for your settings edits, then reopen Settings to restore saves.",
                 Toast.LENGTH_LONG).show();
             return;
         }
-        if (export.isBusy() || model.isBusy()) return;
+        if (export.isBusy() || model.isBusy() || gameFiles.busy()) return;
         if (restore.start(previous)) {
             try { restoreSource.launch(new String[] {"application/zip", "application/x-zip-compressed", "application/octet-stream"}); }
             catch (RuntimeException e) { restore.error("Could not open the archive picker: " + e.getMessage()); }
         }
+    }
+
+    private void startGameFiles() {
+        if (!model.original.equals(model.draft)) {
+            Toast.makeText(this, "Choose Save or Cancel for your settings edits, then reopen Settings to change the game files.",
+                Toast.LENGTH_LONG).show();
+            return;
+        }
+        if (export.isBusy() || restore.busy() || model.isBusy()) return;
+        gameFiles.choose();
     }
 
     private void editTouchLayout() {
@@ -222,7 +244,7 @@ public final class SettingsActivity extends AppCompatActivity {
                 Toast.LENGTH_LONG).show();
             return;
         }
-        if (export.isBusy() || restore.busy() || model.isBusy()) return;
+        if (export.isBusy() || restore.busy() || model.isBusy() || gameFiles.busy()) return;
         setResult(RESULT_EDIT_TOUCH_LAYOUT);
         finish();
     }
@@ -268,6 +290,127 @@ public final class SettingsActivity extends AppCompatActivity {
             RestoreDialog dialog = new RestoreDialog();
             Bundle arguments = new Bundle(); arguments.putString("phase", phase.name()); dialog.setArguments(arguments);
             dialog.showNow(getSupportFragmentManager(), "save-restore");
+        }
+        invalidateOptionsMenu();
+    }
+
+    public static final class GameFilesDialog extends DialogFragment {
+        private final Handler ticker = new Handler(Looper.getMainLooper());
+        private TextView status;
+        private TextView detail;
+        private ProgressBar bar;
+        private final Runnable tick = new Runnable() {
+            @Override public void run() {
+                update();
+                ticker.postDelayed(this, 150);
+            }
+        };
+
+        @Override public Dialog onCreateDialog(Bundle state) {
+            GameFilesModel model = new ViewModelProvider(requireActivity()).get(GameFilesModel.class);
+            GameFilesModel.Phase phase = model.phase.getValue();
+            AlertDialog.Builder builder = new AlertDialog.Builder(requireContext()).setTitle("Game files");
+            if (phase == GameFilesModel.Phase.CHOOSE) {
+                // A list rather than buttons, so a controller's D-pad reaches every choice.
+                String[] choices = model.canRemove() ? new String[] {"Replace game files", "Remove game files"}
+                    : new String[] {"Replace game files"};
+                builder.setItems(choices, (dialog, which) -> { if (which == 0) model.replace(); else model.remove(); });
+                builder.setNegativeButton("Cancel", (dialog, which) -> model.cancel());
+            } else if (phase == GameFilesModel.Phase.CONFIRM_REMOVE) {
+                builder.setMessage(model.removeConfirmation());
+                builder.setPositiveButton("Remove and close", (dialog, which) -> model.confirmRemove());
+                builder.setNegativeButton("Cancel", (dialog, which) -> model.cancel());
+            } else if (phase == GameFilesModel.Phase.CONFIRM_REPLACE) {
+                builder.setMessage(model.replaceConfirmation());
+                builder.setPositiveButton("Replace and close", (dialog, which) -> model.confirmReplace());
+                builder.setNegativeButton("Cancel", (dialog, which) -> model.cancel());
+            } else if (phase == GameFilesModel.Phase.COPYING) {
+                builder.setView(progressView());
+                builder.setNegativeButton("Cancel", (dialog, which) -> model.cancel());
+            } else if (phase == GameFilesModel.Phase.ERROR) {
+                builder.setMessage(model.message).setPositiveButton("OK", (dialog, which) -> model.acknowledge());
+            } else {
+                builder.setMessage(phase == GameFilesModel.Phase.CANCELLING ? "Cancelling..."
+                    : phase == GameFilesModel.Phase.SCHEDULING ? "Recording the change..." : "Checking game files...");
+            }
+            setCancelable(false);
+            return builder.create();
+        }
+
+        private LinearLayout progressView() {
+            float density = getResources().getDisplayMetrics().density;
+            int padding = (int) (24 * density);
+            LinearLayout content = new LinearLayout(requireContext());
+            content.setOrientation(LinearLayout.VERTICAL);
+            content.setPadding(padding, padding, padding, padding);
+            status = new TextView(requireContext());
+            content.addView(status);
+            bar = new ProgressBar(requireContext(), null, android.R.attr.progressBarStyleHorizontal);
+            bar.setMax(1000);
+            bar.setIndeterminate(true);
+            LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+            params.topMargin = params.bottomMargin = (int) (12 * density);
+            content.addView(bar, params);
+            detail = new TextView(requireContext());
+            content.addView(detail);
+            update();
+            return content;
+        }
+
+        private void update() {
+            if (status == null || !isAdded()) return;
+            GameFileCopier copier = new ViewModelProvider(requireActivity()).get(GameFilesModel.class).copier();
+            status.setText(copier == null ? "Preparing..." : copier.phase());
+            long total = copier == null ? 0 : copier.totalBytes();
+            if (total > 0) {
+                long copied = copier.copiedBytes();
+                bar.setIndeterminate(false);
+                bar.setProgress((int) Math.min(1000, copied * 1000 / total));
+                detail.setText(String.format(Locale.ROOT, "%s of %s (%d of %d files)",
+                    Formatter.formatFileSize(requireContext(), copied), Formatter.formatFileSize(requireContext(), total),
+                    copier.copiedFiles(), copier.totalFiles()));
+            }
+        }
+
+        @Override public void onStart() {
+            super.onStart();
+            if (status != null) ticker.post(tick);
+        }
+
+        @Override public void onStop() {
+            ticker.removeCallbacks(tick);
+            super.onStop();
+        }
+    }
+
+    private void renderGameFilesUi() {
+        if (isFinishing() || isDestroyed() || getSupportFragmentManager().isStateSaved()) return;
+        if (gameFiles.keepScreenOn()) getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        else getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        GameFilesModel.Phase phase = gameFiles.phase.getValue();
+        GameFilesDialog previous = (GameFilesDialog) getSupportFragmentManager().findFragmentByTag("game-files");
+        if (previous != null && phase.name().equals(previous.requireArguments().getString("phase"))) return;
+        if (previous != null) {
+            previous.dismiss();
+            getSupportFragmentManager().executePendingTransactions();
+        }
+        if (phase == GameFilesModel.Phase.PICK) {
+            gameFiles.picking();
+            try { gameFilesSource.launch(null); }
+            catch (RuntimeException e) { gameFiles.error("Could not open the folder picker: " + e.getMessage()); }
+        } else if (phase == GameFilesModel.Phase.CLOSING) {
+            Toast.makeText(this, gameFiles.message, Toast.LENGTH_LONG).show();
+            finish();
+        } else if (phase == GameFilesModel.Phase.CHOOSE || phase == GameFilesModel.Phase.CONFIRM_REMOVE
+                || phase == GameFilesModel.Phase.CONFIRM_REPLACE || phase == GameFilesModel.Phase.COPYING
+                || phase == GameFilesModel.Phase.CANCELLING || phase == GameFilesModel.Phase.SCHEDULING
+                || (phase == GameFilesModel.Phase.ERROR && gameFiles.message != null)) {
+            GameFilesDialog dialog = new GameFilesDialog();
+            Bundle arguments = new Bundle();
+            arguments.putString("phase", phase.name());
+            dialog.setArguments(arguments);
+            dialog.showNow(getSupportFragmentManager(), "game-files");
         }
         invalidateOptionsMenu();
     }
@@ -329,6 +472,7 @@ public final class SettingsActivity extends AppCompatActivity {
         super.onPostResume();
         updateExportUi();
         new Handler(Looper.getMainLooper()).post(this::renderRestoreUi);
+        new Handler(Looper.getMainLooper()).post(this::renderGameFilesUi);
     }
 
     @Override protected void onCreate(Bundle savedInstanceState) {
@@ -342,6 +486,9 @@ public final class SettingsActivity extends AppCompatActivity {
         export = new ViewModelProvider(this).get(SaveExportModel.class);
         export.load(getIntent().getStringExtra("exportId"), savedInstanceState != null && savedInstanceState.getBoolean("exportBusy"));
         export.phase.observe(this, ignored -> updateExportUi());
+        gameFiles = new ViewModelProvider(this).get(GameFilesModel.class);
+        gameFiles.load(getIntent().getStringExtra("configPath"), savedInstanceState != null && savedInstanceState.getBoolean("gameFilesBusy"));
+        gameFiles.phase.observe(this, ignored -> new Handler(Looper.getMainLooper()).post(this::renderGameFilesUi));
         model.state.observe(this, result -> {
             invalidateOptionsMenu();
             if (result == SettingsModel.State.SAVED) {
@@ -368,6 +515,7 @@ public final class SettingsActivity extends AppCompatActivity {
     @Override protected void onSaveInstanceState(Bundle state) {
         state.putBoolean("restoreBusy", restore.busy());
         state.putBoolean("exportBusy", export.isBusy());
+        state.putBoolean("gameFilesBusy", gameFiles.working());
         if (!model.draft.isEmpty()) {
             Bundle draft = new Bundle();
             for (Map.Entry<String, String> entry : model.draft.entrySet()) draft.putString(entry.getKey(), entry.getValue());
@@ -383,32 +531,34 @@ public final class SettingsActivity extends AppCompatActivity {
     }
 
     @Override public boolean onPrepareOptionsMenu(Menu menu) {
-        menu.findItem(1).setEnabled(model.loaded && !model.isBusy() && !export.isBusy() && !restore.busy());
-        menu.findItem(2).setEnabled(!model.isBusy() && !export.isBusy() && !restore.busy());
+        menu.findItem(1).setEnabled(model.loaded && !model.isBusy() && !export.isBusy() && !restore.busy() && !gameFiles.busy());
+        menu.findItem(2).setEnabled(!model.isBusy() && !export.isBusy() && !restore.busy() && !gameFiles.busy());
         return super.onPrepareOptionsMenu(menu);
     }
 
     @Override public boolean onOptionsItemSelected(MenuItem item) {
-        if (export.isBusy() || restore.busy()) return true;
+        if (export.isBusy() || restore.busy() || gameFiles.busy()) return true;
         if (item.getItemId() == 1) { model.save(); return true; }
         if (item.getItemId() == 2 || item.getItemId() == android.R.id.home) { onBackPressed(); return true; }
         return super.onOptionsItemSelected(item);
     }
 
     @Override public void onBackPressed() {
-        if (!model.isBusy() && !export.isBusy() && !restore.busy()) super.onBackPressed();
+        if (!model.isBusy() && !export.isBusy() && !restore.busy() && !gameFiles.busy()) super.onBackPressed();
     }
 
     public static final class SettingsFragment extends PreferenceFragmentCompat {
         private SettingsModel model;
         private SaveExportModel export;
         private SaveRestoreModel restore;
+        private GameFilesModel gameFiles;
         private boolean updating;
 
         @Override public void onCreatePreferences(Bundle savedInstanceState, String rootKey) {
             model = new ViewModelProvider(requireActivity()).get(SettingsModel.class);
             export = new ViewModelProvider(requireActivity()).get(SaveExportModel.class);
             restore = new ViewModelProvider(requireActivity()).get(SaveRestoreModel.class);
+            gameFiles = new ViewModelProvider(requireActivity()).get(GameFilesModel.class);
             getPreferenceManager().setPreferenceDataStore(new PreferenceDataStore() {
                 @Override public String getString(String key, String fallback) {
                     if (RESOLUTION.equals(key)) {
@@ -434,6 +584,7 @@ public final class SettingsActivity extends AppCompatActivity {
             model.state.observe(this, ignored -> refresh());
             export.phase.observe(this, ignored -> refresh());
             restore.phase.observe(this, ignored -> refresh());
+            gameFiles.phase.observe(this, ignored -> refresh());
         }
 
         private void buildPreferences() {
@@ -449,6 +600,12 @@ public final class SettingsActivity extends AppCompatActivity {
             data.setTitle("Data");
             data.setIconSpaceReserved(false);
             screen.addPreference(data);
+            Preference gameFilesRow = new Preference(requireContext());
+            gameFilesRow.setKey("game-files");
+            gameFilesRow.setTitle("Game files");
+            gameFilesRow.setIconSpaceReserved(false);
+            gameFilesRow.setOnPreferenceClickListener(p -> { ((SettingsActivity) requireActivity()).startGameFiles(); return true; });
+            data.addPreference(gameFilesRow);
             Preference exportSaves = new Preference(requireContext());
             exportSaves.setKey("export-saves");
             exportSaves.setTitle("Export saves");
@@ -578,16 +735,20 @@ public final class SettingsActivity extends AppCompatActivity {
         }
 
         private void refresh() {
+            boolean idle = !export.isBusy() && !restore.busy() && !model.isBusy() && !gameFiles.busy();
+            Preference gameFilesRow = findPreference("game-files");
+            gameFilesRow.setSummary(gameFiles.summary());
+            gameFilesRow.setEnabled(idle);
             Preference exportSaves = findPreference("export-saves");
             exportSaves.setSummary(export.summary());
-            exportSaves.setEnabled(!export.isBusy() && !restore.busy() && !model.isBusy());
+            exportSaves.setEnabled(idle);
             Preference restoreSaves = findPreference("restore-saves");
             restoreSaves.setSummary(restore.summary());
-            restoreSaves.setEnabled(!export.isBusy() && !restore.busy() && !model.isBusy());
+            restoreSaves.setEnabled(idle);
             Preference previousSaves = findPreference("previous-saves");
             previousSaves.setSummary(restore.previousSummary());
             previousSaves.setVisible(restore.hasPrevious());
-            previousSaves.setEnabled(!export.isBusy() && !restore.busy() && !model.isBusy());
+            previousSaves.setEnabled(idle);
             updating = true;
             for (Control control : CONTROLS) {
                 Preference preference = findPreference(control.key);
@@ -618,7 +779,7 @@ public final class SettingsActivity extends AppCompatActivity {
             }
             findPreference("controller-menu-warning").setVisible(ControllerBindings.menuUnbound(model.draft));
             updating = false;
-            getPreferenceScreen().setEnabled(model.loaded && !model.isBusy() && !restore.busy() && !export.isBusy());
+            getPreferenceScreen().setEnabled(model.loaded && !model.isBusy() && !restore.busy() && !export.isBusy() && !gameFiles.busy());
         }
     }
 }
