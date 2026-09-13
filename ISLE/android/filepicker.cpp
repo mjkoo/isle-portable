@@ -51,7 +51,7 @@ static char* ShowFolderDialog(SDL_Window* p_window)
 	return result.m_path;
 }
 
-// Mirrors GameImport's STATUS_ constants; keep the numbering in step.
+// Mirrors GameFileCopier's STATUS_ constants; keep the numbering in step.
 enum ImportStatus {
 	e_importRunning = -1,
 	e_importOk = 0,

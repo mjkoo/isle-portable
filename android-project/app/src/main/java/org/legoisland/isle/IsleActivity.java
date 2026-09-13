@@ -213,7 +213,7 @@ public class IsleActivity extends SDLActivity {
      * Called from native code (see ISLE/android/filepicker.cpp); kept by proguard-rules.pro.
      */
     public int getGameFileImportStatus() {
-        return mImport != null ? mImport.getStatus() : GameImport.STATUS_INTERNAL_ERROR;
+        return mImport != null ? mImport.getStatus() : GameFileCopier.STATUS_INTERNAL_ERROR;
     }
 
     /**
@@ -263,7 +263,7 @@ public class IsleActivity extends SDLActivity {
      * Called from native code (see ISLE/android/filepicker.cpp); kept by proguard-rules.pro.
      */
     public boolean hasImportedGameData() {
-        return GameImport.hasImportedData(getExternalFilesDir(null));
+        return GameFileCopier.hasImportedData(getExternalFilesDir(null));
     }
 
     /**
@@ -275,7 +275,7 @@ public class IsleActivity extends SDLActivity {
      * Called from native code (see ISLE/android/filepicker.cpp); kept by proguard-rules.pro.
      */
     public boolean removeImportedGameData() {
-        boolean removed = GameImport.removeImportedData(getExternalFilesDir(null));
+        boolean removed = GameFileCopier.removeImportedData(getExternalFilesDir(null));
         final String message = removed ? "Game data removed"
                 : "Some game data could not be removed";
         runOnUiThread(() -> Toast.makeText(this, message, Toast.LENGTH_LONG).show());
