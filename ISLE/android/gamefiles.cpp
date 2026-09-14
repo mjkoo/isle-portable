@@ -317,25 +317,6 @@ std::string SetDiskPath(const std::string& p_config, const std::string& p_root, 
 	return {};
 }
 
-// Renames an entry out of the way under a name no one else uses, returning its new path, or empty
-// if it could not be moved. A rename within the same parent works even for a tree this app cannot
-// delete, such as one pushed in over adb.
-std::string Discard(const std::string& p_root, const std::string& p_name, const std::string& p_id, const Hook& p_hook)
-{
-	std::string target;
-	for (int n = 0;; n++) {
-		target = Join(p_root, kRemoved + p_id + "-" + std::to_string(n));
-		if (!Exists(target)) {
-			break;
-		}
-	}
-	if (rename(Join(p_root, p_name).c_str(), target.c_str()) != 0) {
-		return {};
-	}
-	Point(p_hook, "discard");
-	return target;
-}
-
 // Renames p_from to p_to. The checkpoint named p_step runs first, so tests can make the rename fail
 // the way the file system would, by throwing std::system_error from it.
 bool Move(const std::string& p_from, const std::string& p_to, const Hook& p_hook, const char* p_step)
@@ -361,20 +342,42 @@ void Settle(const std::string& p_path, const Hook& p_hook)
 	Point(p_hook, "sync");
 }
 
-// Moves a retired tree back when nothing took its place.
-void Reinstate(const std::string& p_root, const std::string& p_retired, const Hook& p_hook)
+// Renames an entry out of the way under a name no one else uses, returning its new path, or empty
+// if it could not be moved. A rename within the same parent works even for a tree this app cannot
+// delete, such as one pushed in over adb.
+std::string Discard(const std::string& p_root, const std::string& p_name, const std::string& p_id, const Hook& p_hook)
+{
+	std::string target;
+	for (int n = 0;; n++) {
+		target = Join(p_root, kRemoved + p_id + "-" + std::to_string(n));
+		if (!Exists(target)) {
+			break;
+		}
+	}
+	if (!Move(Join(p_root, p_name), target, p_hook, "discard?")) {
+		return {};
+	}
+	Point(p_hook, "discard");
+	return target;
+}
+
+// Moves a retired tree back into place, returning whether it did. It runs where there may be no game
+// folder, so it never throws; the rename itself refuses to replace a game folder with files in it.
+bool Reinstate(const std::string& p_root, const std::string& p_retired, const Hook& p_hook)
 {
 	std::string retired = Join(p_root, p_retired);
-	if (!IsDirectory(retired) || !LiveName(p_root).empty()) {
-		return;
+	if (!IsDirectory(retired) || !Move(retired, Join(p_root, kGameDir), p_hook, "reinstate?")) {
+		return false;
 	}
-	Require(
-		rename(retired.c_str(), Join(p_root, kGameDir).c_str()) == 0,
-		"Could not put the previous game files back."
-	);
 	Point(p_hook, "reinstate");
-	SyncPath(p_root, p_hook);
+	Settle(p_root, p_hook);
+	return true;
 }
+
+// When the previous files cannot be put back, the record stays, so both copies survive until a later
+// start tries again.
+const char* const kBothKept =
+	"The previous game files could not be put back yet. Both copies were kept, and the next start tries again.";
 
 std::string ApplyReplace(
 	int p_dir,
@@ -389,23 +392,28 @@ std::string ApplyReplace(
 	std::string retired = kReplaced + p_record.id;
 
 	if (IsDirectory(staged)) {
+		std::string live = LiveName(p_root);
+		bool wasRetired = Exists(Join(p_root, retired));
+		if (!live.empty() && wasRetired) {
+			// Something other than this change put a game folder back after the old one was
+			// retired. Keep it if it is complete; otherwise the retired files come back.
+			if (Android_FindMissingGameFile(p_root) != nullptr &&
+				(Discard(p_root, live, p_record.id, p_hook).empty() || !Reinstate(p_root, retired, p_hook))) {
+				return kBothKept;
+			}
+			Clear(p_dir, p_hook);
+			return "The game files changed while a replacement was waiting, so it was skipped.";
+		}
 		if (Android_FindMissingGameFile(staging) != nullptr) {
-			// Checked before anything moves, so an incomplete copy never displaces the live files.
+			// Checked before anything moves, so an incomplete copy never displaces the live files. A
+			// start that died after retiring them leaves them to be brought back.
+			if (wasRetired && !Reinstate(p_root, retired, p_hook)) {
+				return kBothKept;
+			}
 			Clear(p_dir, p_hook);
 			return "The new game files were incomplete, so the previous files were kept.";
 		}
-		std::string live = LiveName(p_root);
 		if (!live.empty()) {
-			if (Exists(Join(p_root, retired))) {
-				// Something other than this change put a game folder back after the old one was
-				// retired. Keep it if it is complete; otherwise the retired files come back.
-				if (Android_FindMissingGameFile(p_root) != nullptr &&
-					!Discard(p_root, live, p_record.id, p_hook).empty()) {
-					Reinstate(p_root, retired, p_hook);
-				}
-				Clear(p_dir, p_hook);
-				return "The game files changed while a replacement was waiting, so it was skipped.";
-			}
 			if (!Move(Join(p_root, live), Join(p_root, retired), p_hook, "retire?")) {
 				std::string reason = strerror(errno);
 				Clear(p_dir, p_hook);
@@ -417,7 +425,9 @@ std::string ApplyReplace(
 		}
 		if (!Move(staged, Join(p_root, kGameDir), p_hook, "install?")) {
 			std::string reason = strerror(errno);
-			Reinstate(p_root, retired, p_hook);
+			if (Exists(Join(p_root, retired)) && !Reinstate(p_root, retired, p_hook)) {
+				return kBothKept;
+			}
 			Clear(p_dir, p_hook);
 			return "The new game files could not be put in place (" + reason + "), so the previous files were kept.";
 		}
@@ -427,7 +437,9 @@ std::string ApplyReplace(
 	else if (!IsDirectory(staging) || LiveName(p_root).empty()) {
 		// An installed copy leaves its staging directory empty with the game folder in place;
 		// anything else means the staged copy was lost.
-		Reinstate(p_root, retired, p_hook);
+		if (Exists(Join(p_root, retired)) && !Reinstate(p_root, retired, p_hook)) {
+			return kBothKept;
+		}
 		Clear(p_dir, p_hook);
 		return "The new game files were missing, so the previous files were kept.";
 	}
@@ -505,8 +517,7 @@ void Sweep(
 				newest = id;
 			}
 		}
-		if (!newest.empty()) {
-			Reinstate(p_root, kReplaced + newest, p_hook);
+		if (!newest.empty() && Reinstate(p_root, kReplaced + newest, p_hook)) {
 			live = true;
 			names = List(p_root);
 			if (p_message.empty()) {
@@ -533,9 +544,11 @@ void Sweep(
 		}
 		if (StartsWith(name, kReplaced)) {
 			// Renamed before it is handed out, so a tree that then fails to delete can never be
-			// taken later for one to bring back.
+			// taken later for one to bring back. One that cannot be renamed stays whole for now.
 			std::string discarded = Discard(p_root, name, id, p_hook);
-			p_garbage.push_back(discarded.empty() ? Join(p_root, name) : discarded);
+			if (!discarded.empty()) {
+				p_garbage.push_back(discarded);
+			}
 			continue;
 		}
 		p_garbage.push_back(Join(p_root, name));

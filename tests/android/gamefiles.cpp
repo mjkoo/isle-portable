@@ -315,6 +315,48 @@ int main()
 		assert(!store.Pending());
 	}
 
+	// The same after a start that died having retired the live files: they come back.
+	reset();
+	{
+		std::string id = stage("new");
+		Android_GameFiles(record, files).Schedule(config, id);
+		std::vector<std::string> unused;
+		try {
+			Android_GameFiles(record, files, [&](const char* p_point) {
+				if (std::string(p_point) == "retire") {
+					throw std::runtime_error("interrupted");
+				}
+			}).Apply(unused);
+		}
+		catch (const std::runtime_error&) {
+		}
+		assert(!fs::exists(files / "LEGO"));
+		fs::remove(files / Android_GameFiles::StagingName(id) / (g_files[2] + 1));
+		Android_GameFiles store(record, files);
+		assert(apply(store).find("incomplete") != std::string::npos);
+		assert(Marker(files) == "old");
+		assert(!store.Pending());
+	}
+
+	// A retired tree that cannot be put back yet keeps the change waiting with both copies, and
+	// the next start installs the new files.
+	reset();
+	{
+		Android_GameFiles(record, files).Schedule(config, stage("new"));
+		Android_GameFiles failing(record, files, [&](const char* p_point) {
+			std::string point = p_point;
+			if (point == "install?" || point == "reinstate?") {
+				throw std::system_error(EACCES, std::generic_category());
+			}
+		});
+		assert(apply(failing).find("Both copies were kept") != std::string::npos);
+		assert(failing.Pending());
+		assert(!fs::exists(files / "LEGO"));
+		Android_GameFiles store(record, files);
+		assert(apply(store) == "Game files replaced.");
+		replaced();
+	}
+
 	// Renames the file system refuses keep the previous files, before or after they were retired.
 	for (const char* step : {"retire?", "install?"}) {
 		reset();
@@ -400,6 +442,34 @@ int main()
 		assert(Marker(files) == "old");
 		assert(!store.Pending());
 		assert(Entries(files) == (std::set<std::string>{"LEGO", "imported-5", "CREDITS.SI.unreadable.1"}));
+	}
+
+	// If that folder cannot be set aside either, both copies wait for a later start.
+	reset();
+	{
+		Android_GameFiles(record, files).Schedule(config, stage("new"));
+		std::vector<std::string> unused;
+		try {
+			Android_GameFiles(record, files, [&](const char* p_point) {
+				if (std::string(p_point) == "retire") {
+					fs::create_directories(files / "LEGO" / "Scripts");
+					throw std::runtime_error("interrupted");
+				}
+			}).Apply(unused);
+		}
+		catch (const std::runtime_error&) {
+		}
+		Android_GameFiles failing(record, files, [&](const char* p_point) {
+			if (std::string(p_point) == "discard?") {
+				throw std::system_error(EACCES, std::generic_category());
+			}
+		});
+		assert(apply(failing).find("Both copies were kept") != std::string::npos);
+		assert(failing.Pending());
+		Android_GameFiles store(record, files);
+		assert(apply(store).find("skipped") != std::string::npos);
+		assert(Marker(files) == "old");
+		assert(!store.Pending());
 	}
 
 	// Startup collects work directories nobody needs, but not one a running Settings still owns.
