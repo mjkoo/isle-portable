@@ -83,7 +83,8 @@ public final class GameFilesModel extends AndroidViewModel {
                     data = GameFilesPolicy.inAppStorage(disk, root) && GameFileCopier.hasImportedData(root);
                 } catch (Throwable e) {
                     // Anything short of reaching IDLE would leave Settings locked, Back included.
-                    problem = "Could not read the game files: " + e;
+                    Log.e(TAG, "Reading the game files failed", e);
+                    problem = "Could not read the game files. " + describe(e);
                 }
             }
             final String result = problem, location = disk;
@@ -172,7 +173,7 @@ public final class GameFilesModel extends AndroidViewModel {
             if (!stopped) Log.e(TAG, "Copying game files failed: " + failure, e.getCause());
         } catch (Throwable e) {
             Log.e(TAG, "Copying game files failed", e);
-            failure = "Copying the game files failed. " + e;
+            failure = "Copying the game files failed. " + describe(e);
         }
         if (failure != null) discardStaging();
         final String result = failure;
@@ -212,7 +213,8 @@ public final class GameFilesModel extends AndroidViewModel {
         try {
             failure = SettingsBridge.scheduleGameFiles(filesDir.getPath(), root.getPath(), config, replacing ? stagingId : null);
         } catch (Throwable e) {
-            failure = e.toString();
+            Log.e(TAG, "Scheduling a game file change failed", e);
+            failure = describe(e);
         }
         boolean closing = SettingsBridge.startupWorkScheduled();
         if (replacing) {
@@ -260,10 +262,19 @@ public final class GameFilesModel extends AndroidViewModel {
     /** Deletes an unscheduled staged copy. Anything left behind is collected at the next startup. */
     private void discardStaging() {
         if (stagingId == null || scheduled) return;
-        GameFileCopier.deleteRecursively(staging);
-        SettingsBridge.endGameFilesStaging(stagingId);
+        try {
+            GameFileCopier.deleteRecursively(staging);
+            SettingsBridge.endGameFilesStaging(stagingId);
+        } catch (Throwable e) {
+            // Runs on the worker, where anything uncaught ends the process; the next start collects it.
+            Log.e(TAG, "Could not discard the staged game files", e);
+        }
         stagingId = null;
         staging = null;
+    }
+
+    private static String describe(Throwable e) {
+        return e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
     }
 
     @Override protected void onCleared() {
