@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <cassert>
 #include <cctype>
+#include <cerrno>
 #include <cstring>
 #include <filesystem>
 #include <fstream>
@@ -12,6 +13,7 @@
 #include <iostream>
 #include <set>
 #include <stdexcept>
+#include <system_error>
 #include <unistd.h>
 #include <vector>
 
@@ -296,9 +298,63 @@ int main()
 		catch (const std::runtime_error&) {
 		}
 		Android_GameFiles store(record, files);
-		assert(apply(store).find("previous files were kept") != std::string::npos);
+		assert(apply(store).find("were missing") != std::string::npos);
 		assert(Marker(files) == "old");
 		assert(!store.Pending());
+	}
+
+	// A staged copy that loses a file after scheduling never displaces the live files.
+	reset();
+	{
+		std::string id = stage("new");
+		Android_GameFiles store(record, files);
+		store.Schedule(config, id);
+		fs::remove(files / Android_GameFiles::StagingName(id) / (g_files[5] + 1));
+		assert(apply(store).find("incomplete") != std::string::npos);
+		assert(Marker(files) == "old");
+		assert(!store.Pending());
+	}
+
+	// Renames the file system refuses keep the previous files, before or after they were retired.
+	for (const char* step : {"retire?", "install?"}) {
+		reset();
+		Android_GameFiles(record, files).Schedule(config, stage("new"));
+		Android_GameFiles failing(record, files, [&](const char* p_point) {
+			if (std::string(p_point) == step) {
+				throw std::system_error(EACCES, std::generic_category());
+			}
+		});
+		std::string message = apply(failing);
+		assert(message.find(strerror(EACCES)) != std::string::npos && message.find("kept") != std::string::npos);
+		assert(Marker(files) == "old");
+		assert(!failing.Pending());
+		assert(Entries(files) == (std::set<std::string>{"LEGO", "imported-5", "CREDITS.SI.unreadable.1"}));
+	}
+
+	// Replacing when the only earlier installation is an import beside undeletable data, which is
+	// what the startup import leaves when it could not clear the root.
+	reset();
+	fs::remove_all(files / "LEGO");
+	{
+		Android_GameFiles store(record, files);
+		store.Schedule(config, stage("new"));
+		assert(apply(store) == "Game files replaced.");
+		replaced();
+	}
+
+	// A retired tree that could not be deleted is renamed first, so it is never brought back later.
+	reset();
+	{
+		Android_GameFiles store(record, files);
+		store.Schedule(config, stage("new"));
+		std::vector<std::string> undeleted;
+		store.Apply(undeleted);
+		for (const std::string& path : undeleted) {
+			assert(fs::path(path).filename().string().rfind(".isle-replaced-", 0) != 0);
+		}
+		fs::remove_all(files / "LEGO");
+		assert(apply(store).empty());
+		assert(!fs::exists(files / "LEGO"));
 	}
 
 	// A game folder that reappears after the old one was retired is kept as it is.
@@ -319,6 +375,29 @@ int main()
 		Android_GameFiles store(record, files);
 		assert(apply(store).find("skipped") != std::string::npos);
 		assert(Marker(files) == "other");
+		assert(!store.Pending());
+		assert(Entries(files) == (std::set<std::string>{"LEGO", "imported-5", "CREDITS.SI.unreadable.1"}));
+	}
+
+	// One that reappears incomplete, such as a wrong folder imported meanwhile, gives way to the
+	// retired files.
+	reset();
+	{
+		Android_GameFiles(record, files).Schedule(config, stage("new"));
+		std::vector<std::string> unused;
+		try {
+			Android_GameFiles(record, files, [&](const char* p_point) {
+				if (std::string(p_point) == "retire") {
+					fs::create_directories(files / "LEGO" / "Scripts");
+					throw std::runtime_error("interrupted");
+				}
+			}).Apply(unused);
+		}
+		catch (const std::runtime_error&) {
+		}
+		Android_GameFiles store(record, files);
+		assert(apply(store).find("skipped") != std::string::npos);
+		assert(Marker(files) == "old");
 		assert(!store.Pending());
 		assert(Entries(files) == (std::set<std::string>{"LEGO", "imported-5", "CREDITS.SI.unreadable.1"}));
 	}

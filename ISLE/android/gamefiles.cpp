@@ -12,6 +12,7 @@
 #include <stdexcept>
 #include <strings.h>
 #include <sys/stat.h>
+#include <system_error>
 #include <unistd.h>
 
 extern const char* g_files[46];
@@ -316,9 +317,10 @@ std::string SetDiskPath(const std::string& p_config, const std::string& p_root, 
 	return {};
 }
 
-// Renames an entry out of the way under a name no one else uses. A rename within the same parent
-// works even for a tree this app cannot delete, such as one pushed in over adb.
-bool Discard(const std::string& p_root, const std::string& p_name, const std::string& p_id, const Hook& p_hook)
+// Renames an entry out of the way under a name no one else uses, returning its new path, or empty
+// if it could not be moved. A rename within the same parent works even for a tree this app cannot
+// delete, such as one pushed in over adb.
+std::string Discard(const std::string& p_root, const std::string& p_name, const std::string& p_id, const Hook& p_hook)
 {
 	std::string target;
 	for (int n = 0;; n++) {
@@ -328,10 +330,35 @@ bool Discard(const std::string& p_root, const std::string& p_name, const std::st
 		}
 	}
 	if (rename(Join(p_root, p_name).c_str(), target.c_str()) != 0) {
-		return false;
+		return {};
 	}
 	Point(p_hook, "discard");
-	return true;
+	return target;
+}
+
+// Renames p_from to p_to. The checkpoint named p_step runs first, so tests can make the rename fail
+// the way the file system would, by throwing std::system_error from it.
+bool Move(const std::string& p_from, const std::string& p_to, const Hook& p_hook, const char* p_step)
+{
+	try {
+		Point(p_hook, p_step);
+	}
+	catch (const std::system_error& error) {
+		errno = error.code().value();
+		return false;
+	}
+	return rename(p_from.c_str(), p_to.c_str()) == 0;
+}
+
+// Syncs after a rename that has already happened, where failing must not stop the change halfway.
+void Settle(const std::string& p_path, const Hook& p_hook)
+{
+	int fd = open(p_path.c_str(), O_RDONLY | O_DIRECTORY | O_CLOEXEC);
+	if (fd >= 0) {
+		(void) fsync(fd);
+		close(fd);
+	}
+	Point(p_hook, "sync");
 }
 
 // Moves a retired tree back when nothing took its place.
@@ -362,29 +389,40 @@ std::string ApplyReplace(
 	std::string retired = kReplaced + p_record.id;
 
 	if (IsDirectory(staged)) {
+		if (Android_FindMissingGameFile(staging) != nullptr) {
+			// Checked before anything moves, so an incomplete copy never displaces the live files.
+			Clear(p_dir, p_hook);
+			return "The new game files were incomplete, so the previous files were kept.";
+		}
 		std::string live = LiveName(p_root);
 		if (!live.empty()) {
 			if (Exists(Join(p_root, retired))) {
 				// Something other than this change put a game folder back after the old one was
-				// retired. Keep whatever is there now.
+				// retired. Keep it if it is complete; otherwise the retired files come back.
+				if (Android_FindMissingGameFile(p_root) != nullptr &&
+					!Discard(p_root, live, p_record.id, p_hook).empty()) {
+					Reinstate(p_root, retired, p_hook);
+				}
 				Clear(p_dir, p_hook);
 				return "The game files changed while a replacement was waiting, so it was skipped.";
 			}
-			if (rename(Join(p_root, live).c_str(), Join(p_root, retired).c_str()) != 0) {
+			if (!Move(Join(p_root, live), Join(p_root, retired), p_hook, "retire?")) {
+				std::string reason = strerror(errno);
 				Clear(p_dir, p_hook);
-				return "The previous game files could not be moved aside, so they were kept.";
+				return "The previous game files could not be moved aside (" + reason + "), so they were kept.";
 			}
 			Point(p_hook, "retire");
-			SyncPath(p_root, p_hook);
+			// Until the new tree is in place there is no game folder, so nothing here may throw.
+			Settle(p_root, p_hook);
 		}
-		if (Android_FindMissingGameFile(staging) != nullptr ||
-			rename(staged.c_str(), Join(p_root, kGameDir).c_str()) != 0) {
+		if (!Move(staged, Join(p_root, kGameDir), p_hook, "install?")) {
+			std::string reason = strerror(errno);
 			Reinstate(p_root, retired, p_hook);
 			Clear(p_dir, p_hook);
-			return "The new game files could not be put in place, so the previous files were kept.";
+			return "The new game files could not be put in place (" + reason + "), so the previous files were kept.";
 		}
 		Point(p_hook, "install");
-		SyncPath(p_root, p_hook);
+		Settle(p_root, p_hook);
 	}
 	else if (!IsDirectory(staging) || LiveName(p_root).empty()) {
 		// An installed copy leaves its staging directory empty with the game folder in place;
@@ -428,7 +466,7 @@ std::string ApplyRemove(
 	for (const std::string& name : List(p_root)) {
 		if (strcasecmp(name.c_str(), kGameDir) == 0 || StartsWith(name, kImported) ||
 			name.find(kUnreadable) != std::string::npos || StartsWith(name, kReplaced)) {
-			kept |= !Discard(p_root, name, p_record.id, p_hook);
+			kept |= Discard(p_root, name, p_record.id, p_hook).empty();
 		}
 	}
 	SyncPath(p_root, p_hook);
@@ -491,6 +529,13 @@ void Sweep(
 			continue;
 		}
 		if (!id.empty() && (id == p_pending || p_claimed.count(id))) {
+			continue;
+		}
+		if (StartsWith(name, kReplaced)) {
+			// Renamed before it is handed out, so a tree that then fails to delete can never be
+			// taken later for one to bring back.
+			std::string discarded = Discard(p_root, name, id, p_hook);
+			p_garbage.push_back(discarded.empty() ? Join(p_root, name) : discarded);
 			continue;
 		}
 		p_garbage.push_back(Join(p_root, name));
@@ -567,7 +612,10 @@ std::string Android_GameFiles::NewId()
 void Android_GameFiles::Schedule(const std::string& p_config, const std::string& p_id)
 {
 	FD dir(open(m_recordDir.c_str(), O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW));
-	Require(Load(dir.fd).op == e_none, "A game file change is already waiting. Close and reopen the game to apply it.");
+	Require(
+		Load(dir.fd).op == e_none,
+		"A change to the game files is already waiting. Close and reopen the game to apply it."
+	);
 	Require(!p_config.empty() && p_config[0] == '/', "The game settings file is unavailable.");
 	Record record;
 	record.root = Canonical(m_root);
