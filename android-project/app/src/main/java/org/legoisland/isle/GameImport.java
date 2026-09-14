@@ -40,7 +40,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 final class GameImport {
     private static final String TAG = "IsleActivity";
 
-    private static final long SPACE_MARGIN_BYTES = 32L * 1024 * 1024;
     private static final long TICK_MS = 150;
     private static final int PROGRESS_STEPS = 1000;
 
@@ -140,7 +139,7 @@ final class GameImport {
             }
 
             long total = copier.totalBytes();
-            long required = total + SPACE_MARGIN_BYTES;
+            long required = GameFilesPolicy.required(total);
             long available = filesDir.getUsableSpace() + reclaimable;
             if (available < required) {
                 throw new GameFileCopier.Failure(GameFileCopier.STATUS_NO_SPACE, "Copying the game files needs "
@@ -156,6 +155,9 @@ final class GameImport {
             // present is unusable.
             copier.setPhase("Removing previous game data...");
             boolean cleared = GameFileCopier.removeImportedData(filesDir);
+            if (!cleared) {
+                Log.w(TAG, "Could not remove " + GameFileCopier.importedPaths(filesDir));
+            }
 
             if (!cleared && new File(filesDir, GameFileCopier.GAME_DIR).exists()) {
                 // Something in the way could not be deleted, typically a tree pushed in by adb with

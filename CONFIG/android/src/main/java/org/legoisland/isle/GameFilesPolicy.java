@@ -1,6 +1,7 @@
 package org.legoisland.isle;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.Locale;
 
 /**
@@ -8,8 +9,10 @@ import java.util.Locale;
  * game currently reads from, and the wording. Plain Java so it can be tested without a device.
  */
 final class GameFilesPolicy {
-    /** Slack left free beyond the new files, as the startup import leaves. */
+    /** Slack left free beyond the new files. The startup import uses the same margin. */
     static final long SPACE_MARGIN_BYTES = 32L * 1024 * 1024;
+
+    static final String WAITING = "A change to the game files is already waiting. Close and reopen the game to apply it.";
 
     interface Sizes {
         String format(long bytes);
@@ -43,14 +46,23 @@ final class GameFilesPolicy {
         if (diskpath == null || diskpath.isEmpty()) {
             return true;
         }
-        File path = new File(diskpath);
-        String rootPath = root.getAbsolutePath();
-        if (path.getAbsolutePath().equals(rootPath)) {
+        File path = canonical(new File(diskpath));
+        File base = canonical(root);
+        if (path.equals(base)) {
             return true;
         }
-        File parent = path.getAbsoluteFile().getParentFile();
-        return parent != null && parent.getPath().equals(rootPath)
-                && path.getName().startsWith(GameFileCopier.IMPORTED_PREFIX);
+        File parent = path.getParentFile();
+        return parent != null && parent.equals(base) && path.getName().startsWith(GameFileCopier.IMPORTED_PREFIX);
+    }
+
+    /** Resolves links such as /sdcard, which names the same storage as /storage/emulated/0. */
+    private static File canonical(File file) {
+        try {
+            return file.getCanonicalFile();
+        }
+        catch (IOException e) {
+            return file.getAbsoluteFile();
+        }
     }
 
     /** The directory the game reads its files from. */
@@ -80,7 +92,7 @@ final class GameFilesPolicy {
 
     static String summary(String diskpath, File root, long size, boolean pending, Sizes sizes) {
         if (pending) {
-            return "A change to the game files is waiting. Close and reopen the game to apply it.";
+            return WAITING;
         }
         boolean inApp = inAppStorage(diskpath, root);
         if (size < 0) {

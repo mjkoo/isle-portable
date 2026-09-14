@@ -5,6 +5,7 @@ import android.widget.ImageButton;
 import android.widget.RelativeLayout;
 import android.content.Intent;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.KeyEvent;
 import android.view.View;
 
@@ -285,6 +286,9 @@ public class IsleActivity extends SDLActivity {
      */
     public boolean removeImportedGameData() {
         boolean removed = GameFileCopier.removeImportedData(getExternalFilesDir(null));
+        if (!removed) {
+            Log.w("IsleActivity", "Could not remove " + GameFileCopier.importedPaths(getExternalFilesDir(null)));
+        }
         final String message = removed ? "Game data removed"
                 : "Some game data could not be removed";
         runOnUiThread(() -> Toast.makeText(this, message, Toast.LENGTH_LONG).show());

@@ -33,6 +33,13 @@ public final class GameFilesPolicyTest {
         check(!GameFilesPolicy.inAppStorage(root.getPath() + "/imported-17/LEGO", root), "inside an import");
         check(!GameFilesPolicy.inAppStorage("/sdcard/isle", root), "custom location");
         check(GameFilesPolicy.location("", root).equals(root), "unset reads the root");
+        File real = Files.createTempDirectory("game-files-policy-root").toFile();
+        File alias = new File(real.getParentFile(), real.getName() + "-alias");
+        Files.createSymbolicLink(alias.toPath(), real.toPath());
+        check(GameFilesPolicy.inAppStorage(alias.getPath(), real), "a link to the root is the root");
+        check(GameFilesPolicy.inAppStorage(alias.getPath() + "/imported-2", real), "an import through a link");
+        alias.delete();
+        real.delete();
 
         // Only what the game would glob counts: top-level entries starting with lego, any case.
         File dir = Files.createTempDirectory("game-files-policy-test").toFile();

@@ -26,15 +26,15 @@ public final class GameFileCopierTest {
     static class FileSource implements GameFileCopier.Source {
         final File mRoot;
         FileSource(File root) { mRoot = root; }
-        public GameFileCopier.Node root() { return node(mRoot); }
-        public List<GameFileCopier.Node> list(GameFileCopier.Node directory) {
+        @Override public GameFileCopier.Node root() { return node(mRoot); }
+        @Override public List<GameFileCopier.Node> list(GameFileCopier.Node directory) {
             File[] children = new File(directory.id).listFiles();
             if (children == null) return null;
             List<GameFileCopier.Node> nodes = new ArrayList<>();
             for (File child : children) nodes.add(node(child));
             return nodes;
         }
-        public InputStream open(GameFileCopier.Node file) throws IOException { return new FileInputStream(file.id); }
+        @Override public InputStream open(GameFileCopier.Node file) throws IOException { return new FileInputStream(file.id); }
         GameFileCopier.Node node(File file) {
             return new GameFileCopier.Node(file.getPath(), file.getName(), file.isDirectory(), file.isDirectory() ? -1 : file.length());
         }
@@ -44,14 +44,14 @@ public final class GameFileCopierTest {
     static final class NamedSource implements GameFileCopier.Source {
         final List<String> mNames;
         NamedSource(List<String> names) { mNames = names; }
-        public GameFileCopier.Node root() { return new GameFileCopier.Node("root", "", true, -1); }
-        public List<GameFileCopier.Node> list(GameFileCopier.Node directory) {
+        @Override public GameFileCopier.Node root() { return new GameFileCopier.Node("root", "", true, -1); }
+        @Override public List<GameFileCopier.Node> list(GameFileCopier.Node directory) {
             List<GameFileCopier.Node> nodes = new ArrayList<>();
             if (directory.id.equals("root")) nodes.add(new GameFileCopier.Node("lego", "LEGO", true, -1));
             else for (String name : mNames) nodes.add(new GameFileCopier.Node(name, name, false, 1));
             return nodes;
         }
-        public InputStream open(GameFileCopier.Node file) { return new ByteArrayInputStream(new byte[] {'x'}); }
+        @Override public InputStream open(GameFileCopier.Node file) { return new ByteArrayInputStream(new byte[] {'x'}); }
     }
 
     static void write(File file, String text) throws IOException {

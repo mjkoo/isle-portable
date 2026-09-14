@@ -295,6 +295,8 @@ public final class SettingsActivity extends AppCompatActivity {
     }
 
     public static final class GameFilesDialog extends DialogFragment {
+        private static final int PROGRESS_STEPS = 1000;
+        private static final long TICK_MS = 150;
         private final Handler ticker = new Handler(Looper.getMainLooper());
         private TextView status;
         private TextView detail;
@@ -302,7 +304,7 @@ public final class SettingsActivity extends AppCompatActivity {
         private final Runnable tick = new Runnable() {
             @Override public void run() {
                 update();
-                ticker.postDelayed(this, 150);
+                ticker.postDelayed(this, TICK_MS);
             }
         };
 
@@ -330,8 +332,7 @@ public final class SettingsActivity extends AppCompatActivity {
             } else if (phase == GameFilesModel.Phase.ERROR) {
                 builder.setMessage(model.message).setPositiveButton("OK", (dialog, which) -> model.acknowledge());
             } else {
-                builder.setMessage(phase == GameFilesModel.Phase.CANCELLING ? "Cancelling..."
-                    : phase == GameFilesModel.Phase.SCHEDULING ? "Recording the change..." : "Checking game files...");
+                builder.setMessage(phase == GameFilesModel.Phase.CANCELLING ? "Cancelling copy..." : "Recording the change...");
             }
             setCancelable(false);
             return builder.create();
@@ -346,7 +347,7 @@ public final class SettingsActivity extends AppCompatActivity {
             status = new TextView(requireContext());
             content.addView(status);
             bar = new ProgressBar(requireContext(), null, android.R.attr.progressBarStyleHorizontal);
-            bar.setMax(1000);
+            bar.setMax(PROGRESS_STEPS);
             bar.setIndeterminate(true);
             LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
@@ -366,7 +367,7 @@ public final class SettingsActivity extends AppCompatActivity {
             if (total > 0) {
                 long copied = copier.copiedBytes();
                 bar.setIndeterminate(false);
-                bar.setProgress((int) Math.min(1000, copied * 1000 / total));
+                bar.setProgress((int) Math.min(PROGRESS_STEPS, copied * PROGRESS_STEPS / total));
                 detail.setText(String.format(Locale.ROOT, "%s of %s (%d of %d files)",
                     Formatter.formatFileSize(requireContext(), copied), Formatter.formatFileSize(requireContext(), total),
                     copier.copiedFiles(), copier.totalFiles()));
@@ -779,7 +780,7 @@ public final class SettingsActivity extends AppCompatActivity {
             }
             findPreference("controller-menu-warning").setVisible(ControllerBindings.menuUnbound(model.draft));
             updating = false;
-            getPreferenceScreen().setEnabled(model.loaded && !model.isBusy() && !restore.busy() && !export.isBusy() && !gameFiles.busy());
+            getPreferenceScreen().setEnabled(model.loaded && idle);
         }
     }
 }

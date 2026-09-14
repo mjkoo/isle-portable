@@ -42,6 +42,7 @@ public final class GameFilesModel extends AndroidViewModel {
     private long size = -1;
     private boolean pending;
     private boolean removable;
+    // Set on the main thread as the flow moves on.
     private int copiedFiles;
     private long copiedBytes;
     String message;
@@ -78,11 +79,12 @@ public final class GameFilesModel extends AndroidViewModel {
                 try {
                     disk = SettingsBridge.read(config, new String[] {"isle:diskpath"})[0];
                     waiting = SettingsBridge.gameFilesPending(filesDir.getPath(), root.getPath());
-                } catch (RuntimeException e) {
-                    problem = "Could not read the game file settings: " + e.getMessage();
+                    bytes = GameFilesPolicy.measure(GameFilesPolicy.location(disk, root));
+                    data = GameFilesPolicy.inAppStorage(disk, root) && GameFileCopier.hasImportedData(root);
+                } catch (Throwable e) {
+                    // Anything short of reaching IDLE would leave Settings locked, Back included.
+                    problem = "Could not read the game files: " + e;
                 }
-                bytes = GameFilesPolicy.measure(GameFilesPolicy.location(disk, root));
-                data = GameFilesPolicy.inAppStorage(disk, root) && GameFileCopier.hasImportedData(root);
             }
             final String result = problem, location = disk;
             final long measured = bytes;
@@ -125,7 +127,7 @@ public final class GameFilesModel extends AndroidViewModel {
     void choose() {
         if (busy()) return;
         if (unavailable != null) { error(unavailable); return; }
-        if (pending) { error("A change to the game files is already waiting. Close and reopen the game to apply it."); return; }
+        if (pending) { error(GameFilesPolicy.WAITING); return; }
         phase.setValue(Phase.CHOOSE);
     }
     void replace() { if (phase.getValue() == Phase.CHOOSE) phase.setValue(Phase.PICK); }
@@ -168,9 +170,9 @@ public final class GameFilesModel extends AndroidViewModel {
             stopped = e.status == GameFileCopier.STATUS_CANCELLED;
             failure = e.getMessage();
             if (!stopped) Log.e(TAG, "Copying game files failed: " + failure, e.getCause());
-        } catch (RuntimeException e) {
+        } catch (Throwable e) {
             Log.e(TAG, "Copying game files failed", e);
-            failure = "Copying the game files failed. " + e.getMessage();
+            failure = "Copying the game files failed. " + e;
         }
         if (failure != null) discardStaging();
         final String result = failure;
@@ -209,8 +211,8 @@ public final class GameFilesModel extends AndroidViewModel {
         String failure;
         try {
             failure = SettingsBridge.scheduleGameFiles(filesDir.getPath(), root.getPath(), config, replacing ? stagingId : null);
-        } catch (RuntimeException e) {
-            failure = e.getMessage();
+        } catch (Throwable e) {
+            failure = e.toString();
         }
         boolean closing = SettingsBridge.startupWorkScheduled();
         if (replacing) {
@@ -224,8 +226,9 @@ public final class GameFilesModel extends AndroidViewModel {
         main.post(() -> {
             if (cleared) return;
             if (closing) {
+                // A failure with a change still waiting, such as an earlier one, closes the game too.
                 message = result != null
-                    ? "The game file change was recorded but could not be confirmed. Close and reopen the game to resolve it. " + result
+                    ? "The game will close to finish a waiting game file change. " + result
                     : replacing ? "The new game files are ready. Reopen the game to put them in place."
                     : "The game files will be removed when you reopen the game.";
                 phase.setValue(Phase.CLOSING);

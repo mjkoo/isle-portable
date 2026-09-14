@@ -534,6 +534,11 @@ extern "C" JNIEXPORT jstring JNICALL Java_org_legoisland_isle_SettingsBridge_sch
 	}
 }
 
+static std::string GameFilesRecordDir(const std::string& p_filesDir)
+{
+	return p_filesDir + "/game-files";
+}
+
 static void ShowStartupMessage(const std::string& p_message)
 {
 	Android_ActivityCall call;
@@ -541,8 +546,10 @@ static void ShowStartupMessage(const std::string& p_message)
 		return;
 	}
 	jstring message = call.m_env->NewStringUTF(p_message.c_str());
-	call.m_env->CallVoidMethod(call.m_activity, call.m_method, message);
-	call.m_env->DeleteLocalRef(message);
+	if (message) {
+		call.m_env->CallVoidMethod(call.m_activity, call.m_method, message);
+		call.m_env->DeleteLocalRef(message);
+	}
 	Android_EndActivityCall(&call);
 }
 
@@ -560,15 +567,14 @@ void Android_ApplyGameFilesBeforeStartup()
 	{
 		std::lock_guard<std::mutex> lock(g_gameFilesMutex);
 		try {
-			message =
-				Android_GameFiles(std::string(internal) + "/game-files", external).Apply(garbage, g_gameFilesClaims);
+			message = Android_GameFiles(GameFilesRecordDir(internal), external).Apply(garbage, g_gameFilesClaims);
 		}
 		catch (const std::exception& error) {
 			message = std::string("A waiting game file change could not be applied. ") + error.what();
 		}
 	}
 	if (!message.empty()) {
-		SDL_Log("%s", message.c_str());
+		SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "%s", message.c_str());
 		ShowStartupMessage(message);
 	}
 	if (garbage.empty()) {
@@ -586,7 +592,8 @@ void Android_ApplyGameFilesBeforeStartup()
 			failed++;
 		}
 	}
-	SDL_Log(
+	SDL_LogInfo(
+		SDL_LOG_CATEGORY_APPLICATION,
 		"Deleted %zu game file work directories (%.1f MB) in %.0f ms%s",
 		garbage.size() - failed,
 		bytes / 1000000.0,
@@ -602,8 +609,11 @@ Java_org_legoisland_isle_SettingsBridge_beginGameFilesStaging(JNIEnv* p_env, jcl
 {
 	std::lock_guard<std::mutex> lock(g_gameFilesMutex);
 	std::string id = Android_GameFiles::NewId();
-	g_gameFilesClaims.insert(id);
-	return ToJava(p_env, {id, FromJava(p_env, p_root) + "/" + Android_GameFiles::StagingName(id)});
+	jobjectArray result = ToJava(p_env, {id, FromJava(p_env, p_root) + "/" + Android_GameFiles::StagingName(id)});
+	if (result) {
+		g_gameFilesClaims.insert(id);
+	}
+	return result;
 }
 
 extern "C" JNIEXPORT void JNICALL
@@ -625,7 +635,7 @@ Java_org_legoisland_isle_SettingsBridge_gameFilesPending(JNIEnv* p_env, jclass, 
 {
 	std::lock_guard<std::mutex> lock(g_gameFilesMutex);
 	try {
-		return Android_GameFiles(FromJava(p_env, p_filesDir) + "/game-files", FromJava(p_env, p_root)).Pending();
+		return Android_GameFiles(GameFilesRecordDir(FromJava(p_env, p_filesDir)), FromJava(p_env, p_root)).Pending();
 	}
 	catch (const std::exception&) {
 		// An unreadable record is set aside at the next startup; until then, treat it as waiting.
@@ -643,7 +653,7 @@ extern "C" JNIEXPORT jstring JNICALL Java_org_legoisland_isle_SettingsBridge_sch
 )
 {
 	std::lock_guard<std::mutex> lock(g_gameFilesMutex);
-	std::string records = FromJava(p_env, p_filesDir) + "/game-files", root = FromJava(p_env, p_root);
+	std::string records = GameFilesRecordDir(FromJava(p_env, p_filesDir)), root = FromJava(p_env, p_root);
 	try {
 		Android_GameFiles(records, root).Schedule(FromJava(p_env, p_config), FromJava(p_env, p_id));
 		g_startupWorkScheduled = true;
