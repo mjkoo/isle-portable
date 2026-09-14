@@ -30,7 +30,7 @@ Resolve settings edits with Save or Cancel first. The current files stay in plac
 until the next launch, which means:
 
 - Replacing needs room for both copies at once: the new files plus a 32 MiB margin (shown as
-  about 34 MB). Settings refuses otherwise and says how much space is needed and how much is
+  33.55 MB). Settings refuses otherwise and says how much space is needed and how much is
   free. Without that room, remove
   the game files and select the folder when the game reopens; that import deletes the old copy
   before copying.
