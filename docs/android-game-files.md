@@ -22,15 +22,16 @@ Choosing the row offers:
   The next launch puts the new files in place before the game starts and says what happened.
   The new files always go to app storage: a folder named by a hand-set `diskpath` is not
   deleted, but the game stops reading from it.
-- **Remove game files**: offered when the game reads its files from app storage. After
-  confirmation the game closes, and the next launch deletes the copy in app storage and asks for
-  a folder, as on a fresh install. Saves and settings are kept.
+- **Remove game files**: offered when the game reads its files from app storage and there are
+  files there. After confirmation the game closes, and the next launch deletes the copy in app
+  storage and asks for a folder, as on a fresh install. Saves and settings are kept.
 
 Resolve settings edits with Save or Cancel first. The current files stay in place and playable
 until the next launch, which means:
 
-- Replacing needs room for both copies at once: the new files plus 32 MiB. Settings refuses
-  otherwise and says how much space is needed and how much is free. Without that room, remove
+- Replacing needs room for both copies at once: the new files plus a 32 MiB margin (shown as
+  about 34 MB). Settings refuses otherwise and says how much space is needed and how much is
+  free. Without that room, remove
   the game files and select the folder when the game reopens; that import deletes the old copy
   before copying.
 - Cancelling, a failed copy, or the app being stopped before confirmation leaves the current
@@ -51,8 +52,9 @@ the app's directory. Earlier imports (`imported-*`) are then set aside, the reco
 and the directories left over are deleted; the log reports how much was deleted and how long it
 took. Removal renames the game data aside the same way before pointing `diskpath` back.
 
-Every step is a rename within one directory, and the record is only removed at the end. A launch
-interrupted at any point therefore finishes the change, or goes back to the previous files, the
-next time the game starts. If the new files cannot be put in place, the previous ones are kept
-and the launch says so. If the configuration cannot be updated, the new files are used where
-possible and the update is retried on the next launch.
+Every move is a rename within one directory, and the record is only removed once `diskpath` has
+been updated. A launch interrupted at any point therefore finishes the change, or goes back to
+the previous files, the next time the game starts. If the new files turn out incomplete or cannot
+be put in place, the previous ones are kept and the launch says so. If the configuration cannot
+be updated, the new files are already in place and the update is retried on the next launch;
+until then, a `diskpath` that names an earlier import keeps the game reading that import.
