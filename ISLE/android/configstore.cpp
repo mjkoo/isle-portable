@@ -226,6 +226,85 @@ static bool ParseNumber(const char* p_value, double& p_number)
 	return end != p_value && !*end && std::isfinite(p_number);
 }
 
+// The extension keys and rules below mirror ExtensionSettings.java; keep them in step.
+
+// An extension path names a file or folder inside the game files. ResolveGamePath concatenates the
+// game data root with the value and inserts no separator, so the value has to start with its own
+// slash, and "/.." would reach outside the game files. The si loader splits its list on whitespace
+// as well as commas, so a path holding either could never be read back whole.
+static bool IsGamePath(const std::string& p_path)
+{
+	if (p_path.size() < 2 || p_path.size() > 255 || p_path[0] != '/') {
+		return false;
+	}
+	if (p_path.find("..") != std::string::npos || p_path.find('\\') != std::string::npos) {
+		return false;
+	}
+	for (unsigned char c : p_path) {
+		if (c <= ' ' || c == 127 || c == ',') {
+			return false;
+		}
+	}
+	return true;
+}
+
+// The si loader reads its files as one comma-separated list. The bounds are sanity limits: the game
+// has 26 scripts of its own, so a list far past that is a mistake rather than a mod.
+static bool IsGamePathList(const std::string& p_value)
+{
+	if (p_value.size() > 2048) {
+		return false;
+	}
+	size_t start = 0, count = 0;
+	for (;;) {
+		size_t comma = p_value.find(',', start);
+		size_t length = comma == std::string::npos ? std::string::npos : comma - start;
+		if (!IsGamePath(p_value.substr(start, length)) || ++count > 32) {
+			return false;
+		}
+		if (comma == std::string::npos) {
+			return true;
+		}
+		start = comma + 1;
+	}
+}
+
+// The multiplayer transports speak WebSocket, so anything else would fail at connect time.
+static bool IsRelayUrl(const std::string& p_value)
+{
+	size_t scheme = 0;
+	if (p_value.compare(0, 5, "ws://") == 0) {
+		scheme = 5;
+	}
+	else if (p_value.compare(0, 6, "wss://") == 0) {
+		scheme = 6;
+	}
+	if (scheme == 0 || p_value.size() <= scheme || p_value.size() > 512) {
+		return false;
+	}
+	for (unsigned char c : p_value) {
+		if (c <= ' ' || c == 127) {
+			return false;
+		}
+	}
+	return true;
+}
+
+// iniparser writes "key = value" and reads a line back up to its comment character, so a value
+// carrying one of these would not survive the round trip.
+static bool IsIniWord(const std::string& p_value, size_t p_max)
+{
+	if (p_value.empty() || p_value.size() > p_max) {
+		return false;
+	}
+	for (unsigned char c : p_value) {
+		if (c <= ' ' || c >= 127 || strchr(",;#=[]", c)) {
+			return false;
+		}
+	}
+	return true;
+}
+
 // Plain decimal digits: the game reads whole-number keys with strtol's base detection, which would
 // read "010" as 8 and stop "0.2e1" at the decimal point.
 static bool IsPlainWholeNumber(const char* p_value)
@@ -273,9 +352,35 @@ bool Android_ValidateSetting(const std::string& p_key, const char* p_value, cons
 		}
 		return false;
 	}
+	// The extension enable keys are Extensions::availableExtensions; the game reads each as a boolean.
 	if (p_key == "isle:music" || p_key == "isle:3dsound" || p_key == "isle:haptic" || p_key == "isle:wasd" ||
-		p_key == "isle:show touch controls") {
+		p_key == "isle:show touch controls" || p_key == "isle:wide view angle" ||
+		p_key == "extensions:texture loader" || p_key == "extensions:si loader" ||
+		p_key == "extensions:third person camera" || p_key == "extensions:multiplayer") {
 		return !p_value || std::string(p_value) == "true" || std::string(p_value) == "false";
+	}
+	if (p_key == "texture loader:texture path") {
+		return !p_value || IsGamePath(p_value);
+	}
+	if (p_key == "si loader:files") {
+		return !p_value || IsGamePathList(p_value);
+	}
+	if (p_key == "multiplayer:relay url") {
+		return !p_value || IsRelayUrl(p_value);
+	}
+	if (p_key == "multiplayer:room") {
+		return !p_value || IsIniWord(p_value, 64);
+	}
+	// An actor the game does not know resolves to no actor and is ignored, so the name only has to
+	// survive the file; Settings offers the game's own list.
+	if (p_key == "multiplayer:actor") {
+		return !p_value || IsIniWord(p_value, 32);
+	}
+	// Kept out of g_graphicsRanges: that table is the Graphics group, and GraphicsSettingsTest reads
+	// it back to prove the two sides agree. The game reads this one with strtol's base detection.
+	if (p_key == "isle:lighting model") {
+		return !p_value ||
+			   (IsPlainWholeNumber(p_value) && (std::string(p_value) == "0" || std::string(p_value) == "1"));
 	}
 	for (const GraphicsRange& range : g_graphicsRanges) {
 		if (p_key == range.m_key) {

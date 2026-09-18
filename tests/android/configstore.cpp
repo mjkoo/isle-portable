@@ -175,6 +175,72 @@ int main()
 		}
 	}
 
+	// The extension keys. ExtensionSettingsTest checks every value Settings offers against these.
+	const std::vector<std::pair<const char*, std::vector<const char*>>> validExtensions = {
+		{"extensions:texture loader", {"true", "false"}},
+		{"extensions:si loader", {"true", "false"}},
+		{"extensions:third person camera", {"true", "false"}},
+		{"extensions:multiplayer", {"true", "false"}},
+		{"isle:wide view angle", {"true", "false"}},
+		{"texture loader:texture path", {"/textures", "/LEGO/mytextures", "/a"}},
+		{"si loader:files", {"/LEGO/Scripts/MOD.SI", "/LEGO/Scripts/A.SI,/LEGO/Scripts/B.SI", "/a,/b,/c,/d"}},
+		{"multiplayer:relay url", {"ws://host", "wss://host.example:8080/path", "ws://1"}},
+		{"multiplayer:room", {"lobby", "room-1", "A"}},
+		{"multiplayer:actor", {"pepper", "Pepper", "brickstr"}},
+		{"isle:lighting model", {"0", "1"}},
+	};
+	for (const auto& [key, valid] : validExtensions) {
+		assert(Android_ValidateSetting(key, nullptr, {}));
+		for (const char* value : valid) {
+			assert(Android_ValidateSetting(key, value, {}));
+		}
+		assert(!Android_ValidateSetting(key, "", {}));
+	}
+	const std::vector<std::pair<const char*, std::vector<const char*>>> invalidExtensions = {
+		{"extensions:texture loader", {"1", "yes", "True", "on"}},
+		{"extensions:multiplayer", {"0", "no", "FALSE"}},
+		{"isle:wide view angle", {"1", "yes"}},
+		// A path is relative to the game data root, so it carries its own leading slash; "..", a
+		// backslash, a comma and whitespace would each break the path or the list it sits in.
+		{"texture loader:texture path",
+		 {"textures", "/", "/LEGO/../etc", "/LEGO\\textures", "/my textures", "/a,b", "/a\tb"}},
+		{"si loader:files",
+		 {"LEGO/Scripts/MOD.SI",
+		  "/LEGO/Scripts/MOD.SI,",
+		  ",/LEGO/Scripts/MOD.SI",
+		  "/LEGO/Scripts/MOD.SI,,/LEGO/Scripts/B.SI",
+		  "/LEGO/Scripts/MY MOD.SI",
+		  "/LEGO/../MOD.SI"}},
+		{"multiplayer:relay url", {"http://host", "https://host", "host", "ws://", "wss://", "ws:// host", "ws://ho st"}
+		},
+		{"multiplayer:room", {"my room", "room;1", "room#1", "room=1", "room,1", "[room]", "rööm"}},
+		{"multiplayer:actor", {"pep per", "pepper;", "pepper#"}},
+		{"isle:lighting model", {"2", "-1", "00", "01", "0.0", "1.5", "0x1", " 1"}},
+	};
+	for (const auto& [key, invalid] : invalidExtensions) {
+		for (const char* value : invalid) {
+			assert(!Android_ValidateSetting(key, value, {}));
+		}
+	}
+	// Bounds: 255 characters for one path, 32 entries and 2048 characters for the list.
+	assert(Android_ValidateSetting("texture loader:texture path", ("/" + std::string(254, 'a')).c_str(), {}));
+	assert(!Android_ValidateSetting("texture loader:texture path", ("/" + std::string(255, 'a')).c_str(), {}));
+	std::string entries, overLong;
+	for (int i = 0; i < 32; i++) {
+		entries += (i ? ",/a" : "/a");
+	}
+	assert(Android_ValidateSetting("si loader:files", entries.c_str(), {}));
+	assert(!Android_ValidateSetting("si loader:files", (entries + ",/a").c_str(), {}));
+	for (int i = 0; i < 20; i++) {
+		overLong += (i ? "," : "") + ("/" + std::string(120, 'a'));
+	}
+	assert(!Android_ValidateSetting("si loader:files", overLong.c_str(), {}));
+	// Directives stay hand-edited, so Settings must never accept and rewrite them.
+	assert(!Android_ValidateSetting("si loader:directives", "StartWith:isle.si:1:isle.si:2", {}));
+	assert(!Android_ValidateSetting("si loader:directives", nullptr, {}));
+	assert(!Android_ValidateSetting("extensions:unknown", "true", {}));
+	assert(!Android_ValidateSetting("multiplayer:unknown", "x", {}));
+
 	Android_TouchSettings touch;
 	Android_BeginTouchSettings(path);
 	assert(!Android_TakeTouchSettings(touch));
@@ -265,6 +331,37 @@ int main()
 	Android_BeginTouchSettings(path);
 	assert(!Android_TakeTouchSettings(touch));
 	Android_EndTouchSettings();
+
+	// Extension options live in a section named after the extension, which a config may not have yet,
+	// and turning one on must not disturb the rest of the file.
+	std::ofstream(path) << "[isle]\nmusic=true\n[si loader]\ndirectives=StartWith:isle.si:1:isle.si:2\n";
+	assert(Android_UpdateConfig(
+			   path,
+			   {{"extensions:texture loader", "true"},
+				{"texture loader:texture path", "/mytextures"},
+				{"extensions:multiplayer", "true"},
+				{"multiplayer:relay url", "wss://relay.example"},
+				{"multiplayer:room", "lobby"}}
+	).empty());
+	assert(Read(path).find("[texture loader]") != std::string::npos);
+	assert(Read(path).find("[multiplayer]") != std::string::npos);
+	values.clear();
+	assert(Android_ReadConfig(
+			   path,
+			   {"isle:music", "si loader:directives", "texture loader:texture path", "multiplayer:room"},
+			   values
+	)
+			   .empty());
+	assert(values[0].second == "true" && values[1].second == "StartWith:isle.si:1:isle.si:2");
+	assert(values[2].second == "/mytextures" && values[3].second == "lobby");
+	// Later updates reuse the sections rather than adding more.
+	assert(Android_UpdateConfig(path, {{"texture loader:texture path", "/other"}}).empty());
+	assert(Read(path).find("[texture loader]") == Read(path).rfind("[texture loader]"));
+	// Removing an option leaves the rest of the file alone.
+	assert(Android_UpdateConfig(path, {{"multiplayer:room", nullptr}}).empty());
+	values.clear();
+	assert(Android_ReadConfig(path, {"multiplayer:room", "multiplayer:relay url"}, values).empty());
+	assert(!values[0].first && values[1].second == "wss://relay.example");
 
 	{
 		using namespace GamepadBindings;
