@@ -121,6 +121,11 @@ MxS32 g_closed = FALSE;
 
 static char g_startupError[1024] = "";
 
+#ifdef EXTENSIONS
+// Set when the relay turns the session away, and acted on once Tick has returned.
+static MxS32 g_multiplayerRejected = FALSE;
+#endif
+
 static GamepadBindings::Dispatcher g_gamepad(
 #if defined(__vita__)
 	GamepadBindings::e_platformVita
@@ -462,9 +467,7 @@ static bool SDLCALL LifecycleEventWatch(void* p_userdata, SDL_Event* p_event)
 
 // Shuts the game down. ~IsleApp runs IsleApp::Close, which saves and then tickles the world
 // down, so a quit has to come through here: returning SDL_APP_SUCCESS on its own skips all of
-// it, since SDL_AppQuit never touches g_isle. (IsleApp::Tick's multiplayer-rejection path does
-// set g_closed by hand and so does skip it, which predates this and is left alone: the call
-// that would replace it deletes the IsleApp out from under the Tick that is still running.)
+// it, since SDL_AppQuit never touches g_isle.
 //
 // Clear the global first: ~IsleApp tickles the game while it shuts down, so a lifecycle event
 // arriving meanwhile must not find a half-destructed IsleApp.
@@ -805,6 +808,16 @@ SDL_AppResult SDL_AppIterate(void* appstate)
 					   "\nFailed to initialize; see logs for details");
 		return SDL_APP_FAILURE;
 	}
+
+#ifdef EXTENSIONS
+	// Tick could not do this itself without deleting the IsleApp it was running in. Closing through
+	// CloseGame saves the game first, which setting g_closed by hand would have skipped.
+	if (g_multiplayerRejected) {
+		SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Multiplayer session rejected, closing");
+		CloseGame();
+		return SDL_APP_SUCCESS;
+	}
+#endif
 
 	if (!g_closed) {
 		if (g_reqEnableRMDevice) {
@@ -1929,8 +1942,10 @@ inline bool IsleApp::Tick()
 	}
 
 #ifdef EXTENSIONS
+	// Closing here would delete this IsleApp out from under the Tick still running, so record it
+	// and let SDL_AppIterate close the game once Tick has returned.
 	if (Extensions::IsMultiplayerRejected()) {
-		g_closed = TRUE;
+		g_multiplayerRejected = TRUE;
 		return true;
 	}
 #endif
