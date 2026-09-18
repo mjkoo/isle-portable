@@ -52,7 +52,45 @@ final class ExtensionSettings {
     /** As many entries as the validator accepts, and the same cap on what the pickers offer. */
     static final int MAX_FILES = 32;
 
+    static final String RELAY_HINT =
+            "Enter the relay server's WebSocket address, such as wss://relay.example, or leave blank for none.";
+    static final String RELAY_ERROR = "Enter a ws:// or wss:// address with no spaces.";
+    static final String ROOM_HINT =
+            "Enter the room to join. Everyone who picks the same room on the same relay plays together.";
+    static final String ROOM_ERROR = "Enter a room name with no spaces and none of , ; # = [ ].";
+
     private ExtensionSettings() {}
+
+    /**
+     * The transports speak WebSocket, so anything else fails at connect time. Mirrors the native
+     * validator, which has the last word.
+     */
+    static boolean isRelayUrl(String value) {
+        int scheme = value.startsWith("ws://") ? 5 : value.startsWith("wss://") ? 6 : 0;
+        if (scheme == 0 || value.length() <= scheme || value.length() > 512) {
+            return false;
+        }
+        for (int i = 0; i < value.length(); i++) {
+            if (value.charAt(i) <= ' ' || value.charAt(i) == 127) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /** A value that survives the ini round trip: no comment, section or separator characters. */
+    static boolean isIniWord(String value, int max) {
+        if (value.isEmpty() || value.length() > max) {
+            return false;
+        }
+        for (int i = 0; i < value.length(); i++) {
+            char c = value.charAt(i);
+            if (c <= ' ' || c >= 127 || ",;#=[]".indexOf(c) >= 0) {
+                return false;
+            }
+        }
+        return true;
+    }
 
     /** Whether the key is one of this screen's extension settings rather than a game option. */
     static boolean isExtensionKey(String key) {

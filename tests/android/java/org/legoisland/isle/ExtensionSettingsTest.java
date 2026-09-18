@@ -93,6 +93,31 @@ public final class ExtensionSettingsTest {
         String stored = "/LEGO/Scripts/A.SI,/LEGO/Scripts/C.SI";
         assert ExtensionSettings.joinFiles(ExtensionSettings.splitFiles(stored), offered).equals(stored);
 
+        // Typed text is checked here before the native validator sees it, so the two must agree on
+        // what they accept; the native test asserts the same cases from the other side.
+        for (String url : new String[] {"ws://host", "wss://host.example:8080/path", "ws://1"}) {
+            assert ExtensionSettings.isRelayUrl(url) : url;
+        }
+        for (String url : new String[] {"http://host", "https://host", "host", "ws://", "wss://", "ws://ho st", ""}) {
+            assert !ExtensionSettings.isRelayUrl(url) : url;
+        }
+        StringBuilder long512 = new StringBuilder("ws://");
+        while (long512.length() < 512) long512.append('a');
+        assert ExtensionSettings.isRelayUrl(long512.toString());
+        assert !ExtensionSettings.isRelayUrl(long512.append('a').toString());
+
+        for (String room : new String[] {"lobby", "room-1", "A", "a/b"}) {
+            assert ExtensionSettings.isIniWord(room, 64) : room;
+        }
+        for (String room : new String[] {"", "my room", "room;1", "room#1", "room=1", "room,1", "[room]", "röom"}) {
+            assert !ExtensionSettings.isIniWord(room, 64) : room;
+        }
+        StringBuilder long64 = new StringBuilder();
+        while (long64.length() < 64) long64.append('a');
+        assert ExtensionSettings.isIniWord(long64.toString(), 64);
+        assert !ExtensionSettings.isIniWord(long64.append('a').toString(), 64);
+        assert !ExtensionSettings.isIniWord("aaa", 2);
+
         // Enumeration. Paths are game-relative with their own leading slash, as the extensions read them.
         File root = temp();
         write(root, "LEGO/Scripts/CREDITS.SI");

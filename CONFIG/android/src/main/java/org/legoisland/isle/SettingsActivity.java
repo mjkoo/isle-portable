@@ -7,6 +7,7 @@ import android.os.Handler;
 import android.os.Looper;
 import android.text.InputType;
 import android.text.format.Formatter;
+import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.ViewGroup;
@@ -26,18 +27,21 @@ import androidx.lifecycle.ViewModel;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.preference.EditTextPreference;
 import androidx.preference.ListPreference;
+import androidx.preference.MultiSelectListPreference;
 import androidx.preference.Preference;
 import androidx.preference.PreferenceCategory;
 import androidx.preference.PreferenceDataStore;
 import androidx.preference.PreferenceFragmentCompat;
 import androidx.preference.PreferenceScreen;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -51,23 +55,45 @@ public final class SettingsActivity extends AppCompatActivity {
     /** Whether the game can open the editor: only when Settings was opened over a running game. */
     static final String EXTRA_TOUCH_LAYOUT_EDITOR = "touchLayoutEditor";
 
+    /** How a row is edited: a choice, a typed number or word, or several choices at once. */
+    private enum Kind { LIST, NUMBER, TEXT, MULTI }
+
+    /** Whether typed text is worth keeping, checked again by the native validator on save. */
+    private interface Check {
+        boolean ok(String text);
+    }
+
     private static final class Control {
         final String group, key, title;
         final String[] labels, values;
+        final Kind kind;
+        final String hint, error;
+        final int inputType;
+        final Check check;
 
         Control(String group, String key, String title, String[] labels, String[] values) {
+            this(group, key, title, labels, values, labels == null ? Kind.NUMBER : Kind.LIST, null, null, 0, null);
+        }
+
+        Control(String group, String key, String title, String[] labels, String[] values, Kind kind, String hint,
+                String error, int inputType, Check check) {
             this.group = group;
             this.key = key;
             this.title = title;
             this.labels = labels;
             this.values = values;
+            this.kind = kind;
+            this.hint = hint;
+            this.error = error;
+            this.inputType = inputType;
+            this.check = check;
         }
     }
 
     private static final String[] BOOL_LABELS = {"On", "Off"};
     private static final String[] BOOL_VALUES = {"true", "false"};
     // The UI's complete INI mapping. Engine defaults remain in native configuration loading.
-    private static final Control[] CONTROLS = withController(withGraphics(new Control[] {
+    private static final Control[] CONTROLS = withExtensions(withController(withGraphics(new Control[] {
         new Control("Input", "isle:touch scheme", "Touch scheme",
             new String[] {"Virtual mouse", "Arrow-key regions", "Virtual stick", "Disabled"},
             new String[] {"0", "1", "2", "-1"}),
@@ -89,8 +115,39 @@ public final class SettingsActivity extends AppCompatActivity {
         new Control("Display", "isle:msaa", "MSAA",
             new String[] {"Off", "2×", "4×", "8×", "16×"}, new String[] {"0", "2", "4", "8", "16"}),
         new Control("Display", "isle:anisotropic", "Anisotropic filtering",
-            new String[] {"Off", "2×", "4×", "8×", "16×"}, new String[] {"0", "2", "4", "8", "16"})
-    }));
+            new String[] {"Off", "2×", "4×", "8×", "16×"}, new String[] {"0", "2", "4", "8", "16"}),
+        new Control("Display", "isle:lighting model", "Lighting model",
+            new String[] {"DirectX 5", "DirectX 8"}, new String[] {"0", "1"}),
+        new Control("Display", "isle:wide view angle", "Wide view angle", BOOL_LABELS, BOOL_VALUES)
+    })));
+
+    // Extensions come after the controller rows, past where Reset these settings is inserted, because
+    // that reset keeps them: the group has its own. The keys and values are in ExtensionSettings.
+    private static Control[] withExtensions(Control[] base) {
+        ArrayList<Control> controls = new ArrayList<>(Arrays.asList(base));
+        controls.add(new Control("Extensions", ExtensionSettings.TEXTURE_LOADER, "Custom textures",
+            BOOL_LABELS, BOOL_VALUES));
+        controls.add(new Control("Extensions", ExtensionSettings.TEXTURE_PATH, "Texture folder",
+            new String[0], new String[0]));
+        controls.add(new Control("Extensions", ExtensionSettings.SI_LOADER, "Custom SI files",
+            BOOL_LABELS, BOOL_VALUES));
+        controls.add(new Control("Extensions", ExtensionSettings.SI_FILES, "SI files to load",
+            new String[0], new String[0], Kind.MULTI, null, null, 0, null));
+        controls.add(new Control("Extensions", ExtensionSettings.THIRD_PERSON_CAMERA, "Third person camera",
+            BOOL_LABELS, BOOL_VALUES));
+        controls.add(new Control("Extensions", ExtensionSettings.MULTIPLAYER, "Multiplayer",
+            BOOL_LABELS, BOOL_VALUES));
+        controls.add(new Control("Extensions", ExtensionSettings.RELAY_URL, "Relay server", null, null,
+            Kind.TEXT, ExtensionSettings.RELAY_HINT, ExtensionSettings.RELAY_ERROR,
+            InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_URI, ExtensionSettings::isRelayUrl));
+        controls.add(new Control("Extensions", ExtensionSettings.ROOM, "Room", null, null,
+            Kind.TEXT, ExtensionSettings.ROOM_HINT, ExtensionSettings.ROOM_ERROR,
+            InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS,
+            text -> ExtensionSettings.isIniWord(text, 64)));
+        controls.add(new Control("Extensions", ExtensionSettings.ACTOR, "Character",
+            new String[0], new String[0]));
+        return controls.toArray(new Control[0]);
+    }
 
     private static Control[] withGraphics(Control[] base) {
         ArrayList<Control> controls = new ArrayList<>(Arrays.asList(base));
@@ -121,6 +178,10 @@ public final class SettingsActivity extends AppCompatActivity {
         final Map<String, String> draft = new LinkedHashMap<>();
         final ExecutorService worker = Executors.newSingleThreadExecutor();
         String[] renderers = new String[0];
+        // What the extension rows offer, read from the game files rather than listed here.
+        String[] folders = new String[0];
+        String[] siFiles = new String[0];
+        String[] actors = new String[0];
         String error;
         String configPath;
         boolean started;
@@ -128,7 +189,7 @@ public final class SettingsActivity extends AppCompatActivity {
 
         boolean isBusy() { return state.getValue() == State.LOADING || state.getValue() == State.SAVING; }
 
-        void load(Bundle saved, android.content.Intent intent) {
+        void load(Bundle saved, android.content.Intent intent, File storageRoot) {
             if (started) return;
             started = true;
             configPath = intent.getStringExtra("configPath");
@@ -146,7 +207,25 @@ public final class SettingsActivity extends AppCompatActivity {
                     keys.add(WIDTH);
                     keys.add(HEIGHT);
                     String[] values = SettingsBridge.read(configPath, keys.toArray(new String[0]));
+                    // What the extension rows offer. diskpath is deliberately read on its own and kept
+                    // out of the draft: Reset these settings clears every key in there, and a cleared
+                    // diskpath is a write the validator refuses, which would fail the whole save.
+                    String[] foundFolders = new String[0], foundFiles = new String[0], names = new String[0];
+                    try {
+                        File root = GameFilesPolicy.location(
+                            SettingsBridge.read(configPath, new String[] {"isle:diskpath"})[0], storageRoot);
+                        foundFolders = ExtensionSettings.folders(root);
+                        foundFiles = ExtensionSettings.siFiles(root, SettingsBridge.stockGameFiles());
+                        names = SettingsBridge.actors();
+                    } catch (Throwable e) {
+                        // The rows still show what the file holds; only the choices are missing.
+                        Log.w("IsleActivity", "Reading the extension choices failed", e);
+                    }
+                    final String[] readFolders = foundFolders, readFiles = foundFiles, readNames = names;
                     main.post(() -> {
+                        folders = readFolders;
+                        siFiles = readFiles;
+                        actors = readNames;
                         for (int i = 0; i < values.length; i++) {
                             String key = keys.get(i);
                             String value = GraphicsSettings.normalize(key, ControllerBindings.normalize(key, values[i]));
@@ -510,7 +589,8 @@ public final class SettingsActivity extends AppCompatActivity {
             getSupportFragmentManager().beginTransaction()
                 .replace(android.R.id.content, new SettingsFragment()).commit();
         }
-        model.load(savedInstanceState == null ? null : savedInstanceState.getBundle("draft"), getIntent());
+        model.load(savedInstanceState == null ? null : savedInstanceState.getBundle("draft"), getIntent(),
+            getExternalFilesDir(null));
     }
 
     @Override protected void onSaveInstanceState(Bundle state) {
@@ -579,6 +659,18 @@ public final class SettingsActivity extends AppCompatActivity {
                     } else model.draft.put(key, value);
                     // Confirm changes the face buttons' defaults, and any row can change the menu warning.
                     if (ControllerBindings.isControllerKey(key)) model.main.post(() -> { if (isAdded()) refresh(); });
+                    // Multiplayer only reaches anyone with both a relay and a room.
+                    if (ExtensionSettings.isExtensionKey(key)) model.main.post(() -> { if (isAdded()) refresh(); });
+                }
+                // A multi-select row stores one comma-separated line, as the si loader reads it. The
+                // base implementations ignore sets, so without these the row would silently do nothing.
+                @Override public Set<String> getStringSet(String key, Set<String> fallback) {
+                    return ExtensionSettings.splitFiles(model.draft.get(key));
+                }
+                @Override public void putStringSet(String key, Set<String> values) {
+                    if (updating) return;
+                    model.draft.put(key, ExtensionSettings.joinFiles(values, model.siFiles));
+                    model.main.post(() -> { if (isAdded()) refresh(); });
                 }
             });
             buildPreferences();
@@ -628,17 +720,19 @@ public final class SettingsActivity extends AppCompatActivity {
             reset.setTitle("Reset these settings");
             reset.setIconSpaceReserved(false);
             // Edit touch layout is not offered over startup recovery, so only point to it when it is.
-            reset.setSummary("Use game defaults for Input, Audio, Display and Graphics. Touch button positions, controller buttons, paths and other settings are kept"
+            reset.setSummary("Use game defaults for Input, Audio, Display and Graphics. Touch button positions, controller buttons, extensions, paths and other settings are kept"
                 + (layoutEditor ? "; reset positions in Edit touch layout" : "") + ". Choose Save to apply.");
             reset.setOnPreferenceClickListener(p -> {
                 for (String key : model.draft.keySet()) {
-                    if (!ControllerBindings.isControllerKey(key)) model.draft.put(key, null);
+                    if (!ControllerBindings.isControllerKey(key) && !ExtensionSettings.isExtensionKey(key)) {
+                        model.draft.put(key, null);
+                    }
                 }
                 refresh();
                 return true;
             });
             String group = "";
-            PreferenceCategory category = null, controller = null;
+            PreferenceCategory category = null, controller = null, extensions = null;
             for (Control control : CONTROLS) {
                 if (!group.equals(control.group)) {
                     boolean controllerGroup = "Controller".equals(control.group);
@@ -650,30 +744,57 @@ public final class SettingsActivity extends AppCompatActivity {
                     screen.addPreference(category);
                     group = control.group;
                     if (controllerGroup) controller = category;
+                    if ("Extensions".equals(control.group)) extensions = category;
                 }
                 Preference preference;
-                if (control.labels == null) {
+                if (control.kind == Kind.NUMBER || control.kind == Kind.TEXT) {
+                    boolean number = control.kind == Kind.NUMBER;
                     EditTextPreference edit = new EditTextPreference(requireContext());
-                    edit.setDialogMessage("Enter a value from 0.1 to 20, or leave blank for the game default.");
+                    edit.setDialogMessage(number
+                        ? "Enter a value from 0.1 to 20, or leave blank for the game default." : control.hint);
+                    int inputType = number
+                        ? InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL : control.inputType;
                     edit.setOnBindEditTextListener(field -> {
-                        field.setInputType(InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL);
+                        field.setInputType(inputType);
                         if (DEFAULT.equals(field.getText().toString())) field.setText("");
                     });
                     edit.setOnPreferenceChangeListener((p, value) -> {
                         String text = value.toString().trim();
                         if (text.isEmpty()) { edit.setText(DEFAULT); return false; }
-                        try {
-                            double number = Double.parseDouble(text);
-                            if (!Double.isInfinite(number) && !Double.isNaN(number) && number >= 0.1 && number <= 20) {
-                                edit.setText(Double.toString(number));
-                                return false;
-                            }
-                        } catch (NumberFormatException ignored) { }
-                        Toast.makeText(requireContext(), "Enter a number from 0.1 to 20.", Toast.LENGTH_SHORT).show();
+                        if (number) {
+                            try {
+                                double parsed = Double.parseDouble(text);
+                                if (!Double.isInfinite(parsed) && !Double.isNaN(parsed) && parsed >= 0.1 && parsed <= 20) {
+                                    edit.setText(Double.toString(parsed));
+                                    return false;
+                                }
+                            } catch (NumberFormatException ignored) { }
+                            Toast.makeText(requireContext(), "Enter a number from 0.1 to 20.", Toast.LENGTH_SHORT).show();
+                            return false;
+                        }
+                        if (control.check.ok(text)) { edit.setText(text); return false; }
+                        Toast.makeText(requireContext(), control.error, Toast.LENGTH_LONG).show();
                         return false;
                     });
                     edit.setSummaryProvider(p -> DEFAULT.equals(edit.getText()) ? "Game default" : edit.getText());
                     preference = edit;
+                } else if (control.kind == Kind.MULTI) {
+                    MultiSelectListPreference multi = new MultiSelectListPreference(requireContext()) {
+                        @Override public void setEntries(CharSequence[] entries) {
+                            super.setEntries(entries);
+                            notifyChanged();
+                        }
+                    };
+                    multi.setDialogTitle(control.title);
+                    multi.setSummaryProvider(p -> {
+                        Set<String> chosen = ExtensionSettings.splitFiles(model.draft.get(control.key));
+                        if (chosen.isEmpty()) {
+                            return model.siFiles.length == 0
+                                ? "None. Add .si files to the game files to choose them here." : "None";
+                        }
+                        return String.join(", ", chosen);
+                    });
+                    preference = multi;
                 } else {
                     // Redraw when the entries change: a controller row's default label follows Confirm button.
                     ListPreference list = new ListPreference(requireContext()) {
@@ -688,7 +809,9 @@ public final class SettingsActivity extends AppCompatActivity {
                 preference.setIconSpaceReserved(false);
                 preference.setKey(control.key);
                 preference.setTitle(control.title);
-                preference.setDefaultValue(DEFAULT);
+                // A multi-select row reads its initial value as a set and would throw on this sentinel;
+                // it has no "Game default" entry either, since choosing nothing is the default.
+                if (control.kind != Kind.MULTI) preference.setDefaultValue(DEFAULT);
                 updating = true;
                 category.addPreference(preference);
                 updating = false;
@@ -703,6 +826,14 @@ public final class SettingsActivity extends AppCompatActivity {
                         return true;
                     });
                     category.addPreference(edit);
+                }
+                if (ExtensionSettings.THIRD_PERSON_CAMERA.equals(control.key)) {
+                    Preference forced = new Preference(requireContext());
+                    forced.setKey("third-person-forced");
+                    forced.setSummary(ExtensionSettings.FORCED_THIRD_PERSON);
+                    forced.setSelectable(false);
+                    forced.setIconSpaceReserved(false);
+                    category.addPreference(forced);
                 }
             }
             Preference menuWarning = new Preference(requireContext());
@@ -724,6 +855,25 @@ public final class SettingsActivity extends AppCompatActivity {
                 return true;
             });
             controller.addPreference(resetController);
+            Preference multiplayerWarning = new Preference(requireContext());
+            multiplayerWarning.setKey("multiplayer-warning");
+            multiplayerWarning.setTitle(ExtensionSettings.INCOMPLETE_MULTIPLAYER);
+            multiplayerWarning.setSummary(ExtensionSettings.INCOMPLETE_MULTIPLAYER_DETAIL);
+            multiplayerWarning.setSelectable(false);
+            multiplayerWarning.setIconSpaceReserved(false);
+            extensions.addPreference(multiplayerWarning);
+            Preference resetExtensions = new Preference(requireContext());
+            resetExtensions.setTitle("Reset extensions");
+            resetExtensions.setSummary("Turn every extension off and forget its settings. Choose Save to apply.");
+            resetExtensions.setIconSpaceReserved(false);
+            resetExtensions.setOnPreferenceClickListener(p -> {
+                for (String key : model.draft.keySet()) {
+                    if (ExtensionSettings.isExtensionKey(key)) model.draft.put(key, null);
+                }
+                refresh();
+                return true;
+            });
+            extensions.addPreference(resetExtensions);
             // A controller's D-pad cannot reach the action bar, so Save is offered in the list too.
             Preference save = new Preference(requireContext());
             save.setKey("save-settings");
@@ -754,8 +904,19 @@ public final class SettingsActivity extends AppCompatActivity {
             for (Control control : CONTROLS) {
                 Preference preference = findPreference(control.key);
                 String current = getPreferenceManager().getPreferenceDataStore().getString(control.key, DEFAULT);
-                if (preference instanceof EditTextPreference) {
+                if (control.kind == Kind.NUMBER || control.kind == Kind.TEXT) {
                     ((EditTextPreference) preference).setText(current);
+                } else if (control.kind == Kind.MULTI) {
+                    MultiSelectListPreference multi = (MultiSelectListPreference) preference;
+                    // Anything the file already names stays selectable even when the file is gone, so
+                    // opening Settings never silently drops it.
+                    ArrayList<String> files = new ArrayList<>(Arrays.asList(model.siFiles));
+                    for (String chosen : ExtensionSettings.splitFiles(model.draft.get(control.key))) {
+                        if (!files.contains(chosen)) files.add(chosen);
+                    }
+                    multi.setEntries(files.toArray(new String[0]));
+                    multi.setEntryValues(files.toArray(new String[0]));
+                    multi.setValues(ExtensionSettings.splitFiles(model.draft.get(control.key)));
                 } else {
                     ListPreference list = (ListPreference) preference;
                     String fallback = ControllerBindings.isControllerKey(control.key)
@@ -768,6 +929,12 @@ public final class SettingsActivity extends AppCompatActivity {
                             labels.add(model.renderers[i]);
                             values.add(model.renderers[i + 1]);
                         }
+                    } else if (ExtensionSettings.TEXTURE_PATH.equals(control.key)) {
+                        labels.addAll(Arrays.asList(model.folders));
+                        values.addAll(Arrays.asList(model.folders));
+                    } else if (ExtensionSettings.ACTOR.equals(control.key)) {
+                        labels.addAll(Arrays.asList(model.actors));
+                        values.addAll(Arrays.asList(model.actors));
                     } else {
                         labels.addAll(Arrays.asList(control.labels));
                         values.addAll(Arrays.asList(control.values));
@@ -779,6 +946,9 @@ public final class SettingsActivity extends AppCompatActivity {
                 }
             }
             findPreference("controller-menu-warning").setVisible(ControllerBindings.menuUnbound(model.draft));
+            findPreference("multiplayer-warning").setVisible(ExtensionSettings.multiplayerIncomplete(model.draft));
+            findPreference("third-person-forced")
+                .setVisible("true".equals(model.draft.get(ExtensionSettings.MULTIPLAYER)));
             updating = false;
             getPreferenceScreen().setEnabled(model.loaded && idle);
         }
