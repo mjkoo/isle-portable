@@ -31,6 +31,10 @@ final class SettingsBridge {
     static native byte[][] exportData(String id);
     static native String path();
     static native String[] renderers();
+    // The characters multiplayer can display, and the files a complete install has, from the game's
+    // own tables: Settings offers the si loader every other .si file it finds.
+    static native String[] actors();
+    static native String[] stockGameFiles();
     static native String[] read(String path, String[] keys);
     static native String write(String path, String[] keys, String[] values, String[] renderers);
 }

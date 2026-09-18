@@ -746,6 +746,11 @@ const char* Android_FindMissingGameFile(const std::string& p_root)
 	return nullptr;
 }
 
+std::vector<std::string> Android_StockGameFiles()
+{
+	return {std::begin(g_files), std::end(g_files)};
+}
+
 bool Android_DeleteTree(const std::string& p_path, uint64_t& p_bytes, const std::function<void()>& p_pump)
 {
 	size_t slash = p_path.find_last_of('/');

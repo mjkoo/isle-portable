@@ -3,6 +3,7 @@
 #include "activity.h"
 #include "configstore.h"
 #include "gamefiles.h"
+#include "legoactors.h"
 #include "mxdirectx/legodxinfo.h"
 #include "saverestore.h"
 #include "savesnapshot.h"
@@ -254,6 +255,23 @@ extern "C" JNIEXPORT jstring JNICALL Java_org_legoisland_isle_SettingsBridge_pat
 extern "C" JNIEXPORT jobjectArray JNICALL Java_org_legoisland_isle_SettingsBridge_renderers(JNIEnv* p_env, jclass)
 {
 	return ToJava(p_env, g_renderers);
+}
+
+// The characters the multiplayer extension can display, from the table it resolves its own option
+// against. Unlike the renderers these need no window, so Settings reads them whenever it likes.
+extern "C" JNIEXPORT jobjectArray JNICALL Java_org_legoisland_isle_SettingsBridge_actors(JNIEnv* p_env, jclass)
+{
+	std::vector<std::string> names;
+	names.reserve(sizeOfArray(g_actorInfoInit));
+	for (const LegoActorInfo& actor : g_actorInfoInit) {
+		names.emplace_back(actor.m_name);
+	}
+	return ToJava(p_env, names);
+}
+
+extern "C" JNIEXPORT jobjectArray JNICALL Java_org_legoisland_isle_SettingsBridge_stockGameFiles(JNIEnv* p_env, jclass)
+{
+	return ToJava(p_env, Android_StockGameFiles());
 }
 
 extern "C" JNIEXPORT jobjectArray JNICALL

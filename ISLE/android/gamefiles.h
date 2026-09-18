@@ -46,6 +46,10 @@ private:
 // components match without regard to case, as the game's own lookup does.
 const char* Android_FindMissingGameFile(const std::string& p_root);
 
+// The files a complete install has, game-relative, as Android_FindMissingGameFile checks for them.
+// Settings offers the si loader the .si files a user added, which is everything else it finds.
+std::vector<std::string> Android_StockGameFiles();
+
 // Deletes a directory tree without following symlinks, calling p_pump between entries. Adds the
 // size of what was deleted to p_bytes. Returns false if anything could not be deleted.
 bool Android_DeleteTree(const std::string& p_path, uint64_t& p_bytes, const std::function<void()>& p_pump = {});
