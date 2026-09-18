@@ -66,10 +66,10 @@ The Android app launches directly into the game. Tap the menu button, in the upp
 corner by default, or use Android's Back button or gesture, to open Resume / Settings / Quit.
 
 Settings exposes touch schemes, touch button size and opacity, cursor sensitivity, haptics,
-WASD, audio, render resolution, available renderers, filtering, graphics quality and
-controller buttons. Choose **Save**: touch scheme, Show touch controls, button size, opacity
-and controller buttons apply when you resume, and other changes apply after quitting and
-launching the game again.
+WASD, audio, render resolution, available renderers, filtering, graphics quality, controller
+buttons and extensions. Choose **Save**: touch scheme, Show touch controls, button size,
+opacity and controller buttons apply when you resume, and other changes apply after quitting
+and launching the game again.
 **Cancel** discards edits. **Reset these settings** restores defaults for these controls when
 saved; it keeps game paths, saves, touch button positions, controller buttons and extension
 configuration. **Input > Edit touch layout** moves the menu,
@@ -95,10 +95,11 @@ needed to fit the GPU's limits. The default content resolution is 640 × 480.
 
 **Graphics** sets model and texture quality, level of detail, the maximum number of actors,
 the screen transition and a frame rate limit, a subset of the desktop configuration tool's
-options. They apply on the next launch; lower quality, detail and actor settings ease the load
-on slower devices. The frame rate limit caps how often the game draws, at 30, 60 or 90 fps, 90
-being the game's default. Options the desktop tool marks broken, Low model quality and two
-transition types, are not offered.
+options; **Display** adds the lighting model and wide view angle. They apply on the next
+launch; lower quality, detail and actor settings ease the load on slower devices. The frame
+rate limit caps how often the game draws, at 30, 60 or 90 fps, 90 being the game's default.
+Options the desktop tool marks broken, Low model quality and two transition types, are not
+offered.
 
 **Input > Show touch controls** enables movement hints, on by default. Arrow-key regions
 show direction markers and highlight held directions. Virtual stick shows an indicator at
@@ -110,6 +111,14 @@ initialize at startup. Vulkan is not enabled by this settings screen.
 
 **Controller** chooses what each gamepad button does; Start opens the game menu by default, so
 a controller alone can reach Settings. See [Android controllers](docs/android-controllers.md).
+
+**Extensions** turns on the parts that are not in the original game: custom textures, extra SI
+files, a third person camera and multiplayer. All are off by default and apply on the next
+launch. The texture folder and the SI files name a place inside the game files, so Settings
+lists what it finds there rather than asking for a path; add your own to the folder you select
+in Replace game files. Multiplayer connects to the relay server and room you name and turns the
+third person camera on. **Reset extensions** turns them all off, and Reset these settings leaves
+them alone. See [Android extensions](docs/android-extensions.md).
 
 Configuration (`isle.ini`) and default saves (`saves/`) live in private internal storage.
 Imported game assets remain in app-scoped external storage. Settings preserves custom paths
