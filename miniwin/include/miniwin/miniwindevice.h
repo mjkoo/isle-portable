@@ -1,5 +1,7 @@
 #pragma once
 
+#include "miniwin/windows.h"
+
 #include <SDL3/SDL_events.h>
 #include <SDL3/SDL_properties.h>
 
@@ -17,6 +19,9 @@ struct IDirect3DRMMiniwinDevice : virtual public IUnknown {
 struct MiniwinDeviceCandidate {
 	const char* m_name;
 	GUID m_guid;
+	// The configured value that selects this device, as LegoDeviceEnumerate::FormatDeviceName
+	// would write it. Sized like the buffer that function is called with.
+	char m_id[128];
 };
 
 // Fills at most maxCount entries and returns how many it wrote, so a caller needs no arithmetic

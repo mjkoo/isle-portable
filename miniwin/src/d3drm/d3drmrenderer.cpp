@@ -48,6 +48,7 @@ int Miniwin_GetDeviceCandidates(MiniwinDeviceCandidate* out, int maxCount)
 		if (count < maxCount) {
 			out[count].m_name = name;
 			out[count].m_guid = guid;
+			Miniwin_FormatDeviceId(guid, out[count].m_id, sizeof(out[count].m_id));
 			count++;
 		}
 	};

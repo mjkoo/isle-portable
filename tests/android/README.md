@@ -388,13 +388,14 @@ before, a controller through every dialog, and the minified release.
 
 ## Renderers
 
-`renderers` covers the device id the settings screen synthesizes for a renderer the enumeration
-could not report: that it round-trips through `LegoDeviceEnumerate::ParseDeviceName` (the GUID's
-bytes, driver ordinal zero), that two devices never collapse onto one id, and that the union adds
-a missing candidate once, matches on the id rather than the label, and leaves an
+`renderers` covers the device id miniwin synthesizes for a renderer the enumeration could not
+report: that `Miniwin_FormatDeviceId` round-trips through `LegoDeviceEnumerate::ParseDeviceName`
+(the GUID's bytes, driver ordinal zero), that two devices never collapse onto one id, and that
+the union adds a missing candidate once, matches on the id rather than the label, and leaves an
 already-enumerated device alone. It also covers `Miniwin_DeviceIdNamesGuid`, which reads the same
 id back to decide what kind of window the game gets, and so has to accept and reject exactly what
-`ParseDeviceName` does - down to the trailing rubbish its `sscanf` ignores.
+`ParseDeviceName` does - down to the trailing rubbish its `sscanf` ignores. Format and parse sit
+in the same header for that reason, so the test exercises the pair that has to agree.
 
 On device, both directions matter. From the default OpenGL ES session, Settings must list
 SDL3 GPU HAL; choosing it must produce a window Vulkan can claim on the next launch, the frame

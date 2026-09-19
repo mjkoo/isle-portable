@@ -1,27 +1,5 @@
 #include "renderers.h"
 
-#include <cstdio>
-#include <cstring>
-
-// The standard library rather than SDL's wrappers, so that a host test can link this without
-// linking SDL3.
-std::string Android_FormatDeviceId(const GUID& p_guid)
-{
-	// The four words are the GUID's bytes, the way GUID4 reads them back. Copied rather than
-	// taken field by field: m_data1, m_data2 and m_data3 would print a different string, and
-	// ParseDeviceName would not match it.
-	unsigned int words[4];
-	static_assert(sizeof(words) == sizeof(GUID), "Equal size");
-	std::memcpy(words, &p_guid, sizeof(words));
-
-	// The leading zero is the DirectDraw driver ordinal, and miniwin reports exactly one driver,
-	// so it is always the first. There is no second chance if it is ever wrong - ProcessDeviceBytes
-	// only matches a device whose driver ordinal is the one it was given.
-	char id[128];
-	std::snprintf(id, sizeof(id), "0 0x%x 0x%x 0x%x 0x%x", words[0], words[1], words[2], words[3]);
-	return id;
-}
-
 void Android_AddMissingRenderers(
 	std::vector<std::string>& p_renderers,
 	const MiniwinDeviceCandidate* p_candidates,
@@ -29,7 +7,7 @@ void Android_AddMissingRenderers(
 )
 {
 	for (int i = 0; i < p_count; i++) {
-		std::string id = Android_FormatDeviceId(p_candidates[i].m_guid);
+		const char* id = p_candidates[i].m_id;
 
 		// The list is read as pairs, so the id is at every odd position. Match on the id rather
 		// than the label: the label is what a player reads, the id is what the game resolves.

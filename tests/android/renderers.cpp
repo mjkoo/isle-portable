@@ -33,11 +33,25 @@ static bool ParseDeviceName(const std::string& p_id, int& p_driver, GUID& p_guid
 	return true;
 }
 
+static std::string FormatId(const GUID& p_guid)
+{
+	char id[128];
+	Miniwin_FormatDeviceId(p_guid, id, sizeof(id));
+	return id;
+}
+
+static MiniwinDeviceCandidate Candidate(const char* p_name, const GUID& p_guid)
+{
+	MiniwinDeviceCandidate candidate = {p_name, p_guid, {}};
+	Miniwin_FormatDeviceId(p_guid, candidate.m_id, sizeof(candidate.m_id));
+	return candidate;
+}
+
 static void RoundTrips(const GUID& p_guid)
 {
 	int driver = -1;
 	GUID parsed = {};
-	assert(ParseDeviceName(Android_FormatDeviceId(p_guid), driver, parsed));
+	assert(ParseDeviceName(FormatId(p_guid), driver, parsed));
 	// Miniwin reports one DirectDraw driver, and ProcessDeviceBytes only matches a device whose
 	// driver ordinal is the one it was given, so anything but the first driver never matches.
 	assert(driver == 0);
@@ -45,7 +59,7 @@ static void RoundTrips(const GUID& p_guid)
 
 	// The same id, read by the parser that decides what kind of window the game gets. The two
 	// have to agree, or the window is created for a device the game does not then select.
-	assert(Miniwin_DeviceIdNamesGuid(Android_FormatDeviceId(p_guid).c_str(), p_guid));
+	assert(Miniwin_DeviceIdNamesGuid(FormatId(p_guid).c_str(), p_guid));
 }
 
 static std::vector<std::string> Merge(
@@ -63,34 +77,34 @@ int main()
 	RoundTrips(kOther);
 
 	// Distinct devices must not collapse onto one id, or picking one would select the other.
-	assert(Android_FormatDeviceId(kGpu) != Android_FormatDeviceId(kOther));
+	assert(FormatId(kGpu) != FormatId(kOther));
 
-	const std::string gpuId = Android_FormatDeviceId(kGpu);
-	const std::string otherId = Android_FormatDeviceId(kOther);
+	const std::string gpuId = FormatId(kGpu);
+	const std::string otherId = FormatId(kOther);
 
 	// Nothing enumerated: every candidate is offered, in the order it was reported.
-	std::vector<std::string> fromNothing = Merge({}, {{"SDL3 GPU HAL", kGpu}, {"Another HAL", kOther}});
+	std::vector<std::string> fromNothing = Merge({}, {Candidate("SDL3 GPU HAL", kGpu), Candidate("Another HAL", kOther)});
 	assert((fromNothing == std::vector<std::string>{"SDL3 GPU HAL", gpuId, "Another HAL", otherId}));
 
 	// A GL window enumerates the GL device and hides the GPU one, which is the case the list
 	// has to repair, and it must not repeat what the enumeration already reported.
 	std::vector<std::string> fromGl =
-		Merge({"Another HAL", otherId}, {{"SDL3 GPU HAL", kGpu}, {"Another HAL", kOther}});
+		Merge({"Another HAL", otherId}, {Candidate("SDL3 GPU HAL", kGpu), Candidate("Another HAL", kOther)});
 	assert((fromGl == std::vector<std::string>{"Another HAL", otherId, "SDL3 GPU HAL", gpuId}));
 
 	// A GPU window is the mirror image: the GL devices cannot initialize, so they are the ones
 	// missing, and a player has to be able to choose one to get back.
 	std::vector<std::string> fromGpu =
-		Merge({"SDL3 GPU HAL", gpuId}, {{"SDL3 GPU HAL", kGpu}, {"Another HAL", kOther}});
+		Merge({"SDL3 GPU HAL", gpuId}, {Candidate("SDL3 GPU HAL", kGpu), Candidate("Another HAL", kOther)});
 	assert((fromGpu == std::vector<std::string>{"SDL3 GPU HAL", gpuId, "Another HAL", otherId}));
 
 	// The enumeration labels a device from its own description, which may differ from the
 	// candidate's name. Matching on the id keeps that from producing a second row.
-	std::vector<std::string> relabelled = Merge({"Something else", gpuId}, {{"SDL3 GPU HAL", kGpu}});
+	std::vector<std::string> relabelled = Merge({"Something else", gpuId}, {Candidate("SDL3 GPU HAL", kGpu)});
 	assert((relabelled == std::vector<std::string>{"Something else", gpuId}));
 
 	// A candidate reported twice is still one row.
-	std::vector<std::string> repeated = Merge({}, {{"SDL3 GPU HAL", kGpu}, {"SDL3 GPU HAL", kGpu}});
+	std::vector<std::string> repeated = Merge({}, {Candidate("SDL3 GPU HAL", kGpu), Candidate("SDL3 GPU HAL", kGpu)});
 	assert((repeated == std::vector<std::string>{"SDL3 GPU HAL", gpuId}));
 
 	// No candidates at all leaves the enumeration alone.
@@ -98,7 +112,7 @@ int main()
 	assert((untouched == std::vector<std::string>{"Another HAL", otherId}));
 
 	// A nameless candidate still has to be selectable, so it falls back to its id.
-	std::vector<std::string> unnamed = Merge({}, {{nullptr, kGpu}});
+	std::vector<std::string> unnamed = Merge({}, {Candidate(nullptr, kGpu)});
 	assert((unnamed == std::vector<std::string>{gpuId, gpuId}));
 
 	// An id names one device and not another, which is the whole basis for deciding the window

@@ -1,18 +1,10 @@
 #ifndef ANDROID_RENDERERS_H
 #define ANDROID_RENDERERS_H
 
-// clang-format off
-// Order matters: miniwindevice.h uses GUID and IUnknown, which windows.h defines.
-#include "miniwin/windows.h"
 #include "miniwin/miniwindevice.h"
-// clang-format on
 
 #include <string>
 #include <vector>
-
-// The device id the game stores in its configuration file, in the form
-// LegoDeviceEnumerate::FormatDeviceName writes and ParseDeviceName reads.
-std::string Android_FormatDeviceId(const GUID& p_guid);
 
 // Appends the candidates that p_renderers, a flat list of label and id pairs, does not already
 // name. Enumerating devices can only report the ones that suit the window the game is already
