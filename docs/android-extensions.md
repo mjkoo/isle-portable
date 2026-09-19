@@ -24,13 +24,16 @@ offered, so you can pick one before you have created it.
 
 A folder is only listed if its name can be stored in `isle.ini` and read back: no spaces,
 commas, backslashes or `; # = [ ]`, and nothing below such a folder is listed either. If a
-folder you added is missing from the list, rename it.
+folder you added is missing from the list, rename it. Hidden folders are never listed, and the
+list stops at 256 folders, so a deeply nested set of game files can crowd yours out of it.
 
 **Custom textures** looks for `<texture folder>/<name>.bmp` for each texture the game draws.
 The default folder is `/textures`. A pack may hold as many files as you like.
 
 **Custom SI files** loads every `.si` file directly inside the SI folder, in alphabetical
-order. The default folder is `/si`. Files in subfolders are not loaded.
+order. The default folder is `/si`. Files in subfolders are not loaded. The list offers the
+game's own folders too, so choose one of your own: pointing the SI folder at the game's
+`Scripts` folder would load everything the game already loads a second time.
 
 ## Multiplayer
 
