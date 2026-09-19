@@ -818,6 +818,7 @@ HRESULT Direct3DRMSDL3GPURenderer::FinalizeFrame()
 
 void Direct3DRMSDL3GPURenderer::Resize(int width, int height, const ViewportTransform& viewportTransform)
 {
+	m_renderTargetReady = false;
 	m_width = width;
 	m_height = height;
 	m_viewportTransform = viewportTransform;
@@ -853,6 +854,9 @@ void Direct3DRMSDL3GPURenderer::Resize(int width, int height, const ViewportTran
 	}
 
 	// Setup texture GPU-to-CPU transfer
+	if (m_downloadBuffer) {
+		SDL_ReleaseGPUTransferBuffer(m_device, m_downloadBuffer);
+	}
 	SDL_GPUTransferBufferCreateInfo downloadBufferInfo = {};
 	downloadBufferInfo.usage = SDL_GPU_TRANSFERBUFFERUSAGE_DOWNLOAD;
 	downloadBufferInfo.size =
@@ -866,6 +870,8 @@ void Direct3DRMSDL3GPURenderer::Resize(int width, int height, const ViewportTran
 		);
 		return;
 	}
+
+	m_renderTargetReady = true;
 }
 
 void Direct3DRMSDL3GPURenderer::Flip()
@@ -878,8 +884,20 @@ void Direct3DRMSDL3GPURenderer::Flip()
 		m_renderPass = nullptr;
 	}
 
+	// The render target is not the window: Direct3DRMDevice2Impl::Resize sizes it from the
+	// requested content resolution, which on Android is a fraction of the panel. Scale to the
+	// swapchain the way the OpenGL backends scale to the window, or the frame lands in a corner
+	// of it. Take the extent the acquire reports rather than asking the window, so a resize
+	// between the two cannot put the destination outside the texture being written.
 	SDL_GPUTexture* swapchainTexture;
-	if (!SDL_WaitAndAcquireGPUSwapchainTexture(m_cmdbuf, DDWindow, &swapchainTexture, nullptr, nullptr) ||
+	Uint32 swapchainWidth = 0, swapchainHeight = 0;
+	if (!SDL_WaitAndAcquireGPUSwapchainTexture(
+			m_cmdbuf,
+			DDWindow,
+			&swapchainTexture,
+			&swapchainWidth,
+			&swapchainHeight
+		) ||
 		!swapchainTexture) {
 		SDL_Log("SDL_WaitAndAcquireGPUSwapchainTexture: %s", SDL_GetError());
 		return;
@@ -890,8 +908,8 @@ void Direct3DRMSDL3GPURenderer::Flip()
 	blit.source.w = m_width;
 	blit.source.h = m_height;
 	blit.destination.texture = swapchainTexture;
-	blit.destination.w = m_width;
-	blit.destination.h = m_height;
+	blit.destination.w = swapchainWidth;
+	blit.destination.h = swapchainHeight;
 	blit.load_op = SDL_GPU_LOADOP_DONT_CARE;
 	blit.flip_mode = SDL_FLIP_NONE;
 	blit.filter = SDL_GPU_FILTER_NEAREST;
