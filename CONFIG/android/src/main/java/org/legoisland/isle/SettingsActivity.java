@@ -45,6 +45,7 @@ import java.util.concurrent.Executors;
 
 public final class SettingsActivity extends AppCompatActivity {
     private static final String DEFAULT = "@default";
+    private static final String TAG = "IsleActivity";
     private static final String RESOLUTION = "resolution";
     private static final String WIDTH = "isle:horizontal resolution";
     private static final String HEIGHT = "isle:vertical resolution";
@@ -213,9 +214,9 @@ public final class SettingsActivity extends AppCompatActivity {
                             SettingsBridge.read(configPath, new String[] {"isle:diskpath"})[0], storageRoot);
                         foundFolders = ExtensionSettings.folders(root);
                         names = SettingsBridge.actors();
-                    } catch (Throwable e) {
+                    } catch (Exception e) {
                         // The rows still show what the file holds; only the choices are missing.
-                        Log.w("IsleActivity", "Reading the extension choices failed", e);
+                        Log.w(TAG, "Reading the extension choices failed", e);
                     }
                     final String[] readFolders = foundFolders, readNames = names;
                     main.post(() -> {

@@ -385,10 +385,10 @@ bool Android_ValidateSetting(const std::string& p_key, const char* p_value, cons
 		return !p_value || IsIniWord(p_value, 32);
 	}
 	// Kept out of g_graphicsRanges: that table is the Graphics group, and GraphicsSettingsTest reads
-	// it back to prove the two sides agree. The game reads this one with strtol's base detection.
+	// it back to prove the two sides agree. Matched exactly rather than parsed as a number, so the
+	// base detection the game reads it with never gets the chance to make "010" mean something.
 	if (p_key == "isle:lighting model") {
-		return !p_value ||
-			   (IsPlainWholeNumber(p_value) && (std::string(p_value) == "0" || std::string(p_value) == "1"));
+		return !p_value || std::string(p_value) == "0" || std::string(p_value) == "1";
 	}
 	for (const GraphicsRange& range : g_graphicsRanges) {
 		if (p_key == range.m_key) {
