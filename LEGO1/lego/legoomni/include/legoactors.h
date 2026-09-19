@@ -2,6 +2,7 @@
 #define LEGOACTORS_H
 
 #include "decomp.h"
+#include "lego1_export.h"
 #include "mxtypes.h"
 
 class LegoExtraActor;
@@ -72,7 +73,10 @@ enum LegoActorParts {
 	c_legrtPart
 };
 
-extern LegoActorInfo g_actorInfoInit[66];
+// [library:config]
+// Android Settings offers these names as a multiplayer option, so the table is read from outside
+// lego1 and has to cross the shared library boundary.
+LEGO1_EXPORT extern LegoActorInfo g_actorInfoInit[66];
 extern LegoActorLOD g_actorLODs[11];
 
 #endif // LEGOACTORS_H
