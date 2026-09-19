@@ -3,11 +3,11 @@
 #include "extensions/extensions.h"
 #include "legotextureinfo.h"
 
-class LegoTexture;
-
 #include <array>
 #include <map>
 #include <vector>
+
+class LegoTexture;
 
 namespace Extensions
 {
