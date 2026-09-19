@@ -35,8 +35,11 @@ alone are insufficient evidence of that round trip.
 These host tests exercise the native configuration store without Android or SDL. They cover
 unrelated-key preservation, absent defaults, scoped resets, concurrent updates, failed writes,
 malformed files and settings validation. Render-target tests also cover proportional fitting
-to GPU limits, portrait/landscape targets, asymmetric limits and invalid dimensions. A separate
-check ensures HRESULT remains signed and 32-bit so failures are recognized on 64-bit hosts.
+to GPU limits, portrait/landscape targets, asymmetric limits and invalid dimensions, and the
+pixel format a render target is read back through: the byte-array aliases that line up with the
+GPU format names, the sRGB variants alongside their linear ones, and a refusal for anything the
+mapping cannot describe rather than a reinterpretation. A separate check ensures HRESULT remains
+signed and 32-bit so failures are recognized on 64-bit hosts.
 
 After building the desktop project with its fetched iniparser dependency:
 
