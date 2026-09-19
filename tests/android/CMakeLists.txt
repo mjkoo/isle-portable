@@ -67,6 +67,9 @@ add_executable(renderers renderers.cpp ../../ISLE/android/renderers.cpp)
 target_compile_features(renderers PRIVATE cxx_std_17)
 target_compile_options(renderers PRIVATE -Wall -Wextra -Werror -UNDEBUG)
 target_include_directories(renderers PRIVATE ../../ISLE/android ../../miniwin/include "${SDL3_INCLUDE_DIR}")
+# Miniwin's own headers, for the real device GUID and the parse that reads it back. SYSTEM
+# because the renderer headers they drag in are not written to this test's warning settings.
+target_include_directories(renderers SYSTEM PRIVATE ../../miniwin/src/internal)
 add_test(NAME android_renderers COMMAND renderers)
 
 add_executable(gamepadbindings gamepadbindings.cpp)
