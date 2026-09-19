@@ -19,7 +19,9 @@ struct MiniwinDeviceCandidate {
 	GUID m_guid;
 };
 
-// Fills up to maxCount entries and returns how many devices there are, which may exceed maxCount.
+// Fills at most maxCount entries and returns how many it wrote, so a caller needs no arithmetic
+// of its own. Anything that did not fit is logged, since a device missing from a settings screen
+// is a device a player cannot choose.
 int Miniwin_GetDeviceCandidates(MiniwinDeviceCandidate* out, int maxCount);
 
 // deviceId is the configured device id, in the form the game writes it, or NULL for no

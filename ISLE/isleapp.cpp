@@ -1413,6 +1413,13 @@ MxU8 IsleApp::MapMouseButtonFlagsToModifier(SDL_MouseButtonFlags p_flags)
 // FUNCTION: ISLE 0x4023e0
 MxResult IsleApp::SetupWindow()
 {
+#ifdef ANDROID
+	// Ask what could be offered before the window exists, so that any startup failure from here
+	// on - the configuration itself included - still leaves the Settings screen a renderer list
+	// to show.
+	Android_CaptureRenderers(nullptr);
+#endif
+
 	if (!LoadConfig()) {
 		return FAILURE;
 	}
@@ -1461,12 +1468,6 @@ MxResult IsleApp::SetupWindow()
 	m_cursorCurrentBitmap = m_cursorArrowBitmap = &arrow_cursor;
 	m_cursorBusyBitmap = &busy_cursor;
 	m_cursorNoBitmap = &no_cursor;
-
-#ifdef ANDROID
-	// Ask what could be offered before the window exists, so a startup failure between here and
-	// the enumeration below still leaves the Settings screen a renderer list to show.
-	Android_CaptureRenderers(nullptr);
-#endif
 
 	SDL_PropertiesID props = SDL_CreateProperties();
 	SDL_SetNumberProperty(props, SDL_PROP_WINDOW_CREATE_WIDTH_NUMBER, g_targetWidth);

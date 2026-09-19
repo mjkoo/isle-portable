@@ -18,6 +18,7 @@
 #include <sys/stat.h>
 
 static std::string g_settingsPath;
+static std::mutex g_renderersMutex;
 static std::vector<std::string> g_renderers;
 static std::atomic<bool> g_menuRequested{false};
 static std::mutex g_exportMutex;
@@ -83,12 +84,9 @@ void Android_SetSettingsPath(const char* p_path)
 	Android_BeginTouchSettings(g_settingsPath);
 }
 
-// Called once before the window exists, so the startup-error Settings screen has something to
-// offer even when the failure came first, and again with the window, which is the only way to
-// learn what this session's window can actually initialize.
 void Android_CaptureRenderers(SDL_Window* p_window)
 {
-	g_renderers.clear();
+	std::vector<std::string> renderers;
 	if (p_window) {
 		LegoDeviceEnumerate devices;
 		if (devices.DoEnumerate(reinterpret_cast<HWND>(p_window)) == 0) {
@@ -100,8 +98,8 @@ void Android_CaptureRenderers(SDL_Window* p_window)
 				}
 				char id[128];
 				if (device->m_guid && devices.FormatDeviceName(id, driver, device) == 0) {
-					g_renderers.emplace_back(device->m_deviceDesc ? device->m_deviceDesc : id);
-					g_renderers.emplace_back(id);
+					renderers.emplace_back(device->m_deviceDesc ? device->m_deviceDesc : id);
+					renderers.emplace_back(id);
 				}
 			}
 		}
@@ -109,7 +107,10 @@ void Android_CaptureRenderers(SDL_Window* p_window)
 
 	MiniwinDeviceCandidate candidates[16];
 	int count = Miniwin_GetDeviceCandidates(candidates, SDL_arraysize(candidates));
-	Android_AddMissingRenderers(g_renderers, candidates, SDL_min(count, (int) SDL_arraysize(candidates)));
+	Android_AddMissingRenderers(renderers, candidates, count);
+
+	std::lock_guard<std::mutex> lock(g_renderersMutex);
+	g_renderers = std::move(renderers);
 }
 
 void Android_ShowMenuButton()
@@ -263,6 +264,7 @@ extern "C" JNIEXPORT jstring JNICALL Java_org_legoisland_isle_SettingsBridge_pat
 
 extern "C" JNIEXPORT jobjectArray JNICALL Java_org_legoisland_isle_SettingsBridge_renderers(JNIEnv* p_env, jclass)
 {
+	std::lock_guard<std::mutex> lock(g_renderersMutex);
 	return ToJava(p_env, g_renderers);
 }
 

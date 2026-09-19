@@ -11,6 +11,10 @@ bool Android_RestoreBeforeStartup();
 // the game closes rather than resuming.
 bool Android_StartupWorkScheduled();
 void Android_SetSettingsPath(const char* p_path);
+// The renderers a Settings screen may offer. Called once with NULL before the window exists, so
+// that a startup failure still leaves a list to show, and again with the window, which is the
+// only way to learn what this session's window can actually initialize. Each call replaces the
+// list; Settings reads it from the Android UI thread.
 void Android_CaptureRenderers(SDL_Window* p_window);
 void Android_ShowMenuButton();
 void Android_RequestMenu();

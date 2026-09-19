@@ -1,6 +1,7 @@
 #include "d3drmrenderer.h"
 
 #include "deviceid.h"
+#include "miniwin.h"
 #ifdef USE_OPENGL1
 #include "d3drmrenderer_opengl1.h"
 #endif
@@ -41,12 +42,14 @@
 int Miniwin_GetDeviceCandidates(MiniwinDeviceCandidate* out, int maxCount)
 {
 	int count = 0;
+	int total = 0;
 	auto add = [&](const char* name, const GUID& guid) {
+		total++;
 		if (count < maxCount) {
 			out[count].m_name = name;
 			out[count].m_guid = guid;
+			count++;
 		}
-		count++;
 	};
 #ifdef USE_SDL_GPU
 	add("SDL3 GPU HAL", SDL3_GPU_GUID);
@@ -78,6 +81,9 @@ int Miniwin_GetDeviceCandidates(MiniwinDeviceCandidate* out, int maxCount)
 #ifdef USE_GXM
 	add("GXM HAL", GXM_GUID);
 #endif
+	if (total > count) {
+		SDL_LogWarn(LOG_CATEGORY_MINIWIN, "%d of %d devices did not fit and cannot be offered", total - count, total);
+	}
 	return count;
 }
 
