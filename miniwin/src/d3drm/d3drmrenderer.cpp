@@ -1,4 +1,6 @@
 #include "d3drmrenderer.h"
+
+#include "deviceid.h"
 #ifdef USE_OPENGL1
 #include "d3drmrenderer_opengl1.h"
 #endif
@@ -36,13 +38,13 @@
 // This is the compile-time list, not a probe: nothing here asks whether a device would start,
 // because the enumeration settles that once the window exists, and probing costs every player a
 // device creation for a list only a settings screen reads.
-int Miniwin_GetDeviceCandidates(MiniwinDeviceCandidate* p_out, int p_max)
+int Miniwin_GetDeviceCandidates(MiniwinDeviceCandidate* out, int maxCount)
 {
 	int count = 0;
 	auto add = [&](const char* name, const GUID& guid) {
-		if (count < p_max) {
-			p_out[count].m_name = name;
-			p_out[count].m_guid = guid;
+		if (count < maxCount) {
+			out[count].m_name = name;
+			out[count].m_guid = guid;
 		}
 		count++;
 	};
@@ -79,28 +81,7 @@ int Miniwin_GetDeviceCandidates(MiniwinDeviceCandidate* p_out, int p_max)
 	return count;
 }
 
-#if defined(USE_SDL_GPU) && defined(SDL_PLATFORM_ANDROID)
-// The configured id is "<driver> 0x<w> 0x<x> 0x<y> 0x<z>", the four words being the device
-// GUID, as LegoDeviceEnumerate writes and reads it. It comes straight from the configuration
-// file and nothing has validated it, so anything that does not parse means no preference.
-static bool DeviceIdNamesSDL3GPU(const char* p_deviceId)
-{
-	if (!p_deviceId) {
-		return false;
-	}
-	int driver = -1;
-	unsigned int words[4];
-	if (SDL_sscanf(p_deviceId, "%d 0x%x 0x%x 0x%x 0x%x", &driver, &words[0], &words[1], &words[2], &words[3]) != 5) {
-		return false;
-	}
-	GUID guid;
-	static_assert(sizeof(words) == sizeof(guid), "Equal size");
-	SDL_memcpy(&guid, words, sizeof(guid));
-	return SDL_memcmp(&guid, &SDL3_GPU_GUID, sizeof(GUID)) == 0;
-}
-#endif
-
-void Miniwin_SetupWindowCreateProperties(SDL_PropertiesID props, const char* p_deviceId)
+void Miniwin_SetupWindowCreateProperties(SDL_PropertiesID props, const char* deviceId)
 {
 #if defined(USE_SDL_GPU) && defined(SDL_PLATFORM_ANDROID)
 	// [library:3d]
@@ -111,11 +92,11 @@ void Miniwin_SetupWindowCreateProperties(SDL_PropertiesID props, const char* p_d
 	// and everyone else keeps the OpenGL window the OpenGL backends need. Asking whether a GPU
 	// device exists at all matters here: without one, dropping the flag would leave no
 	// hardware device advertised at all.
-	if (DeviceIdNamesSDL3GPU(p_deviceId) && Direct3DRMSDL3GPU_IsAvailable()) {
+	if (Miniwin_DeviceIdNamesGuid(deviceId, SDL3_GPU_GUID) && Direct3DRMSDL3GPU_IsAvailable()) {
 		return;
 	}
 #else
-	(void) p_deviceId;
+	(void) deviceId;
 #endif
 
 #if (defined(USE_OPENGL1) || defined(USE_OPENGLES2) || defined(USE_OPENGLES3)) && !defined(__3DS__) &&                 \

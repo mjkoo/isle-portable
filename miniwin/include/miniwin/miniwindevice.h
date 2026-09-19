@@ -19,13 +19,13 @@ struct MiniwinDeviceCandidate {
 	GUID m_guid;
 };
 
-// Fills up to p_max entries and returns how many devices there are, which may exceed p_max.
-int Miniwin_GetDeviceCandidates(MiniwinDeviceCandidate* p_out, int p_max);
+// Fills up to maxCount entries and returns how many devices there are, which may exceed maxCount.
+int Miniwin_GetDeviceCandidates(MiniwinDeviceCandidate* out, int maxCount);
 
-// p_deviceId is the configured device id, in the form the game writes it, or NULL for no
+// deviceId is the configured device id, in the form the game writes it, or NULL for no
 // preference. The window has to be created for the device that will render into it, because
 // on Android a window created for OpenGL cannot be handed to the GPU backend afterwards.
-void Miniwin_SetupWindowCreateProperties(SDL_PropertiesID props, const char* p_deviceId);
+void Miniwin_SetupWindowCreateProperties(SDL_PropertiesID props, const char* deviceId);
 
 // Requested content size; the render target also includes the window's letterboxing.
 #define MINIWIN_PROP_RENDER_WIDTH "miniwin.render.width"
