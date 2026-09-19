@@ -13,6 +13,8 @@
 #include <process.h> // _spawnl
 #endif
 
+#include "inifile.h"
+
 #include <QApplication>
 #include <QCommandLineParser>
 #include <QMessageBox>
@@ -364,6 +366,26 @@ void CConfigApp::WriteRegisterSettings() const
 
 {
 	char buffer[128];
+
+	// Keep what this tool does not own. The same isle.ini holds the gamepad bindings, the touch
+	// layout, the extension settings and whatever a player has added by hand, and rebuilding the
+	// file from the keys below would delete all of it. Only the keys this dialog edits are set.
+	dictionary* dict = iniparser_load(m_iniPath.c_str());
+	if (!dict) {
+		if (SDL_GetPathInfo(m_iniPath.c_str(), nullptr)) {
+			// It exists and will not parse. Writing now would replace settings that are still
+			// there to be repaired, so say so and leave the file alone.
+			QMessageBox::warning(
+				nullptr,
+				"Failed to save ini",
+				QString::fromStdString(m_iniPath) + " could not be read, so it has not been changed."
+			);
+			return;
+		}
+		// Nothing there yet: the first run writes a fresh configuration.
+		dict = dictionary_new(0);
+	}
+
 #define SetIniBool(DICT, NAME, VALUE) iniparser_set(DICT, NAME, VALUE ? "true" : "false")
 #define SetIniInt(DICT, NAME, VALUE)                                                                                   \
 	do {                                                                                                               \
@@ -373,7 +395,6 @@ void CConfigApp::WriteRegisterSettings() const
 
 	m_device_enumerator->FormatDeviceName(buffer, m_driver, m_device);
 
-	dictionary* dict = dictionary_new(0);
 	iniparser_set(dict, "isle", NULL);
 	iniparser_set(dict, "extensions", NULL);
 	iniparser_set(dict, "texture loader", NULL);
@@ -432,16 +453,14 @@ void CConfigApp::WriteRegisterSettings() const
 #undef SetIniBool
 #undef SetIniInt
 
-	FILE* iniFP = fopen(m_iniPath.c_str(), "wb");
-	if (iniFP) {
-		iniparser_dump_ini(dict, iniFP);
+	std::string error = IniFile::Save(m_iniPath, dict);
+	iniparser_freedict(dict);
+	if (error.empty()) {
 		qInfo() << "New config written at" << QString::fromStdString(m_iniPath);
-		fclose(iniFP);
 	}
 	else {
-		QMessageBox::warning(nullptr, "Failed to save ini", "Failed to save ini");
+		QMessageBox::warning(nullptr, "Failed to save ini", QString::fromStdString(error));
 	}
-	iniparser_freedict(dict);
 }
 
 // FUNCTION: CONFIG 0x00403a90
