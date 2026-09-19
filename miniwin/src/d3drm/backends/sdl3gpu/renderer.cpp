@@ -5,6 +5,7 @@
 #include "mathutils.h"
 #include "meshutils.h"
 #include "miniwin.h"
+#include "rendertarget.h"
 
 #include <SDL3/SDL.h>
 #include <cassert>
@@ -823,13 +824,26 @@ void Direct3DRMSDL3GPURenderer::Resize(int width, int height, const ViewportTran
 	m_height = height;
 	m_viewportTransform = viewportTransform;
 
+	// Settle the readback format here rather than in Download, which has already issued and
+	// waited on the transfer by the time it could check, against a buffer sized for four bytes
+	// a pixel. An unreadable target is a target that is not ready.
+	SDL_GPUTextureFormat swapchainFormat = SDL_GetGPUSwapchainTextureFormat(m_device, DDWindow);
+	m_downloadFormat = PixelFormatForRenderTarget(swapchainFormat);
+	if (m_downloadFormat == SDL_PIXELFORMAT_UNKNOWN) {
+		SDL_LogError(
+			LOG_CATEGORY_MINIWIN,
+			"Cannot read back a render target in format %d",
+			static_cast<int>(swapchainFormat)
+		);
+		return;
+	}
+
 	if (m_transferTexture) {
 		SDL_ReleaseGPUTexture(m_device, m_transferTexture);
 	}
-	m_transferTextureFormat = SDL_GetGPUSwapchainTextureFormat(m_device, DDWindow);
 	SDL_GPUTextureCreateInfo textureInfo = {};
 	textureInfo.type = SDL_GPU_TEXTURETYPE_2D;
-	textureInfo.format = m_transferTextureFormat;
+	textureInfo.format = swapchainFormat;
 	textureInfo.usage = SDL_GPU_TEXTUREUSAGE_COLOR_TARGET | SDL_GPU_TEXTUREUSAGE_SAMPLER;
 	textureInfo.width = m_width;
 	textureInfo.height = m_height;
@@ -866,7 +880,7 @@ void Direct3DRMSDL3GPURenderer::Resize(int width, int height, const ViewportTran
 	if (!m_downloadBuffer) {
 		SDL_LogError(
 			LOG_CATEGORY_MINIWIN,
-			"SDL_CreateGPUTransferBuffer filed for download buffer (%s)",
+			"SDL_CreateGPUTransferBuffer failed for download buffer (%s)",
 			SDL_GetError()
 		);
 		return;
@@ -998,23 +1012,6 @@ void Direct3DRMSDL3GPURenderer::SetDither(bool dither)
 {
 }
 
-// The render target carries the swapchain's format, which is the driver's choice: Metal and
-// D3D12 hand out BGRA, and Vulkan hands out RGBA wherever it cannot get BGRA, which includes
-// Android. Reading every one of them back as BGRA would swap red and blue on those drivers.
-static SDL_PixelFormat PixelFormatForRenderTarget(SDL_GPUTextureFormat format)
-{
-	switch (format) {
-	case SDL_GPU_TEXTUREFORMAT_B8G8R8A8_UNORM:
-	case SDL_GPU_TEXTUREFORMAT_B8G8R8A8_UNORM_SRGB:
-		return SDL_PIXELFORMAT_BGRX32;
-	case SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM:
-	case SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM_SRGB:
-		return SDL_PIXELFORMAT_XBGR32;
-	default:
-		return SDL_PIXELFORMAT_UNKNOWN;
-	}
-}
-
 void Direct3DRMSDL3GPURenderer::Download(SDL_Surface* target)
 {
 	if (!m_cmdbuf) {
@@ -1056,22 +1053,12 @@ void Direct3DRMSDL3GPURenderer::Download(SDL_Surface* target)
 	}
 	SDL_ReleaseGPUFence(m_device, fence);
 
-	SDL_PixelFormat pixelFormat = PixelFormatForRenderTarget(m_transferTextureFormat);
-	if (pixelFormat == SDL_PIXELFORMAT_UNKNOWN) {
-		SDL_LogError(
-			LOG_CATEGORY_MINIWIN,
-			"Cannot read back a render target in format %d",
-			static_cast<int>(m_transferTextureFormat)
-		);
-		return;
-	}
-
 	void* downloadedData = SDL_MapGPUTransferBuffer(m_device, m_downloadBuffer, false);
 	if (!downloadedData) {
 		return;
 	}
 
-	SDL_Surface* renderedImage = SDL_CreateSurfaceFrom(width, height, pixelFormat, downloadedData, width * 4);
+	SDL_Surface* renderedImage = SDL_CreateSurfaceFrom(width, height, m_downloadFormat, downloadedData, width * 4);
 
 	SDL_BlitSurfaceScaled(renderedImage, nullptr, target, nullptr, SDL_SCALEMODE_NEAREST);
 	SDL_DestroySurface(renderedImage);

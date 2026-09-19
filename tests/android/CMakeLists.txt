@@ -22,7 +22,7 @@ add_test(NAME android_save_snapshot COMMAND savesnapshot)
 add_executable(rendertarget rendertarget.cpp)
 target_compile_features(rendertarget PRIVATE cxx_std_17)
 target_compile_options(rendertarget PRIVATE -Wall -Wextra -Werror -UNDEBUG)
-target_include_directories(rendertarget PRIVATE ../../miniwin/src/internal)
+target_include_directories(rendertarget PRIVATE ../../miniwin/src/internal "${SDL3_INCLUDE_DIR}")
 add_test(NAME android_render_target_limits COMMAND rendertarget)
 
 add_executable(hresult hresult.cpp)

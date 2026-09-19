@@ -35,4 +35,24 @@ int main()
 	assert(FitRenderTarget(0, 480, 2048, 2048).width == 0);
 	assert(FitRenderTarget(640, 480, 0, 2048).height == 0);
 	assert(FitRenderTarget(640, 480, 2048, -1).height == 0);
+
+	// A render target is read back through the pixel format that describes its own bytes. The
+	// byte-array aliases are the only spelling that lines up with the GPU format names, and a
+	// mismatch here swaps channels in every screen transition rather than failing outright.
+	assert(PixelFormatForRenderTarget(SDL_GPU_TEXTUREFORMAT_B8G8R8A8_UNORM) == SDL_PIXELFORMAT_BGRX32);
+	assert(PixelFormatForRenderTarget(SDL_GPU_TEXTUREFORMAT_B8G8R8A8_UNORM_SRGB) == SDL_PIXELFORMAT_BGRX32);
+	assert(PixelFormatForRenderTarget(SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM) == SDL_PIXELFORMAT_RGBX32);
+	assert(PixelFormatForRenderTarget(SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM_SRGB) == SDL_PIXELFORMAT_RGBX32);
+
+	// Anything this cannot describe must say so rather than be reinterpreted.
+	assert(PixelFormatForRenderTarget(SDL_GPU_TEXTUREFORMAT_R16G16B16A16_FLOAT) == SDL_PIXELFORMAT_UNKNOWN);
+	assert(PixelFormatForRenderTarget(SDL_GPU_TEXTUREFORMAT_INVALID) == SDL_PIXELFORMAT_UNKNOWN);
+
+	// Spelled out once in packed form, so the byte order is written down somewhere that does not
+	// depend on reading the alias names correctly. A packed name lists its channels from the most
+	// significant bit down, which on a little-endian machine is the reverse of memory order.
+#if SDL_BYTEORDER == SDL_LIL_ENDIAN
+	static_assert(SDL_PIXELFORMAT_BGRX32 == SDL_PIXELFORMAT_XRGB8888, "BGRA in memory");
+	static_assert(SDL_PIXELFORMAT_RGBX32 == SDL_PIXELFORMAT_XBGR8888, "RGBA in memory");
+#endif
 }
