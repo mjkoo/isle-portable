@@ -61,9 +61,28 @@ bool TextureLoaderExt::PatchTexture(LegoTextureInfo* p_textureInfo, LegoTexture*
 	memset(&desc, 0, sizeof(desc));
 	desc.dwSize = sizeof(desc);
 
-	if (p_textureInfo->m_surface->Lock(nullptr, &desc, DDLOCK_SURFACEMEMORYPTR | DDLOCK_WRITEONLY, nullptr) != DD_OK) {
+	// LegoTextureInfo::Create reads a false return as "the extension did nothing" and then builds a
+	// surface and a palette of its own straight over these fields, releasing neither, so everything
+	// taken here has to be handed back before giving up. Releasing the palette is not enough on its
+	// own: SetPalette gives the surface a second reference to it, so the surface has to go too.
+	auto fail = [&](bool p_locked) {
+		if (p_locked) {
+			p_textureInfo->m_surface->Unlock(desc.lpSurface);
+		}
+		if (p_textureInfo->m_palette) {
+			p_textureInfo->m_palette->Release();
+			p_textureInfo->m_palette = nullptr;
+		}
+		if (p_textureInfo->m_surface) {
+			p_textureInfo->m_surface->Release();
+			p_textureInfo->m_surface = nullptr;
+		}
 		SDL_DestroySurface(surface);
 		return false;
+	};
+
+	if (p_textureInfo->m_surface->Lock(nullptr, &desc, DDLOCK_SURFACEMEMORYPTR | DDLOCK_WRITEONLY, nullptr) != DD_OK) {
+		return fail(false);
 	}
 
 	MxU8* dst = (MxU8*) desc.lpSurface;
@@ -80,9 +99,7 @@ bool TextureLoaderExt::PatchTexture(LegoTextureInfo* p_textureInfo, LegoTexture*
 		sdlPalette = p_texture->GetImage()->GetPalette();
 	}
 	if (!sdlPalette) {
-		p_textureInfo->m_surface->Unlock(desc.lpSurface);
-		SDL_DestroySurface(surface);
-		return false;
+		return fail(true);
 	}
 
 	PALETTEENTRY entries[256];
@@ -101,9 +118,7 @@ bool TextureLoaderExt::PatchTexture(LegoTextureInfo* p_textureInfo, LegoTexture*
 
 	LPDIRECTDRAWPALETTE ddPalette = nullptr;
 	if (pDirectDraw->CreatePalette(DDPCAPS_8BIT | DDPCAPS_ALLOW256, entries, &ddPalette, nullptr) != DD_OK) {
-		p_textureInfo->m_surface->Unlock(desc.lpSurface);
-		SDL_DestroySurface(surface);
-		return false;
+		return fail(true);
 	}
 
 	if (details->bits_per_pixel == 8) {
@@ -116,12 +131,7 @@ bool TextureLoaderExt::PatchTexture(LegoTextureInfo* p_textureInfo, LegoTexture*
 
 	if (((TglImpl::RendererImpl*) VideoManager()->GetRenderer())
 			->CreateTextureFromSurface(p_textureInfo->m_surface, &p_textureInfo->m_texture) != D3DRM_OK) {
-		// LegoTextureInfo::Create carries on and makes a palette of its own over this one, so hand
-		// the reference back rather than leaving it for an assignment that never releases it.
-		p_textureInfo->m_palette->Release();
-		p_textureInfo->m_palette = nullptr;
-		SDL_DestroySurface(surface);
-		return false;
+		return fail(false);
 	}
 
 	p_textureInfo->m_texture->SetAppData((LPD3DRM_APPDATA) p_textureInfo);
