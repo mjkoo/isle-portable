@@ -367,6 +367,30 @@ void CConfigApp::WriteRegisterSettings() const
 {
 	char buffer[128];
 
+	// iniparser reads a line back through a 1024 byte buffer and fails the whole load when one is
+	// longer, so a path that will not fit costs every other setting in the file. Refuse it here,
+	// while the file on disk is still the good one.
+	const struct {
+		const char* m_key;
+		const std::string& m_value;
+	} texts[] = {
+		{"isle:diskpath", m_base_path},
+		{"isle:cdpath", m_cd_path},
+		{"isle:savepath", m_save_path},
+		{"texture loader:texture path", m_texture_path},
+		{"si loader:files", m_custom_asset_path},
+	};
+	for (const auto& text : texts) {
+		if (!IniFile::FitsOnOneLine(text.m_key, text.m_value.c_str())) {
+			QMessageBox::warning(
+				nullptr,
+				"Failed to save ini",
+				QString("The value for \"%1\" is too long for the configuration file.").arg(text.m_key)
+			);
+			return;
+		}
+	}
+
 	// Keep what this tool does not own. The same isle.ini holds the gamepad bindings, the touch
 	// layout, the extension settings and whatever a player has added by hand, and rebuilding the
 	// file from the keys below would delete all of it. Only the keys this dialog edits are set.
