@@ -32,7 +32,11 @@ int Miniwin_GetDeviceCandidates(MiniwinDeviceCandidate* out, int maxCount);
 // deviceId is the configured device id, in the form the game writes it, or NULL for no
 // preference. The window has to be created for the device that will render into it, because
 // on Android a window created for OpenGL cannot be handed to the GPU backend afterwards.
-void Miniwin_SetupWindowCreateProperties(SDL_PropertiesID props, const char* deviceId);
+//
+// Returns the name of the device the window was built specifically for, or NULL when the window
+// suits whatever the enumeration finds. A caller that has to explain a startup failure asks this
+// rather than reading the decision back off the window, so there is one answer and not two.
+const char* Miniwin_SetupWindowCreateProperties(SDL_PropertiesID props, const char* deviceId);
 
 // Requested content size; the render target also includes the window's letterboxing.
 #define MINIWIN_PROP_RENDER_WIDTH "miniwin.render.width"

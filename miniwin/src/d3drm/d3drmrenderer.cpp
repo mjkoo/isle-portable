@@ -33,6 +33,12 @@
 #include "d3drmrenderer_glide.h"
 #endif
 
+#ifdef USE_SDL_GPU
+// Named because the window setup below has to return it as well, and the two must agree: the
+// startup failure a player reads names the renderer the way its Settings row does.
+static const char kSdl3GpuName[] = "SDL3 GPU HAL";
+#endif
+
 // The names must match the ones the matching *_EnumDevice passes to EnumDevice, so that a
 // device offered before the window exists is labelled the way the enumeration labels it.
 //
@@ -53,7 +59,7 @@ int Miniwin_GetDeviceCandidates(MiniwinDeviceCandidate* out, int maxCount)
 		}
 	};
 #ifdef USE_SDL_GPU
-	add("SDL3 GPU HAL", SDL3_GPU_GUID);
+	add(kSdl3GpuName, SDL3_GPU_GUID);
 #endif
 #ifdef USE_OPENGLES3
 	add("OpenGL ES 3.0 HAL", OpenGLES3_GUID);
@@ -88,7 +94,7 @@ int Miniwin_GetDeviceCandidates(MiniwinDeviceCandidate* out, int maxCount)
 	return count;
 }
 
-void Miniwin_SetupWindowCreateProperties(SDL_PropertiesID props, const char* deviceId)
+const char* Miniwin_SetupWindowCreateProperties(SDL_PropertiesID props, const char* deviceId)
 {
 #if defined(USE_SDL_GPU) && defined(SDL_PLATFORM_ANDROID)
 	// [library:3d]
@@ -98,7 +104,7 @@ void Miniwin_SetupWindowCreateProperties(SDL_PropertiesID props, const char* dev
 	// a GPU device exists at all matters here: without one, dropping the flag would leave no
 	// hardware device advertised at all.
 	if (Miniwin_DeviceIdNamesGuid(deviceId, SDL3_GPU_GUID) && Direct3DRMSDL3GPU_IsAvailable()) {
-		return;
+		return kSdl3GpuName;
 	}
 #else
 	(void) deviceId;
@@ -110,6 +116,8 @@ void Miniwin_SetupWindowCreateProperties(SDL_PropertiesID props, const char* dev
 	SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
 	SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
 #endif
+
+	return nullptr;
 }
 
 Direct3DRMRenderer* CreateDirect3DRMRenderer(

@@ -1481,7 +1481,9 @@ MxResult IsleApp::SetupWindow()
 	SDL_SetBooleanProperty(props, SDL_PROP_WINDOW_CREATE_RESIZABLE_BOOLEAN, true);
 #endif
 #ifdef MINIWIN
-	Miniwin_SetupWindowCreateProperties(props, m_deviceId);
+	// The device the window is being built specifically for, if any. Only a startup failure
+	// reads it back, so a build whose platform never makes that choice sets it and stops there.
+	[[maybe_unused]] const char* exclusiveDevice = Miniwin_SetupWindowCreateProperties(props, m_deviceId);
 #endif
 
 	window = SDL_CreateWindowWithProperties(props);
@@ -1558,7 +1560,7 @@ MxResult IsleApp::SetupWindow()
 
 	if (!SetupLegoOmni()) {
 #ifdef ANDROID
-		// A window created for the GPU backend has no way back within this launch.
+		// A window built for one device has no way back within this launch.
 		// LegoVideoManager::Create falls back to the best device only when the configured id
 		// does not resolve; a device that resolves and then fails to create ends the startup.
 		// The startup dialog's Settings button is the way out, so say which setting to change
@@ -1566,15 +1568,16 @@ MxResult IsleApp::SetupWindow()
 		//
 		// SetupLegoOmni fails for sound, media and allocation reasons too, none of which set
 		// this message, so claim only what is certain: the game did not start with the renderer
-		// that was chosen. Name it the way the Settings row names it, since "Vulkan" appears
-		// nowhere a player can see.
-		if (!(SDL_GetWindowFlags(window) & SDL_WINDOW_OPENGL) && g_startupError[0] == '\0') {
-			SDL_strlcpy(
+		// that was chosen. Miniwin supplies the name so it reads the way the Settings row does,
+		// since "Vulkan" appears nowhere a player can see.
+		if (exclusiveDevice && g_startupError[0] == '\0') {
+			SDL_snprintf(
 				g_startupError,
-				"\"LEGO® Island\" did not start with the SDL3 GPU HAL renderer.\n"
+				sizeof(g_startupError),
+				"\"LEGO® Island\" did not start with the %s renderer.\n"
 				"Choose a different one under Display > Renderer, or Game default.\n"
 				"The log says what failed.",
-				sizeof(g_startupError)
+				exclusiveDevice
 			);
 			SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "%s", g_startupError);
 		}
