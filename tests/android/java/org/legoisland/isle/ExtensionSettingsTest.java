@@ -126,7 +126,8 @@ public final class ExtensionSettingsTest {
         write(root, "textures/brick.bmp");
         write(root, "mods/MYMOD.SI");
         write(root, "notes.txt");
-        // Names the native validator refuses, and the staging a game file import leaves behind.
+        // Names the native validator refuses, what a game file import leaves behind, and the work
+        // directories a game files swap leaves in flight.
         write(root, "my textures/brick.bmp");
         write(root, "my textures/nested/brick.bmp");
         write(root, "a,b/brick.bmp");
@@ -135,6 +136,8 @@ public final class ExtensionSettingsTest {
         write(root, new String(new char[255]).replace('\0', 'a') + "/brick.bmp");
         write(root, "imported-1/LEGO/Scripts/ISLE.SI");
         write(root, "LEGO.unreadable.1/Scripts/ISLE.SI");
+        write(root, ".isle-staging-1/LEGO/Scripts/ISLE.SI");
+        write(root, ".isle-replaced-1/LEGO/data/WORLD.WDB");
 
         List<String> folders = Arrays.asList(ExtensionSettings.folders(root));
         assert folders.contains("/LEGO") : folders;
@@ -158,6 +161,11 @@ public final class ExtensionSettingsTest {
         // What an import leaves behind is game files, never a pack.
         assert !folders.contains("/imported-1") : folders;
         assert !folders.contains("/LEGO.unreadable.1") : folders;
+        // Nor is a swap's work directory, which is gone again once the swap or the next launch
+        // finishes with it. Hidden names cover all three of the prefixes gamefiles.cpp uses.
+        for (String path : folders) {
+            assert !path.startsWith("/.isle-") : path;
+        }
         // Both defaults are always offered, so either row can go back to its own before the folder
         // it names exists.
         String[] defaults = {ExtensionSettings.DEFAULT_TEXTURE_PATH, ExtensionSettings.DEFAULT_SI_PATH};

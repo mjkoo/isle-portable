@@ -184,8 +184,11 @@ final class ExtensionSettings {
                 continue;
             }
             String name = child.getName();
-            // What a game file import leaves behind is never a texture or an SI pack.
-            if (name.startsWith(GameFileCopier.IMPORTED_PREFIX)
+            // What a game file import or a game files swap leaves behind is never a texture or an
+            // SI pack; the swap's work directories in ISLE/android/gamefiles.cpp are all hidden
+            // names, and a hidden folder is not one a user means to offer either.
+            if (name.startsWith(".")
+                    || name.startsWith(GameFileCopier.IMPORTED_PREFIX)
                     || name.contains(GameFileCopier.UNREADABLE_MARKER)) {
                 continue;
             }

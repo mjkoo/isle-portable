@@ -312,9 +312,10 @@ appears there, that extension keys survive Reset these settings while the two Di
 not, and that the typed relay, room and folder rules match on both sides, lengths included,
 which the native side measures in bytes. It also checks the folder enumeration: both extension
 defaults are always offered, a name the native validator would refuse is skipped along with
-everything below it, so is the staging a game file import leaves behind, every path that is
-offered passes the same rule, and the cap holds inside a single directory rather than only on
-the way down. Run it from the repository root:
+everything below it, so are what a game file import leaves behind and the hidden work
+directories a game files swap leaves in flight, every path that is offered passes the same
+rule, and the cap holds inside a single directory rather than only on the way down. Run it
+from the repository root:
 
 ```sh
 mkdir -p build/android-extensions-java
