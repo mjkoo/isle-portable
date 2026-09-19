@@ -228,10 +228,10 @@ static bool ParseNumber(const char* p_value, double& p_number)
 
 // The extension keys and rules below mirror ExtensionSettings.java; keep them in step.
 
-// An extension path names a file or folder inside the game files. ResolveGamePath concatenates the
-// game data root with the value and inserts no separator, so the value has to start with its own
-// slash, and "/.." would reach outside the game files. The si loader splits its list on whitespace
-// as well as commas, so a path holding either could never be read back whole.
+// An extension path names a folder inside the game files. ResolveGamePath concatenates the game
+// data root with the value and inserts no separator, so the value has to start with its own slash,
+// and "/.." would reach outside the game files. The si loader splits its own file list on
+// whitespace as well as commas, so a path holding either could never be read back whole.
 static bool IsGamePath(const std::string& p_path)
 {
 	if (p_path.size() < 2 || p_path.size() > 255 || p_path[0] != '/') {
@@ -246,27 +246,6 @@ static bool IsGamePath(const std::string& p_path)
 		}
 	}
 	return true;
-}
-
-// The si loader reads its files as one comma-separated list. The bounds are sanity limits: the game
-// has 26 scripts of its own, so a list far past that is a mistake rather than a mod.
-static bool IsGamePathList(const std::string& p_value)
-{
-	if (p_value.size() > 2048) {
-		return false;
-	}
-	size_t start = 0, count = 0;
-	for (;;) {
-		size_t comma = p_value.find(',', start);
-		size_t length = comma == std::string::npos ? std::string::npos : comma - start;
-		if (!IsGamePath(p_value.substr(start, length)) || ++count > 32) {
-			return false;
-		}
-		if (comma == std::string::npos) {
-			return true;
-		}
-		start = comma + 1;
-	}
 }
 
 // The multiplayer transports speak WebSocket, so anything else would fail at connect time.
@@ -362,8 +341,10 @@ bool Android_ValidateSetting(const std::string& p_key, const char* p_value, cons
 	if (p_key == "texture loader:texture path") {
 		return !p_value || IsGamePath(p_value);
 	}
-	if (p_key == "si loader:files") {
-		return !p_value || IsGamePathList(p_value);
+	// The si loader's own file list is deliberately absent, as its directives are: both are edited
+	// elsewhere, and this being a whitelist is what stops Settings from ever rewriting them.
+	if (p_key == "si loader:si path") {
+		return !p_value || IsGamePath(p_value);
 	}
 	if (p_key == "multiplayer:relay url") {
 		return !p_value || IsRelayUrl(p_value);

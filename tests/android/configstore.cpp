@@ -183,7 +183,7 @@ int main()
 		{"extensions:multiplayer", {"true", "false"}},
 		{"isle:wide view angle", {"true", "false"}},
 		{"texture loader:texture path", {"/textures", "/LEGO/mytextures", "/a"}},
-		{"si loader:files", {"/LEGO/Scripts/MOD.SI", "/LEGO/Scripts/A.SI,/LEGO/Scripts/B.SI", "/a,/b,/c,/d"}},
+		{"si loader:si path", {"/si", "/LEGO/mymods", "/a"}},
 		{"multiplayer:relay url", {"ws://host", "wss://host.example:8080/path", "ws://1"}},
 		{"multiplayer:room", {"lobby", "room-1", "A"}},
 		{"multiplayer:actor", {"pepper", "Pepper", "brickstr"}},
@@ -204,13 +204,7 @@ int main()
 		// backslash, a comma and whitespace would each break the path or the list it sits in.
 		{"texture loader:texture path",
 		 {"textures", "/", "/LEGO/../etc", "/LEGO\\textures", "/my textures", "/a,b", "/a\tb"}},
-		{"si loader:files",
-		 {"LEGO/Scripts/MOD.SI",
-		  "/LEGO/Scripts/MOD.SI,",
-		  ",/LEGO/Scripts/MOD.SI",
-		  "/LEGO/Scripts/MOD.SI,,/LEGO/Scripts/B.SI",
-		  "/LEGO/Scripts/MY MOD.SI",
-		  "/LEGO/../MOD.SI"}},
+		{"si loader:si path", {"mymods", "/", "/LEGO/../mods", "/LEGO\\mods", "/my mods", "/a,b"}},
 		{"multiplayer:relay url", {"http://host", "https://host", "host", "ws://", "wss://", "ws:// host", "ws://ho st"}
 		},
 		{"multiplayer:room", {"my room", "room;1", "room#1", "room=1", "room,1", "[room]", "rööm"}},
@@ -222,20 +216,16 @@ int main()
 			assert(!Android_ValidateSetting(key, value, {}));
 		}
 	}
-	// Bounds: 255 characters for one path, 32 entries and 2048 characters for the list.
+	// Bounds: 255 characters for one path.
 	assert(Android_ValidateSetting("texture loader:texture path", ("/" + std::string(254, 'a')).c_str(), {}));
 	assert(!Android_ValidateSetting("texture loader:texture path", ("/" + std::string(255, 'a')).c_str(), {}));
-	std::string entries, overLong;
-	for (int i = 0; i < 32; i++) {
-		entries += (i ? ",/a" : "/a");
-	}
-	assert(Android_ValidateSetting("si loader:files", entries.c_str(), {}));
-	assert(!Android_ValidateSetting("si loader:files", (entries + ",/a").c_str(), {}));
-	for (int i = 0; i < 20; i++) {
-		overLong += (i ? "," : "") + ("/" + std::string(120, 'a'));
-	}
-	assert(!Android_ValidateSetting("si loader:files", overLong.c_str(), {}));
-	// Directives stay hand-edited, so Settings must never accept and rewrite them.
+	assert(Android_ValidateSetting("si loader:si path", ("/" + std::string(254, 'a')).c_str(), {}));
+	assert(!Android_ValidateSetting("si loader:si path", ("/" + std::string(255, 'a')).c_str(), {}));
+	// The file list and the directives are both edited elsewhere, so Settings must never accept and
+	// rewrite either: the list would not fit one line of the file, and the directives have no values
+	// to offer.
+	assert(!Android_ValidateSetting("si loader:files", "/LEGO/Scripts/MOD.SI", {}));
+	assert(!Android_ValidateSetting("si loader:files", nullptr, {}));
 	assert(!Android_ValidateSetting("si loader:directives", "StartWith:isle.si:1:isle.si:2", {}));
 	assert(!Android_ValidateSetting("si loader:directives", nullptr, {}));
 	assert(!Android_ValidateSetting("extensions:unknown", "true", {}));
@@ -334,11 +324,14 @@ int main()
 
 	// Extension options live in a section named after the extension, which a config may not have yet,
 	// and turning one on must not disturb the rest of the file.
-	std::ofstream(path) << "[isle]\nmusic=true\n[si loader]\ndirectives=StartWith:isle.si:1:isle.si:2\n";
+	std::ofstream(path) << "[isle]\nmusic=true\n[si loader]\nfiles=/LEGO/Scripts/MOD.SI\n"
+						   "directives=StartWith:isle.si:1:isle.si:2\n";
 	assert(Android_UpdateConfig(
 			   path,
 			   {{"extensions:texture loader", "true"},
 				{"texture loader:texture path", "/mytextures"},
+				{"extensions:si loader", "true"},
+				{"si loader:si path", "/mymods"},
 				{"extensions:multiplayer", "true"},
 				{"multiplayer:relay url", "wss://relay.example"},
 				{"multiplayer:room", "lobby"}}
@@ -346,14 +339,22 @@ int main()
 	assert(Read(path).find("[texture loader]") != std::string::npos);
 	assert(Read(path).find("[multiplayer]") != std::string::npos);
 	values.clear();
+	// The folder this screen writes lands beside the list and the directives it does not, and
+	// neither of those is disturbed.
 	assert(Android_ReadConfig(
 			   path,
-			   {"isle:music", "si loader:directives", "texture loader:texture path", "multiplayer:room"},
+			   {"isle:music",
+				"si loader:directives",
+				"si loader:files",
+				"si loader:si path",
+				"texture loader:texture path",
+				"multiplayer:room"},
 			   values
 	)
 			   .empty());
 	assert(values[0].second == "true" && values[1].second == "StartWith:isle.si:1:isle.si:2");
-	assert(values[2].second == "/mytextures" && values[3].second == "lobby");
+	assert(values[2].second == "/LEGO/Scripts/MOD.SI" && values[3].second == "/mymods");
+	assert(values[4].second == "/mytextures" && values[5].second == "lobby");
 	// Later updates reuse the sections rather than adding more.
 	assert(Android_UpdateConfig(path, {{"texture loader:texture path", "/other"}}).empty());
 	assert(Read(path).find("[texture loader]") == Read(path).rfind("[texture loader]"));

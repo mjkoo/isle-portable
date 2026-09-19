@@ -269,11 +269,6 @@ extern "C" JNIEXPORT jobjectArray JNICALL Java_org_legoisland_isle_SettingsBridg
 	return ToJava(p_env, names);
 }
 
-extern "C" JNIEXPORT jobjectArray JNICALL Java_org_legoisland_isle_SettingsBridge_stockGameFiles(JNIEnv* p_env, jclass)
-{
-	return ToJava(p_env, Android_StockGameFiles());
-}
-
 extern "C" JNIEXPORT jobjectArray JNICALL
 Java_org_legoisland_isle_SettingsBridge_read(JNIEnv* p_env, jclass, jstring p_path, jobjectArray p_keys)
 {

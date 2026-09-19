@@ -6,10 +6,9 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
+import java.util.TreeSet;
 
 public final class ExtensionSettingsTest {
     private static File temp() throws Exception {
@@ -44,12 +43,15 @@ public final class ExtensionSettingsTest {
             assert store.contains("\"" + key + "\"") : key;
             assert !ExtensionSettings.isExtensionKey(key) : key;
         }
-        // Directives stay hand-edited: the screen never lists them, so reset must not claim them
-        // either, and the validator must keep rejecting them.
-        assert !Arrays.asList(ExtensionSettings.KEYS).contains("si loader:directives");
-        assert !store.contains("\"si loader:directives\"");
-        // ...though the section is still ours, so a reset of the group would reach it.
-        assert ExtensionSettings.isExtensionKey("si loader:directives");
+        // The file list and the directives are edited in the desktop tool or by hand: the screen
+        // never lists them, so reset must not claim them either, and the validator must keep
+        // rejecting them so a save can never rewrite one.
+        for (String key : new String[] {"si loader:files", "si loader:directives"}) {
+            assert !Arrays.asList(ExtensionSettings.KEYS).contains(key) : key;
+            assert !store.contains("\"" + key + "\"") : key;
+            // ...though the section is still ours, so a reset of the group would reach it.
+            assert ExtensionSettings.isExtensionKey(key) : key;
+        }
         assert !ExtensionSettings.isExtensionKey("isle:music");
         assert !ExtensionSettings.isExtensionKey("gamepad:start");
 
@@ -69,29 +71,6 @@ public final class ExtensionSettingsTest {
         assert !ExtensionSettings.multiplayerIncomplete(draft);
         draft.put(ExtensionSettings.MULTIPLAYER, "false");
         assert !ExtensionSettings.multiplayerIncomplete(draft);
-
-        // The stored list is written in the order the rows are offered, so the same selection always
-        // produces the same line whatever order the picker returns it in.
-        String[] offered = {"/LEGO/Scripts/A.SI", "/LEGO/Scripts/B.SI", "/LEGO/Scripts/C.SI"};
-        Set<String> picked = new LinkedHashSet<>(Arrays.asList("/LEGO/Scripts/C.SI", "/LEGO/Scripts/A.SI"));
-        assert ExtensionSettings.joinFiles(picked, offered).equals("/LEGO/Scripts/A.SI,/LEGO/Scripts/C.SI");
-        assert ExtensionSettings.joinFiles(new LinkedHashSet<>(), offered) == null;
-        // A hand-edited entry the picker never offered is kept, after the ones it did.
-        picked.add("/LEGO/Scripts/ZZ.SI");
-        assert ExtensionSettings.joinFiles(picked, offered)
-                .equals("/LEGO/Scripts/A.SI,/LEGO/Scripts/C.SI,/LEGO/Scripts/ZZ.SI");
-        assert ExtensionSettings.joinFiles(picked, new String[0])
-                .equals("/LEGO/Scripts/A.SI,/LEGO/Scripts/C.SI,/LEGO/Scripts/ZZ.SI");
-
-        assert ExtensionSettings.splitFiles(null).isEmpty();
-        assert ExtensionSettings.splitFiles("").isEmpty();
-        assert ExtensionSettings.splitFiles("/a").equals(new LinkedHashSet<>(Arrays.asList("/a")));
-        assert ExtensionSettings.splitFiles("/a,/b").equals(new LinkedHashSet<>(Arrays.asList("/a", "/b")));
-        assert ExtensionSettings.splitFiles(" /a , /b ").equals(new LinkedHashSet<>(Arrays.asList("/a", "/b")));
-        assert ExtensionSettings.splitFiles("/a,,/b").equals(new LinkedHashSet<>(Arrays.asList("/a", "/b")));
-        // A list round trips through the picker unchanged.
-        String stored = "/LEGO/Scripts/A.SI,/LEGO/Scripts/C.SI";
-        assert ExtensionSettings.joinFiles(ExtensionSettings.splitFiles(stored), offered).equals(stored);
 
         // Typed text is checked here before the native validator sees it, so the two must agree on
         // what they accept; the native test asserts the same cases from the other side.
@@ -118,13 +97,14 @@ public final class ExtensionSettingsTest {
         assert !ExtensionSettings.isIniWord(long64.append('a').toString(), 64);
         assert !ExtensionSettings.isIniWord("aaa", 2);
 
-        // Enumeration. Paths are game-relative with their own leading slash, as the extensions read them.
+        // Enumeration. Paths are game-relative with their own leading slash, as the extensions read
+        // them, and both rows pick from the same list of folders.
         File root = temp();
         write(root, "LEGO/Scripts/CREDITS.SI");
-        write(root, "LEGO/Scripts/MYMOD.SI");
-        write(root, "LEGO/Scripts/Isle/lower.si");
+        write(root, "LEGO/Scripts/Isle/ISLE.SI");
         write(root, "LEGO/data/WORLD.WDB");
         write(root, "textures/brick.bmp");
+        write(root, "mods/MYMOD.SI");
         write(root, "notes.txt");
 
         List<String> folders = Arrays.asList(ExtensionSettings.folders(root));
@@ -132,35 +112,35 @@ public final class ExtensionSettingsTest {
         assert folders.contains("/LEGO/Scripts") : folders;
         assert folders.contains("/LEGO/Scripts/Isle") : folders;
         assert folders.contains("/textures") : folders;
+        assert folders.contains("/mods") : folders;
+        // Files are not folders, whatever they are named.
         assert !folders.contains("/notes.txt") : folders;
-        // The default folder is always offered, so the row can go back to it.
-        assert folders.contains(ExtensionSettings.DEFAULT_TEXTURE_PATH);
+        assert !folders.contains("/mods/MYMOD.SI") : folders;
+        // Both defaults are always offered, so either row can go back to its own before the folder
+        // it names exists.
+        String[] defaults = {ExtensionSettings.DEFAULT_TEXTURE_PATH, ExtensionSettings.DEFAULT_SI_PATH};
+        for (String path : defaults) {
+            assert folders.contains(path) : path;
+        }
         File empty = temp();
-        assert Arrays.equals(ExtensionSettings.folders(empty), new String[] {ExtensionSettings.DEFAULT_TEXTURE_PATH});
-        assert Arrays.equals(
-                ExtensionSettings.folders(new File(empty, "missing")),
-                new String[] {ExtensionSettings.DEFAULT_TEXTURE_PATH});
-
-        // Only the .si files the game does not ship, matched without regard to case as the game's
-        // own lookup does.
-        String[] stock = {"/LEGO/Scripts/CREDITS.SI", "/LEGO/data/WORLD.WDB"};
-        List<String> si = Arrays.asList(ExtensionSettings.siFiles(root, stock));
-        assert si.contains("/LEGO/Scripts/MYMOD.SI") : si;
-        assert si.contains("/LEGO/Scripts/Isle/lower.si") : si;
-        assert !si.contains("/LEGO/Scripts/CREDITS.SI") : si;
-        assert !si.contains("/LEGO/data/WORLD.WDB") : si;
-        assert !si.contains("/notes.txt") : si;
-        assert si.size() == 2 : si;
-        assert ExtensionSettings.siFiles(root, new String[] {"/lego/scripts/credits.si"}).length == 2;
-        assert ExtensionSettings.siFiles(empty, stock).length == 0;
+        assert new TreeSet<>(Arrays.asList(ExtensionSettings.folders(empty)))
+                .equals(new TreeSet<>(Arrays.asList(defaults)));
+        assert new TreeSet<>(Arrays.asList(ExtensionSettings.folders(new File(empty, "missing"))))
+                .equals(new TreeSet<>(Arrays.asList(defaults)));
 
         // Every offered path is one the validator accepts: rooted, no "..", no backslash, no comma
-        // and no whitespace, since the si loader splits its list on all of those.
-        for (String path : ExtensionSettings.siFiles(root, stock)) {
-            assert path.startsWith("/") && !path.contains("..") && !path.matches(".*[\\s,\\\\].*") : path;
-        }
+        // and no whitespace.
         for (String path : ExtensionSettings.folders(root)) {
             assert path.startsWith("/") && !path.contains("..") && !path.matches(".*[\\s,\\\\].*") : path;
         }
+
+        // One directory can hold more entries than the list is allowed to offer, so the cap has to
+        // hold inside a single level and not only on the way down.
+        File wide = temp();
+        for (int i = 0; i < ExtensionSettings.MAX_FOLDERS + 50; i++) {
+            write(wide, String.format("dir%03d/placeholder", i));
+        }
+        assert ExtensionSettings.folders(wide).length <= ExtensionSettings.MAX_FOLDERS
+                : ExtensionSettings.folders(wide).length;
     }
 }

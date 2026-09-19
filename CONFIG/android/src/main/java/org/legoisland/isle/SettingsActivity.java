@@ -27,7 +27,6 @@ import androidx.lifecycle.ViewModel;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.preference.EditTextPreference;
 import androidx.preference.ListPreference;
-import androidx.preference.MultiSelectListPreference;
 import androidx.preference.Preference;
 import androidx.preference.PreferenceCategory;
 import androidx.preference.PreferenceDataStore;
@@ -41,7 +40,6 @@ import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -55,8 +53,8 @@ public final class SettingsActivity extends AppCompatActivity {
     /** Whether the game can open the editor: only when Settings was opened over a running game. */
     static final String EXTRA_TOUCH_LAYOUT_EDITOR = "touchLayoutEditor";
 
-    /** How a row is edited: a choice, a typed number or word, or several choices at once. */
-    private enum Kind { LIST, NUMBER, TEXT, MULTI }
+    /** How a row is edited: a choice, or a typed number or word. */
+    private enum Kind { LIST, NUMBER, TEXT }
 
     /** Whether typed text is worth keeping, checked again by the native validator on save. */
     private interface Check {
@@ -131,8 +129,8 @@ public final class SettingsActivity extends AppCompatActivity {
             new String[0], new String[0]));
         controls.add(new Control("Extensions", ExtensionSettings.SI_LOADER, "Custom SI files",
             BOOL_LABELS, BOOL_VALUES));
-        controls.add(new Control("Extensions", ExtensionSettings.SI_FILES, "SI files to load",
-            new String[0], new String[0], Kind.MULTI, null, null, 0, null));
+        controls.add(new Control("Extensions", ExtensionSettings.SI_PATH, "SI folder",
+            new String[0], new String[0]));
         controls.add(new Control("Extensions", ExtensionSettings.THIRD_PERSON_CAMERA, "Third person camera",
             BOOL_LABELS, BOOL_VALUES));
         controls.add(new Control("Extensions", ExtensionSettings.MULTIPLAYER, "Multiplayer",
@@ -180,7 +178,6 @@ public final class SettingsActivity extends AppCompatActivity {
         String[] renderers = new String[0];
         // What the extension rows offer, read from the game files rather than listed here.
         String[] folders = new String[0];
-        String[] siFiles = new String[0];
         String[] actors = new String[0];
         String error;
         String configPath;
@@ -210,21 +207,19 @@ public final class SettingsActivity extends AppCompatActivity {
                     // What the extension rows offer. diskpath is deliberately read on its own and kept
                     // out of the draft: Reset these settings clears every key in there, and a cleared
                     // diskpath is a write the validator refuses, which would fail the whole save.
-                    String[] foundFolders = new String[0], foundFiles = new String[0], names = new String[0];
+                    String[] foundFolders = new String[0], names = new String[0];
                     try {
                         File root = GameFilesPolicy.location(
                             SettingsBridge.read(configPath, new String[] {"isle:diskpath"})[0], storageRoot);
                         foundFolders = ExtensionSettings.folders(root);
-                        foundFiles = ExtensionSettings.siFiles(root, SettingsBridge.stockGameFiles());
                         names = SettingsBridge.actors();
                     } catch (Throwable e) {
                         // The rows still show what the file holds; only the choices are missing.
                         Log.w("IsleActivity", "Reading the extension choices failed", e);
                     }
-                    final String[] readFolders = foundFolders, readFiles = foundFiles, readNames = names;
+                    final String[] readFolders = foundFolders, readNames = names;
                     main.post(() -> {
                         folders = readFolders;
-                        siFiles = readFiles;
                         actors = readNames;
                         for (int i = 0; i < values.length; i++) {
                             String key = keys.get(i);
@@ -662,16 +657,6 @@ public final class SettingsActivity extends AppCompatActivity {
                     // Multiplayer only reaches anyone with both a relay and a room.
                     if (ExtensionSettings.isExtensionKey(key)) model.main.post(() -> { if (isAdded()) refresh(); });
                 }
-                // A multi-select row stores one comma-separated line, as the si loader reads it. The
-                // base implementations ignore sets, so without these the row would silently do nothing.
-                @Override public Set<String> getStringSet(String key, Set<String> fallback) {
-                    return ExtensionSettings.splitFiles(model.draft.get(key));
-                }
-                @Override public void putStringSet(String key, Set<String> values) {
-                    if (updating) return;
-                    model.draft.put(key, ExtensionSettings.joinFiles(values, model.siFiles));
-                    model.main.post(() -> { if (isAdded()) refresh(); });
-                }
             });
             buildPreferences();
             model.state.observe(this, ignored -> refresh());
@@ -778,23 +763,6 @@ public final class SettingsActivity extends AppCompatActivity {
                     });
                     edit.setSummaryProvider(p -> DEFAULT.equals(edit.getText()) ? "Game default" : edit.getText());
                     preference = edit;
-                } else if (control.kind == Kind.MULTI) {
-                    MultiSelectListPreference multi = new MultiSelectListPreference(requireContext()) {
-                        @Override public void setEntries(CharSequence[] entries) {
-                            super.setEntries(entries);
-                            notifyChanged();
-                        }
-                    };
-                    multi.setDialogTitle(control.title);
-                    multi.setSummaryProvider(p -> {
-                        Set<String> chosen = ExtensionSettings.splitFiles(model.draft.get(control.key));
-                        if (chosen.isEmpty()) {
-                            return model.siFiles.length == 0
-                                ? "None. Add .si files to the game files to choose them here." : "None";
-                        }
-                        return String.join(", ", chosen);
-                    });
-                    preference = multi;
                 } else {
                     // Redraw when the entries change: a controller row's default label follows Confirm button.
                     ListPreference list = new ListPreference(requireContext()) {
@@ -809,9 +777,7 @@ public final class SettingsActivity extends AppCompatActivity {
                 preference.setIconSpaceReserved(false);
                 preference.setKey(control.key);
                 preference.setTitle(control.title);
-                // A multi-select row reads its initial value as a set and would throw on this sentinel;
-                // it has no "Game default" entry either, since choosing nothing is the default.
-                if (control.kind != Kind.MULTI) preference.setDefaultValue(DEFAULT);
+                preference.setDefaultValue(DEFAULT);
                 updating = true;
                 category.addPreference(preference);
                 updating = false;
@@ -906,17 +872,6 @@ public final class SettingsActivity extends AppCompatActivity {
                 String current = getPreferenceManager().getPreferenceDataStore().getString(control.key, DEFAULT);
                 if (control.kind == Kind.NUMBER || control.kind == Kind.TEXT) {
                     ((EditTextPreference) preference).setText(current);
-                } else if (control.kind == Kind.MULTI) {
-                    MultiSelectListPreference multi = (MultiSelectListPreference) preference;
-                    // Anything the file already names stays selectable even when the file is gone, so
-                    // opening Settings never silently drops it.
-                    ArrayList<String> files = new ArrayList<>(Arrays.asList(model.siFiles));
-                    for (String chosen : ExtensionSettings.splitFiles(model.draft.get(control.key))) {
-                        if (!files.contains(chosen)) files.add(chosen);
-                    }
-                    multi.setEntries(files.toArray(new String[0]));
-                    multi.setEntryValues(files.toArray(new String[0]));
-                    multi.setValues(ExtensionSettings.splitFiles(model.draft.get(control.key)));
                 } else {
                     ListPreference list = (ListPreference) preference;
                     String fallback = ControllerBindings.isControllerKey(control.key)
@@ -929,7 +884,8 @@ public final class SettingsActivity extends AppCompatActivity {
                             labels.add(model.renderers[i]);
                             values.add(model.renderers[i + 1]);
                         }
-                    } else if (ExtensionSettings.TEXTURE_PATH.equals(control.key)) {
+                    } else if (ExtensionSettings.TEXTURE_PATH.equals(control.key)
+                        || ExtensionSettings.SI_PATH.equals(control.key)) {
                         labels.addAll(Arrays.asList(model.folders));
                         values.addAll(Arrays.asList(model.folders));
                     } else if (ExtensionSettings.ACTOR.equals(control.key)) {

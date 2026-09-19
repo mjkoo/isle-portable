@@ -1,12 +1,6 @@
 package org.legoisland.isle;
 
 import java.io.File;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
@@ -17,9 +11,10 @@ import java.util.TreeSet;
  * can be tested without a device.
  *
  * <p>An extension is enabled by a boolean under [extensions] and reads its options from a section
- * named after it, so "extensions:si loader" turns the si loader on and "si loader:files" tells it
- * what to load. The game hands an extension every key in its section, so options this screen does
- * not offer stay where a hand edit left them.
+ * named after it, so "extensions:si loader" turns the si loader on and "si loader:si path" tells it
+ * where to look. The game hands an extension every key in its section, so options this screen does
+ * not offer, including the "si loader:files" list the desktop tool writes, stay where they were
+ * left.
  */
 final class ExtensionSettings {
     static final String TEXTURE_LOADER = "extensions:texture loader";
@@ -28,19 +23,20 @@ final class ExtensionSettings {
     static final String MULTIPLAYER = "extensions:multiplayer";
 
     static final String TEXTURE_PATH = "texture loader:texture path";
-    static final String SI_FILES = "si loader:files";
+    static final String SI_PATH = "si loader:si path";
     static final String RELAY_URL = "multiplayer:relay url";
     static final String ROOM = "multiplayer:room";
     static final String ACTOR = "multiplayer:actor";
 
-    /** The folder the texture loader reads when no other is set. */
+    /** The folders the extensions read when no others are set. */
     static final String DEFAULT_TEXTURE_PATH = "/textures";
+    static final String DEFAULT_SI_PATH = "/si";
 
     /** The sections Settings owns. A key in one of them is an extension setting. */
     private static final String[] SECTIONS = {"extensions:", "texture loader:", "si loader:", "multiplayer:"};
 
     static final String[] KEYS = {
-        TEXTURE_LOADER, TEXTURE_PATH, SI_LOADER, SI_FILES,
+        TEXTURE_LOADER, TEXTURE_PATH, SI_LOADER, SI_PATH,
         THIRD_PERSON_CAMERA, MULTIPLAYER, RELAY_URL, ROOM, ACTOR
     };
 
@@ -49,8 +45,8 @@ final class ExtensionSettings {
             "Without both, the game starts but never joins anyone.";
     static final String FORCED_THIRD_PERSON = "Multiplayer turns this on whatever it is set to here.";
 
-    /** As many entries as the validator accepts, and the same cap on what the pickers offer. */
-    static final int MAX_FILES = 32;
+    /** A sanity limit on the picker, so an unexpected tree cannot fill the list forever. */
+    static final int MAX_FOLDERS = 256;
 
     static final String RELAY_HINT =
             "Enter the relay server's WebSocket address, such as wss://relay.example, or leave blank for none.";
@@ -115,64 +111,20 @@ final class ExtensionSettings {
     }
 
     /**
-     * The si loader reads one comma-separated list. Entries are written in the order they are
-     * offered so the same selection always produces the same line; anything else the file already
-     * held keeps its own order after them.
-     */
-    static String joinFiles(Collection<String> selected, String[] offered) {
-        Set<String> remaining = new LinkedHashSet<>(selected);
-        List<String> ordered = new ArrayList<>();
-        for (String file : offered) {
-            if (remaining.remove(file)) {
-                ordered.add(file);
-            }
-        }
-        ordered.addAll(new TreeSet<>(remaining));
-        return ordered.isEmpty() ? null : String.join(",", ordered);
-    }
-
-    /** The files named by a stored list, keeping their order. */
-    static Set<String> splitFiles(String value) {
-        Set<String> files = new LinkedHashSet<>();
-        if (value == null) {
-            return files;
-        }
-        for (String entry : value.split(",", -1)) {
-            String file = entry.trim();
-            if (!file.isEmpty()) {
-                files.add(file);
-            }
-        }
-        return files;
-    }
-
-    /**
      * The folders inside the game files, as the extensions name them: a path from the game data
-     * root, starting with its own slash. The default texture folder is always offered, whether or
-     * not it is there yet, so the row can return to it.
+     * root, starting with its own slash. Both extension defaults are always offered, whether or not
+     * they are there yet, so either row can return to its own without the folder existing first.
      */
     static String[] folders(File root) {
         Set<String> found = new TreeSet<>();
         found.add(DEFAULT_TEXTURE_PATH);
-        collect(root, "", found, true, null, 0);
+        found.add(DEFAULT_SI_PATH);
+        collect(root, "", found, 0);
         return found.toArray(new String[0]);
     }
 
-    /**
-     * The .si files inside the game files that the game does not ship, which is what the si loader
-     * is for: a stock script is already loaded, and replacing one is not what this row does.
-     */
-    static String[] siFiles(File root, String[] stock) {
-        Set<String> skip = new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
-        skip.addAll(Arrays.asList(stock));
-        Set<String> found = new TreeSet<>();
-        collect(root, "", found, false, skip, 0);
-        return found.toArray(new String[0]);
-    }
-
-    private static void collect(File dir, String prefix, Set<String> found, boolean wantDirs, Set<String> skip,
-            int depth) {
-        if (depth >= GameFileCopier.MAX_DEPTH || found.size() > MAX_FILES * 4) {
+    private static void collect(File dir, String prefix, Set<String> found, int depth) {
+        if (depth >= GameFileCopier.MAX_DEPTH) {
             return;
         }
         File[] children = dir.listFiles();
@@ -180,15 +132,15 @@ final class ExtensionSettings {
             return;
         }
         for (File child : children) {
-            String path = prefix + "/" + child.getName();
-            if (child.isDirectory()) {
-                if (wantDirs) {
-                    found.add(path);
-                }
-                collect(child, path, found, wantDirs, skip, depth + 1);
+            // Checked here rather than on the way in: one directory can hold more entries on its
+            // own than the whole list is allowed to offer.
+            if (found.size() >= MAX_FOLDERS) {
+                return;
             }
-            else if (!wantDirs && child.getName().toLowerCase(Locale.ROOT).endsWith(".si") && !skip.contains(path)) {
+            if (child.isDirectory()) {
+                String path = prefix + "/" + child.getName();
                 found.add(path);
+                collect(child, path, found, depth + 1);
             }
         }
     }
