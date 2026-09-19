@@ -1474,7 +1474,7 @@ MxResult IsleApp::SetupWindow()
 	SDL_SetBooleanProperty(props, SDL_PROP_WINDOW_CREATE_RESIZABLE_BOOLEAN, true);
 #endif
 #ifdef MINIWIN
-	Miniwin_SetupWindowCreateProperties(props);
+	Miniwin_SetupWindowCreateProperties(props, m_deviceId);
 #endif
 
 	window = SDL_CreateWindowWithProperties(props);

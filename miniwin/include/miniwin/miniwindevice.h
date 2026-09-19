@@ -10,7 +10,22 @@ struct IDirect3DRMMiniwinDevice : virtual public IUnknown {
 	virtual bool ConvertRenderToWindowCoordinates(Sint32 inX, Sint32 inY, Sint32& outX, Sint32& outY) = 0;
 };
 
-void Miniwin_SetupWindowCreateProperties(SDL_PropertiesID props);
+// A device this build could render with, given a window created for it. Enumerating devices
+// needs the window that is being chosen for, so this answers the question the other way round:
+// what a settings screen may offer before anything exists. The name matches the one the
+// enumeration reports for the same device.
+struct MiniwinDeviceCandidate {
+	const char* m_name;
+	GUID m_guid;
+};
+
+// Fills up to p_max entries and returns how many devices there are, which may exceed p_max.
+int Miniwin_GetDeviceCandidates(MiniwinDeviceCandidate* p_out, int p_max);
+
+// p_deviceId is the configured device id, in the form the game writes it, or NULL for no
+// preference. The window has to be created for the device that will render into it, because
+// on Android a window created for OpenGL cannot be handed to the GPU backend afterwards.
+void Miniwin_SetupWindowCreateProperties(SDL_PropertiesID props, const char* p_deviceId);
 
 // Requested content size; the render target also includes the window's letterboxing.
 #define MINIWIN_PROP_RENDER_WIDTH "miniwin.render.width"

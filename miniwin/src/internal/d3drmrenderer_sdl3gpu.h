@@ -119,6 +119,27 @@ private:
 	SDL_GPUFence* m_uploadFence = nullptr;
 };
 
+// Creating a device is the only portable way to ask whether this build can reach a GPU backend
+// at all, and it is not free, so ask once. It does not answer whether that device will accept
+// the window: only SDL_ClaimWindowForGPUDevice does, and that needs the window to exist.
+inline static bool Direct3DRMSDL3GPU_IsAvailable()
+{
+	static int available = -1;
+	if (available < 0) {
+		SDL_GPUDevice* device = SDL_CreateGPUDevice(
+			SDL_GPU_SHADERFORMAT_SPIRV | SDL_GPU_SHADERFORMAT_DXBC | SDL_GPU_SHADERFORMAT_DXIL |
+				SDL_GPU_SHADERFORMAT_MSL,
+			false,
+			nullptr
+		);
+		available = device ? 1 : 0;
+		if (device) {
+			SDL_DestroyGPUDevice(device);
+		}
+	}
+	return available > 0;
+}
+
 inline static void Direct3DRMSDL3GPU_EnumDevice(LPD3DENUMDEVICESCALLBACK cb, void* ctx)
 {
 #ifdef SDL_PLATFORM_ANDROID
@@ -133,15 +154,9 @@ inline static void Direct3DRMSDL3GPU_EnumDevice(LPD3DENUMDEVICESCALLBACK cb, voi
 	}
 #endif
 
-	SDL_GPUDevice* device = SDL_CreateGPUDevice(
-		SDL_GPU_SHADERFORMAT_SPIRV | SDL_GPU_SHADERFORMAT_DXBC | SDL_GPU_SHADERFORMAT_DXIL | SDL_GPU_SHADERFORMAT_MSL,
-		false,
-		nullptr
-	);
-	if (!device) {
+	if (!Direct3DRMSDL3GPU_IsAvailable()) {
 		return;
 	}
-	SDL_DestroyGPUDevice(device);
 
 	D3DDEVICEDESC halDesc = {};
 	halDesc.dcmColorModel = D3DCOLOR_RGB;
