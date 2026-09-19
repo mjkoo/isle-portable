@@ -119,25 +119,37 @@ private:
 	SDL_GPUFence* m_uploadFence = nullptr;
 };
 
-// Creating a device is the only portable way to ask whether this build can reach a GPU backend
-// at all, and it is not free, so ask once. It does not answer whether that device will accept
-// the window: only SDL_ClaimWindowForGPUDevice does, and that needs the window to exist.
+// Whether this build can get a GPU device at all. It does not answer whether that device will
+// accept the window: only SDL_ClaimWindowForGPUDevice does, and that needs the window to exist.
+//
+// SDL_GPUSupportsShaderFormats is cheaper, but it asks whether a backend can be prepared, while
+// what has to be predicted here is whether Create will get a device - so ask exactly what Create
+// asks, debug flag included, or a debug build can answer yes to a question release answers no to.
+//
+// Creating a device is not free, so a yes is remembered. A no is not: the first ask can now come
+// before any window exists, and caching a failure there would hide the backend for the rest of
+// the session. `inline static` gives one cache per translation unit; d3drmrenderer.cpp is the
+// only caller.
 inline static bool Direct3DRMSDL3GPU_IsAvailable()
 {
-	static int available = -1;
-	if (available < 0) {
+	static bool available = false;
+	if (!available) {
 		SDL_GPUDevice* device = SDL_CreateGPUDevice(
 			SDL_GPU_SHADERFORMAT_SPIRV | SDL_GPU_SHADERFORMAT_DXBC | SDL_GPU_SHADERFORMAT_DXIL |
 				SDL_GPU_SHADERFORMAT_MSL,
+#ifdef DEBUG
+			true,
+#else
 			false,
+#endif
 			nullptr
 		);
-		available = device ? 1 : 0;
 		if (device) {
+			available = true;
 			SDL_DestroyGPUDevice(device);
 		}
 	}
-	return available > 0;
+	return available;
 }
 
 inline static void Direct3DRMSDL3GPU_EnumDevice(LPD3DENUMDEVICESCALLBACK cb, void* ctx)

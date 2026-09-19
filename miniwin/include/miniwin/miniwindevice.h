@@ -10,10 +10,10 @@ struct IDirect3DRMMiniwinDevice : virtual public IUnknown {
 	virtual bool ConvertRenderToWindowCoordinates(Sint32 inX, Sint32 inY, Sint32& outX, Sint32& outY) = 0;
 };
 
-// A device this build could render with, given a window created for it. Enumerating devices
-// needs the window that is being chosen for, so this answers the question the other way round:
-// what a settings screen may offer before anything exists. The name matches the one the
-// enumeration reports for the same device.
+// A device this build compiled in. Enumerating devices needs the window that is being chosen
+// for, so this answers the question the other way round: what a settings screen may offer before
+// any window exists. Whether a given one will start is settled by the enumeration, once there is
+// a window. The name matches the one the enumeration reports for the same device.
 struct MiniwinDeviceCandidate {
 	const char* m_name;
 	GUID m_guid;

@@ -32,6 +32,10 @@
 
 // The names must match the ones the matching *_EnumDevice passes to EnumDevice, so that a
 // device offered before the window exists is labelled the way the enumeration labels it.
+//
+// This is the compile-time list, not a probe: nothing here asks whether a device would start,
+// because the enumeration settles that once the window exists, and probing costs every player a
+// device creation for a list only a settings screen reads.
 int Miniwin_GetDeviceCandidates(MiniwinDeviceCandidate* p_out, int p_max)
 {
 	int count = 0;
@@ -43,9 +47,7 @@ int Miniwin_GetDeviceCandidates(MiniwinDeviceCandidate* p_out, int p_max)
 		count++;
 	};
 #ifdef USE_SDL_GPU
-	if (Direct3DRMSDL3GPU_IsAvailable()) {
-		add("SDL3 GPU HAL", SDL3_GPU_GUID);
-	}
+	add("SDL3 GPU HAL", SDL3_GPU_GUID);
 #endif
 #ifdef USE_OPENGLES3
 	add("OpenGL ES 3.0 HAL", OpenGLES3_GUID);
