@@ -5,6 +5,7 @@
 #include "gamefiles.h"
 #include "legoactors.h"
 #include "mxdirectx/legodxinfo.h"
+#include "renderers.h"
 #include "saverestore.h"
 #include "savesnapshot.h"
 
@@ -82,25 +83,33 @@ void Android_SetSettingsPath(const char* p_path)
 	Android_BeginTouchSettings(g_settingsPath);
 }
 
+// Called once before the window exists, so the startup-error Settings screen has something to
+// offer even when the failure came first, and again with the window, which is the only way to
+// learn what this session's window can actually initialize.
 void Android_CaptureRenderers(SDL_Window* p_window)
 {
 	g_renderers.clear();
-	LegoDeviceEnumerate devices;
-	if (devices.DoEnumerate(reinterpret_cast<HWND>(p_window)) != 0) {
-		return;
-	}
-	for (int index = 0;; index++) {
-		MxDriver* driver;
-		Direct3DDeviceInfo* device;
-		if (devices.GetDevice(index, driver, device) != 0) {
-			break;
+	if (p_window) {
+		LegoDeviceEnumerate devices;
+		if (devices.DoEnumerate(reinterpret_cast<HWND>(p_window)) == 0) {
+			for (int index = 0;; index++) {
+				MxDriver* driver;
+				Direct3DDeviceInfo* device;
+				if (devices.GetDevice(index, driver, device) != 0) {
+					break;
+				}
+				char id[128];
+				if (device->m_guid && devices.FormatDeviceName(id, driver, device) == 0) {
+					g_renderers.emplace_back(device->m_deviceDesc ? device->m_deviceDesc : id);
+					g_renderers.emplace_back(id);
+				}
+			}
 		}
-		char id[128];
-		if (device->m_guid && devices.FormatDeviceName(id, driver, device) == 0) {
-			g_renderers.emplace_back(device->m_deviceDesc ? device->m_deviceDesc : id);
-			g_renderers.emplace_back(id);
-		}
 	}
+
+	MiniwinDeviceCandidate candidates[16];
+	int count = Miniwin_GetDeviceCandidates(candidates, SDL_arraysize(candidates));
+	Android_AddMissingRenderers(g_renderers, candidates, SDL_min(count, (int) SDL_arraysize(candidates)));
 }
 
 void Android_ShowMenuButton()

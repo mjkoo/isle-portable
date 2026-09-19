@@ -1462,6 +1462,12 @@ MxResult IsleApp::SetupWindow()
 	m_cursorBusyBitmap = &busy_cursor;
 	m_cursorNoBitmap = &no_cursor;
 
+#ifdef ANDROID
+	// Ask what could be offered before the window exists, so a startup failure between here and
+	// the enumeration below still leaves the Settings screen a renderer list to show.
+	Android_CaptureRenderers(nullptr);
+#endif
+
 	SDL_PropertiesID props = SDL_CreateProperties();
 	SDL_SetNumberProperty(props, SDL_PROP_WINDOW_CREATE_WIDTH_NUMBER, g_targetWidth);
 	SDL_SetNumberProperty(props, SDL_PROP_WINDOW_CREATE_HEIGHT_NUMBER, g_targetHeight);

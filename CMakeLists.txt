@@ -858,6 +858,7 @@ if (ISLE_BUILD_APP)
             ISLE/android/gamefiles.cpp
             ISLE/android/filepicker.cpp
             ISLE/android/quitprompt.cpp
+            ISLE/android/renderers.cpp
     )
   endif()
   if(VITA)
