@@ -382,3 +382,21 @@ current files must stay playable and the staged copy must be gone after the next
 process right after confirming: the change must apply on the next launch. Remove, reopen, import
 through the prompt and play; saves must be unchanged. Check the startup import still behaves as
 before, a controller through every dialog, and the minified release.
+
+## Renderers
+
+`android_renderers` covers the device id the settings screen synthesizes for a renderer the
+enumeration could not report: that it round-trips through `LegoDeviceEnumerate::ParseDeviceName`
+(the GUID's bytes, driver ordinal zero), that two devices never collapse onto one id, and that
+the union adds a missing candidate once, matches on the id rather than the label, and leaves an
+already-enumerated device alone.
+
+On device, both directions matter. From the default OpenGL ES session, Settings must list
+SDL3 GPU HAL; choosing it must produce a window Vulkan can claim on the next launch, the frame
+must fill the screen with the same letterboxing OpenGL ES produces rather than sitting in a
+corner, and a screen transition must not come out with red and blue swapped, since that path
+reads the frame back. From the Vulkan session, Settings must still offer the OpenGL ES entries,
+and choosing one must get back. Check both render resolutions, rotation, and the startup-error
+message when Vulkan cannot start, which must name the renderer and reach Settings with a
+populated list. An emulator that cannot present Vulkan can still show the fallback: a device id
+naming SDL3 GPU HAL there must start on OpenGL ES instead of failing.

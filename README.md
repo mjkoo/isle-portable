@@ -93,6 +93,13 @@ keeps the game and touch coordinates at 640 × 480, scales the rendered image to
 screen, and preserves its aspect ratio. GLES render targets are reduced proportionally when
 needed to fit the GPU's limits. The default content resolution is 640 × 480.
 
+**Display > Renderer** chooses the 3D backend, on the next launch. OpenGL ES 3.0 is the
+default; SDL3 GPU HAL is the Vulkan path, and choosing it is what causes the game to build a
+window Vulkan can draw into, since a window made for OpenGL cannot be handed to Vulkan
+afterwards. The list offers every renderer this build supports, not only the ones the current
+window can initialize, so the way back is always there. If Vulkan cannot start, the game says
+so and offers Settings. See [Android renderers](docs/android-renderers.md).
+
 **Graphics** sets model and texture quality, level of detail, the maximum number of actors,
 the screen transition and a frame rate limit, a subset of the desktop configuration tool's
 options; **Display** adds the lighting model and wide view angle. They apply on the next
@@ -106,8 +113,7 @@ show direction markers and highlight held directions. Virtual stick shows an ind
 the first finger's starting point, with its marker reflecting the current movement axes.
 These hints do not intercept touches or change how game objects are clicked. They hide while
 using physical controls and return on touch. See [Android touch controls](docs/android-touch-controls.md)
-for region boundaries and gesture behavior. Renderer choices reflect what the device could
-initialize at startup. Vulkan is not enabled by this settings screen.
+for region boundaries and gesture behavior.
 
 **Controller** chooses what each gamepad button does; Start opens the game menu by default, so
 a controller alone can reach Settings. See [Android controllers](docs/android-controllers.md).
