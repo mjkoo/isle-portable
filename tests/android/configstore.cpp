@@ -364,6 +364,30 @@ int main()
 	assert(Android_ReadConfig(path, {"multiplayer:room", "multiplayer:relay url"}, values).empty());
 	assert(!values[0].first && values[1].second == "wss://relay.example");
 
+	// A value has to fit on one line of the file, because an over-long line does not lose one key,
+	// it fails the whole load, and a configuration that will not load is replaced with defaults.
+	// The game data root is the value a user can really make long, by picking a deeply nested
+	// folder, and it is written without passing the whitelist. Asserted by writing and reading back
+	// rather than by repeating the arithmetic, so the limit is measured against iniparser itself.
+	std::ofstream(path) << "[isle]\nmusic=true\n";
+	std::string longest = "/" + std::string(986, 'd');
+	assert(Android_UpdateConfig(path, {{"isle:diskpath", longest.c_str()}}).empty());
+	values.clear();
+	assert(Android_ReadConfig(path, {"isle:diskpath", "isle:music"}, values).empty());
+	assert(values[0].second == longest && values[1].second == "true");
+	assert(!Android_UpdateConfig(path, {{"isle:diskpath", (longest + "d").c_str()}}).empty());
+	// Refused, not half-written: the file still loads and still holds what it held.
+	values.clear();
+	assert(Android_ReadConfig(path, {"isle:diskpath", "isle:music"}, values).empty());
+	assert(values[0].second == longest && values[1].second == "true");
+	// A backslash is written escaped, so it spends two of the line's characters rather than one.
+	std::string backslashes(493, '\\');
+	assert(Android_UpdateConfig(path, {{"isle:diskpath", backslashes.c_str()}}).empty());
+	values.clear();
+	assert(Android_ReadConfig(path, {"isle:diskpath"}, values).empty());
+	assert(values[0].second == backslashes);
+	assert(!Android_UpdateConfig(path, {{"isle:diskpath", (backslashes + '\\').c_str()}}).empty());
+
 	{
 		using namespace GamepadBindings;
 

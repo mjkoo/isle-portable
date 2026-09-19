@@ -101,6 +101,26 @@ std::string Android_ReadConfig(
 	return {};
 }
 
+// A value has to survive the file it is written to. iniparser dumps a key as
+// printf("%-30s = \"%s\"\n", ...), padding the name out to 30 characters and doubling every
+// backslash and quote in the value, and reads a line back through fgets into a 1024 byte buffer. An
+// over-long line is not skipped: the load fails outright and returns no dictionary, and a
+// configuration that will not load is replaced with defaults. One value too long therefore costs
+// every other setting in the file, so refuse it while the file is still intact.
+static constexpr size_t kConfigLineLimit = 1022;
+static constexpr size_t kConfigNamePadding = 30;
+
+static bool FitsOnOneLine(const std::string& p_key, const char* p_value)
+{
+	size_t colon = p_key.find(':');
+	size_t name = colon == std::string::npos ? p_key.size() : p_key.size() - colon - 1;
+	size_t length = (name > kConfigNamePadding ? name : kConfigNamePadding) + sizeof(" = \"\"") - 1;
+	for (const char* c = p_value; *c; ++c) {
+		length += (*c == '\\' || *c == '"') ? 2 : 1;
+	}
+	return length <= kConfigLineLimit;
+}
+
 std::string Android_UpdateConfig(
 	const std::string& p_path,
 	const std::vector<std::pair<std::string, const char*>>& p_changes
@@ -110,6 +130,13 @@ std::string Android_UpdateConfig(
 	ConfigDictionary dict(iniparser_load(p_path.c_str()), iniparser_freedict);
 	if (!dict || dict->n == 0) {
 		return "Could not read isle.ini. The existing configuration has not been changed.";
+	}
+	// Checked before anything is applied, and for every caller: the game data root is written
+	// straight through here without passing Android_ValidateSetting's whitelist.
+	for (const auto& change : p_changes) {
+		if (change.second && !FitsOnOneLine(change.first, change.second)) {
+			return "Could not store \"" + change.first + "\": too long for the configuration file.";
+		}
 	}
 	for (const auto& change : p_changes) {
 		if (change.second) {
