@@ -820,16 +820,17 @@ HRESULT Direct3DRMSDL3GPURenderer::FinalizeFrame()
 void Direct3DRMSDL3GPURenderer::Resize(int width, int height, const ViewportTransform& viewportTransform)
 {
 	m_renderTargetReady = false;
-	m_width = width;
-	m_height = height;
-	m_viewportTransform = viewportTransform;
 
 	// Settle the readback format here rather than in Download, which has already issued and
 	// waited on the transfer by the time it could check, against a buffer sized for four bytes
 	// a pixel. An unreadable target is a target that is not ready.
+	//
+	// Before the new size is committed, not after: the textures and the download buffer are
+	// still the previous size until they are rebuilt below, so returning between the two would
+	// leave every one of them disagreeing with m_width and m_height.
 	SDL_GPUTextureFormat swapchainFormat = SDL_GetGPUSwapchainTextureFormat(m_device, DDWindow);
-	m_downloadFormat = PixelFormatForRenderTarget(swapchainFormat);
-	if (m_downloadFormat == SDL_PIXELFORMAT_UNKNOWN) {
+	SDL_PixelFormat downloadFormat = PixelFormatForRenderTarget(swapchainFormat);
+	if (downloadFormat == SDL_PIXELFORMAT_UNKNOWN) {
 		SDL_LogError(
 			LOG_CATEGORY_MINIWIN,
 			"Cannot read back a render target in format %d",
@@ -837,6 +838,11 @@ void Direct3DRMSDL3GPURenderer::Resize(int width, int height, const ViewportTran
 		);
 		return;
 	}
+
+	m_downloadFormat = downloadFormat;
+	m_width = width;
+	m_height = height;
+	m_viewportTransform = viewportTransform;
 
 	if (m_transferTexture) {
 		SDL_ReleaseGPUTexture(m_device, m_transferTexture);
