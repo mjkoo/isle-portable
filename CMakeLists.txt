@@ -277,10 +277,14 @@ if (DOWNLOAD_DEPENDENCIES)
     FetchContent_MakeAvailable(SDL3)
   endif()
 
+  # Pinned, not "main". iniparser 4.3.0 generates version.h into CMAKE_BINARY_DIR while
+  # exporting CMAKE_CURRENT_BINARY_DIR on its include path, so as a subproject the header
+  # lands where nothing looks and dictionary.h fails to compile for whoever includes it.
+  # A tree that fetched it before this pin has to be cleared by hand.
   FetchContent_Declare(
     iniparser
     GIT_REPOSITORY "https://gitlab.com/iniparser/iniparser.git"
-    GIT_TAG "main"
+    GIT_TAG "v4.2.6"
     UPDATE_DISCONNECTED TRUE
     EXCLUDE_FROM_ALL
   )
