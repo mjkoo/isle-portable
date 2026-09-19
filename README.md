@@ -114,11 +114,11 @@ a controller alone can reach Settings. See [Android controllers](docs/android-co
 
 **Extensions** turns on the parts that are not in the original game: custom textures, extra SI
 files, a third person camera and multiplayer. All are off by default and apply on the next
-launch. The texture folder and the SI files name a place inside the game files, so Settings
-lists what it finds there rather than asking for a path; add your own to the folder you select
-in Replace game files. Multiplayer connects to the relay server and room you name and turns the
-third person camera on. **Reset extensions** turns them all off, and Reset these settings leaves
-them alone. See [Android extensions](docs/android-extensions.md).
+launch. The texture folder and the SI folder name a place inside the game files, so Settings
+lists the folders it finds there rather than asking for a path; add your own to the folder you
+select in Replace game files. Multiplayer connects to the relay server and room you name and
+turns the third person camera on. **Reset extensions** turns them all off, and Reset these
+settings leaves them alone. See [Android extensions](docs/android-extensions.md).
 
 Configuration (`isle.ini`) and default saves (`saves/`) live in private internal storage.
 Imported game assets remain in app-scoped external storage. Settings preserves custom paths

@@ -292,17 +292,25 @@ value and is not rewritten.
 
 ## Extensions
 
-Configuration tests cover the extension keys: the enable flags, a texture folder and SI file
-list that must be rooted in the game files and free of the whitespace and commas the si
-loader splits on, the WebSocket relay address, the room and character that must survive the
-ini round trip, the lighting model's plain decimal, removal of each, and that a section is
-created for the options and reused afterwards without disturbing a hand-edited
-`si loader:directives`. A standalone Java test reads the native validator and checks that
-every key Settings offers appears there, that extension keys survive Reset these settings
-while the two Display rows do not, that the typed relay and room rules match on both sides,
-that an SI list round trips through the picker in a stable order, and that the enumeration
-offers only rooted paths and leaves out the scripts a complete install has. Run it from the
-repository root:
+Configuration tests cover the extension keys: the enable flags, a texture folder and an SI
+folder that must be rooted in the game files and free of the whitespace and commas the si
+loader splits its own file list on, the WebSocket relay address, the room and character that
+must survive the ini round trip, the lighting model's exact values, removal of each, and that
+a section is created for the options and reused afterwards without disturbing a hand-edited
+`files` or `directives`, neither of which the validator accepts.
+
+Separately, every value has to fit on one line of the configuration file. iniparser does not
+skip an over-long line, it fails the whole load, and a configuration that will not load is
+replaced with defaults, so one long value would cost every other setting. The limit is
+asserted by writing a value at it and reading it back, then confirming one character more is
+refused and the file is left as it was, with a second pair of cases covering the backslash
+that is written escaped and so costs two characters rather than one.
+
+A standalone Java test reads the native validator and checks that every key Settings offers
+appears there, that extension keys survive Reset these settings while the two Display rows do
+not, that the typed relay and room rules match on both sides, that the folder enumeration
+offers only rooted paths and both extension defaults, and that its cap holds inside a single
+directory rather than only on the way down. Run it from the repository root:
 
 ```sh
 mkdir -p build/android-extensions-java
@@ -314,15 +322,16 @@ javac -d build/android-extensions-java \
 java -ea -cp build/android-extensions-java org.legoisland.isle.ExtensionSettingsTest
 ```
 
-On device, a fresh configuration must show every row as Game default, with the texture folder
-and SI lists offering what the imported folder holds and no stock script among the SI files.
-Third person camera is the cheapest end-to-end check: turn it on, save, relaunch, and the
-camera is visibly behind the player. A `textures/` folder included in the source before a
-Replace game files import must change a texture in the Infocenter. Selecting SI files must
-create `[si loader]` with a comma-separated `files`. Multiplayer must warn until both a relay
-and a room are set, refuse an `http://` address or one with a space, and say that it turns the
-third person camera on. Reset these settings must leave every extension key untouched while
-Reset extensions clears them, and a hand-edited `si loader:directives` must survive both.
+On device, a fresh configuration must show every row as Game default, with both folder rows
+offering the folders the imported game files hold plus the two extension defaults. Third
+person camera is the cheapest end-to-end check: turn it on, save, relaunch, and the camera is
+visibly behind the player. A `textures/` folder included in the source before a Replace game
+files import must change a texture in the Infocenter. An `si/` folder holding two `.si` files
+must load both once Custom SI files is on, and choosing a different folder must load only what
+that one holds. Multiplayer must warn until both a relay and a room are set, refuse an
+`http://` address or one with a space, and say that it turns the third person camera on. Reset
+these settings must leave every extension key untouched while Reset extensions clears them,
+and a hand-edited `files` or `directives` must survive both and keep loading.
 
 ## Game files
 

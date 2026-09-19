@@ -13,19 +13,20 @@ They apply on the next launch, so save your settings, quit and open the game aga
 
 ## Where the files go
 
-The texture folder and the SI files name a place **inside the game files**, not somewhere on
-your device. The game looks for them under the folder it reads its data from, so a texture
-folder of `/textures` means a `textures` folder sitting beside `LEGO`.
+Both folders name a place **inside the game files**, not somewhere on your device. The game
+looks for them under the folder it reads its data from, so a texture folder of `/textures`
+means a `textures` folder sitting beside `LEGO`.
 
-There is no folder picker for them, and there does not need to be: Settings lists the folders
-and `.si` files it finds in the game files. To add your own, put them in the folder you select
-in **Data > Game files > Replace game files**, then choose them here. The SI list leaves out
-the 26 scripts a complete install already has, so what it offers is what you added.
+There is no device folder picker for them, and there does not need to be: Settings lists the
+folders it finds in the game files. To add your own, put them in the folder you select in
+**Data > Game files > Replace game files**, then choose them here. Both defaults are always
+offered, so you can pick one before you have created it.
 
 **Custom textures** looks for `<texture folder>/<name>.bmp` for each texture the game draws.
-The default folder is `/textures`.
+The default folder is `/textures`. A pack may hold as many files as you like.
 
-**Custom SI files** loads each file you select. Selecting nothing loads none.
+**Custom SI files** loads every `.si` file directly inside the SI folder, in alphabetical
+order. The default folder is `/si`. Files in subfolders are not loaded.
 
 ## Multiplayer
 
@@ -66,7 +67,7 @@ multiplayer = false
 texture path = /textures
 
 [si loader]
-files = /LEGO/Scripts/MYMOD.SI
+si path = /si
 
 [multiplayer]
 relay url = wss://relay.example
@@ -74,6 +75,14 @@ room = lobby
 actor = pepper
 ```
 
-`si loader:directives`, which rewires which stream objects start and stop each other, has no
-row here: it is a modding tool with no values to offer. Settings never writes it, so one you
-add by hand stays as you left it. The same is true of any other key you add to these sections.
+Two keys under `[si loader]` have no row here, and Settings never writes either, so one you
+add by hand or in the desktop configuration tool stays as you left it:
+
+- `files`, a comma-separated list of individual `.si` files. It still loads, and the desktop
+  tool edits it, but it has to fit on one line of `isle.ini` and none of its paths may contain
+  a space, which is why the folder is what this screen offers. Files it names load before the
+  folder's, and a file in both loads once.
+- `directives`, which rewires which stream objects start and stop each other. It is a modding
+  tool with no values to offer.
+
+The same is true of any other key you add to these sections.
