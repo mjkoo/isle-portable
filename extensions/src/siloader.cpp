@@ -8,6 +8,7 @@
 #include "mxstreamer.h"
 
 #include <SDL3/SDL.h>
+#include <algorithm>
 #include <interleaf.h>
 
 using namespace Extensions;
@@ -27,8 +28,20 @@ std::vector<SiLoaderExt::StreamObject> SiLoaderExt::disable3d;
 std::vector<SiLoaderExt::StreamObject> SiLoaderExt::firedPrepend;
 bool SiLoaderExt::enabled = false;
 
+static SDL_EnumerationResult SDLCALL CollectDirectoryEntries(void* p_userdata, const char*, const char* p_fname)
+{
+	static_cast<std::vector<std::string>*>(p_userdata)->emplace_back(p_fname);
+	return SDL_ENUM_CONTINUE;
+}
+
 void SiLoaderExt::Initialize()
 {
+	for (const auto& option : defaults) {
+		if (!options.count(option.first.data())) {
+			options[option.first.data()] = option.second;
+		}
+	}
+
 	char* files = SDL_strdup(options["si loader:files"].c_str());
 	char* saveptr;
 
@@ -45,6 +58,53 @@ void SiLoaderExt::Initialize()
 
 	SDL_free(files);
 	SDL_free(directives);
+
+	CollectFolder(options["si loader:si path"]);
+}
+
+// Every .si file in one folder inside the game files, the way the texture loader takes a folder of
+// .bmp files. A folder is the only way to name more than a handful: "files" has to fit on a single
+// line of the configuration file, and no path in it may contain a space, since the list is split on
+// whitespace as well as commas.
+void SiLoaderExt::CollectFolder(const std::string& p_folder)
+{
+	if (p_folder.empty()) {
+		return;
+	}
+
+	MxString path;
+	if (!Common::ResolveGamePath(p_folder.c_str(), path)) {
+		SDL_Log("No SI folder at %s", p_folder.c_str());
+		return;
+	}
+
+	std::vector<std::string> entries;
+	if (!SDL_EnumerateDirectory(path.GetData(), CollectDirectoryEntries, &entries)) {
+		SDL_Log("Error enumerating SI folder %s (%s)", path.GetData(), SDL_GetError());
+		return;
+	}
+
+	// The order a directory lists in is the filesystem's business, and load order decides which
+	// definition of a shared object wins, so impose one of our own.
+	std::sort(entries.begin(), entries.end(), [](const std::string& p_a, const std::string& p_b) {
+		return SDL_strcasecmp(p_a.c_str(), p_b.c_str()) < 0;
+	});
+
+	for (const std::string& entry : entries) {
+		size_t dot = entry.rfind('.');
+		if (dot == std::string::npos || SDL_strcasecmp(entry.c_str() + dot, ".si") != 0) {
+			continue;
+		}
+
+		std::string file = p_folder + "/" + entry;
+		bool named = std::find_if(files.begin(), files.end(), [&file](const std::string& p_file) {
+						 return SDL_strcasecmp(p_file.c_str(), file.c_str()) == 0;
+					 }) != files.end();
+		// Already named in "files": load it once, in the place that list asked for it.
+		if (!named) {
+			files.emplace_back(file);
+		}
+	}
 }
 
 bool SiLoaderExt::Load()

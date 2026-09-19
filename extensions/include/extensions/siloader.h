@@ -5,6 +5,7 @@
 #include "mxactionnotificationparam.h"
 #include "mxatom.h"
 
+#include <array>
 #include <map>
 #include <vector>
 
@@ -37,6 +38,10 @@ public:
 	static std::map<std::string, std::string> options;
 	static bool enabled;
 
+	static constexpr std::array<std::pair<std::string_view, std::string_view>, 1> defaults = {
+		{{"si loader:si path", "/si"}}
+	};
+
 private:
 	static std::vector<std::string> files;
 	static std::vector<std::string> directives;
@@ -49,6 +54,7 @@ private:
 	static std::vector<StreamObject> disable3d;
 	static std::vector<StreamObject> firedPrepend;
 
+	static void CollectFolder(const std::string& p_folder);
 	static bool LoadFile(const char* p_file);
 	static bool LoadDirective(const char* p_directive);
 	static MxStreamController* OpenStream(const char* p_file);
