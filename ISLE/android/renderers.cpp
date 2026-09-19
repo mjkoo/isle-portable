@@ -3,18 +3,20 @@
 #include <cstdio>
 #include <cstring>
 
+// The standard library rather than SDL's wrappers, so that a host test can link this without
+// linking SDL3.
 std::string Android_FormatDeviceId(const GUID& p_guid)
 {
-	// The four words are the GUID's bytes as LegoDeviceEnumerate reads them back, so they are
-	// copied rather than taken field by field: m_data1, m_data2 and m_data3 would print a different
-	// string, and ParseDeviceName would not match it. The leading zero is the DirectDraw driver
-	// ordinal, and miniwin reports exactly one driver, so it is always the first. There is no
-	// second chance if it is ever wrong - ProcessDeviceBytes only matches a device whose driver
-	// ordinal is the one it was given.
+	// The four words are the GUID's bytes, the way GUID4 reads them back. Copied rather than
+	// taken field by field: m_data1, m_data2 and m_data3 would print a different string, and
+	// ParseDeviceName would not match it.
 	unsigned int words[4];
 	static_assert(sizeof(words) == sizeof(GUID), "Equal size");
 	std::memcpy(words, &p_guid, sizeof(words));
 
+	// The leading zero is the DirectDraw driver ordinal, and miniwin reports exactly one driver,
+	// so it is always the first. There is no second chance if it is ever wrong - ProcessDeviceBytes
+	// only matches a device whose driver ordinal is the one it was given.
 	char id[128];
 	std::snprintf(id, sizeof(id), "0 0x%x 0x%x 0x%x 0x%x", words[0], words[1], words[2], words[3]);
 	return id;

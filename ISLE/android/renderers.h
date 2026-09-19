@@ -1,8 +1,11 @@
 #ifndef ANDROID_RENDERERS_H
 #define ANDROID_RENDERERS_H
 
-#include "miniwin/d3drm.h"
+// clang-format off
+// Order matters: miniwindevice.h uses GUID and IUnknown, which windows.h defines.
+#include "miniwin/windows.h"
 #include "miniwin/miniwindevice.h"
+// clang-format on
 
 #include <string>
 #include <vector>

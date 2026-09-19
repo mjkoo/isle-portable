@@ -97,8 +97,8 @@ needed to fit the GPU's limits. The default content resolution is 640 × 480.
 default; SDL3 GPU HAL is the Vulkan path, and choosing it is what causes the game to build a
 window Vulkan can draw into, since a window made for OpenGL cannot be handed to Vulkan
 afterwards. The list offers every renderer this build supports, not only the ones the current
-window can initialize, so the way back is always there. If Vulkan cannot start, the game says
-so and offers Settings. See [Android renderers](docs/android-renderers.md).
+window can initialize, so the way back is always there. If the chosen one cannot start, the game
+says so and offers Settings. See [Android renderers](docs/android-renderers.md).
 
 **Graphics** sets model and texture quality, level of detail, the maximum number of actors,
 the screen transition and a frame rate limit, a subset of the desktop configuration tool's

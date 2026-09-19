@@ -91,12 +91,10 @@ void Miniwin_SetupWindowCreateProperties(SDL_PropertiesID props, const char* dev
 {
 #if defined(USE_SDL_GPU) && defined(SDL_PLATFORM_ANDROID)
 	// [library:3d]
-	// Android binds an EGLSurface to the window's ANativeWindow as soon as it is created for
-	// OpenGL, and vkCreateAndroidSurfaceKHR then refuses that window for the rest of its life -
-	// see Direct3DRMSDL3GPU_EnumDevice, which declines to advertise a device it could not
-	// render into. So a player who has asked for the GPU backend gets a window it can claim,
-	// and everyone else keeps the OpenGL window the OpenGL backends need. Asking whether a GPU
-	// device exists at all matters here: without one, dropping the flag would leave no
+	// A window Android created for OpenGL can never be handed to Vulkan afterwards - see
+	// Direct3DRMSDL3GPU_EnumDevice. So a player who has asked for the GPU backend gets a window
+	// it can claim, and everyone else keeps the OpenGL window the OpenGL backends need. Whether
+	// a GPU device exists at all matters here: without one, dropping the flag would leave no
 	// hardware device advertised at all.
 	if (Miniwin_DeviceIdNamesGuid(deviceId, SDL3_GPU_GUID) && Direct3DRMSDL3GPU_IsAvailable()) {
 		return;

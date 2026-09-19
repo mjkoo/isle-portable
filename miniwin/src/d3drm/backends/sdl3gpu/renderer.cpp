@@ -900,10 +900,11 @@ void Direct3DRMSDL3GPURenderer::Flip()
 	}
 
 	// The render target is not the window: Direct3DRMDevice2Impl::Resize sizes it from the
-	// requested content resolution, which on Android is a fraction of the panel. Scale to the
-	// swapchain the way the OpenGL backends scale to the window, or the frame lands in a corner
-	// of it. Take the extent the acquire reports rather than asking the window, so a resize
-	// between the two cannot put the destination outside the texture being written.
+	// requested content resolution, which on Android is set independently of the window and may
+	// be smaller or larger than the panel. Scale to the swapchain the way the OpenGL backends
+	// scale to the window, or the frame lands in a corner of it. Take the extent the acquire
+	// reports rather than asking the window, so a resize between the two cannot put the
+	// destination outside the texture being written.
 	SDL_GPUTexture* swapchainTexture;
 	Uint32 swapchainWidth = 0, swapchainHeight = 0;
 	if (!SDL_WaitAndAcquireGPUSwapchainTexture(

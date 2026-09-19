@@ -32,7 +32,9 @@ cmake --build build
 Useful options (all in the top-level `CMakeLists.txt`, most are `cmake_dependent_option`):
 
 - `-DDOWNLOAD_DEPENDENCIES=OFF` - use system SDL3/iniparser/libweaver via `find_package` instead of
-  FetchContent. Add search paths with `-DCMAKE_PREFIX_PATH=...`.
+  FetchContent. Add search paths with `-DCMAKE_PREFIX_PATH=...`. iniparser is pinned; a build tree
+  that fetched it before the pin keeps the old checkout, because `UPDATE_DISCONNECTED` will not
+  move it, and fails with `'version.h' file not found`. Delete `_deps/iniparser-*` in that tree.
 - `-DISLE_BUILD_CONFIG=OFF` - skip `isle-config` (the Qt6 settings GUI) if Qt6 is unavailable.
 - `-DISLE_WERROR=ON` - what CI uses on most platforms.
 - `-DENABLE_CLANG_TIDY=ON` - CI runs clang-tidy on the Linux and mingw64 jobs only.
@@ -82,8 +84,10 @@ python3 tools/ncc/ncc.py --clang-lib <path>/libclang.so --recurse \
   `opengles2`, `opengles3`, `directx9`, `citro3d` (3DS), `gxm` (Vita), `glide` (DOS/Voodoo),
   `software`, `palettesw`. Each is compiled in behind a `USE_*` define and selected at runtime by
   GUID in `d3drmrenderer.cpp` (`CreateDirect3DRMRenderer` / `Direct3DRMRenderer_EnumDevices`).
+  `Miniwin_GetDeviceCandidates`, in the same file, is the compiled-in list a settings screen can
+  offer before any window exists; its names must match what each `*_EnumDevice` reports.
   Adding a backend means: a `renderer.cpp` under `backends/`, a `d3drmrenderer_*.h` in
-  `src/internal/`, a GUID + branch in both functions above, and a `target_sources` block in
+  `src/internal/`, a GUID + branch in all three functions above, and a `target_sources` block in
   `miniwin/CMakeLists.txt`.
 - `LEGO1/tgl/` - "Tgl", the game's own thin 3D abstraction. `tgl/d3drm/` implements it against
   Direct3D Retained Mode (so, against miniwin). This is decompiled code.
