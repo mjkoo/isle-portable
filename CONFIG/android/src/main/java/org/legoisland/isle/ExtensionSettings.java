@@ -1,6 +1,7 @@
 package org.legoisland.isle;
 
 import java.io.File;
+import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
@@ -63,7 +64,10 @@ final class ExtensionSettings {
      */
     static boolean isRelayUrl(String value) {
         int scheme = value.startsWith("ws://") ? 5 : value.startsWith("wss://") ? 6 : 0;
-        if (scheme == 0 || value.length() <= scheme || value.length() > 512) {
+        // Measured in bytes, as the native validator measures it: a multi-byte address near the
+        // limit would otherwise pass here and be refused there, with only the generic message.
+        int length = value.getBytes(StandardCharsets.UTF_8).length;
+        if (scheme == 0 || length <= scheme || length > 512) {
             return false;
         }
         for (int i = 0; i < value.length(); i++) {
@@ -74,14 +78,53 @@ final class ExtensionSettings {
         return true;
     }
 
-    /** A value that survives the ini round trip: no comment, section or separator characters. */
+    /**
+     * iniparser writes every value quoted, so whatever Settings stores comes back whole. A line
+     * written by hand is not quoted, though, and iniparser truncates an unquoted value at a comment
+     * character and will not parse one holding "=" or brackets, so both text rules here refuse
+     * ,;#=[] and leave a value that reads the same either way.
+     */
+    private static boolean isIniSafe(char c) {
+        return c > ' ' && c != 127 && ",;#=[]".indexOf(c) < 0;
+    }
+
+    /**
+     * The ini rule above, and ASCII besides: the room and the character are typed by hand on every
+     * device that means to meet in the same place, so the characters have to be ones every keyboard
+     * agrees on rather than ones that merely survive the file.
+     */
     static boolean isIniWord(String value, int max) {
         if (value.isEmpty() || value.length() > max) {
             return false;
         }
         for (int i = 0; i < value.length(); i++) {
             char c = value.charAt(i);
-            if (c <= ' ' || c >= 127 || ",;#=[]".indexOf(c) >= 0) {
+            if (c >= 127 || !isIniSafe(c)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * A folder inside the game files, as the extensions name it. ResolveGamePath joins the game
+     * data root and the value without inserting a separator, so the value carries its own leading
+     * slash, and ".." would reach outside the game files. The si loader splits its own file list on
+     * whitespace as well as commas, so a path holding either could never sit in that list. Bytes
+     * above 127 are left alone: the name comes from the filesystem and may well not be ASCII.
+     * Mirrors the native validator, which has the last word.
+     */
+    static boolean isGamePath(String path) {
+        byte[] bytes = path.getBytes(StandardCharsets.UTF_8);
+        if (bytes.length < 2 || bytes.length > 255 || bytes[0] != '/') {
+            return false;
+        }
+        if (path.contains("..") || path.indexOf('\\') >= 0) {
+            return false;
+        }
+        for (byte b : bytes) {
+            int c = b & 0xFF;
+            if (c <= 127 && !isIniSafe((char) c)) {
                 return false;
             }
         }
@@ -137,11 +180,24 @@ final class ExtensionSettings {
             if (found.size() >= MAX_FOLDERS) {
                 return;
             }
-            if (child.isDirectory()) {
-                String path = prefix + "/" + child.getName();
-                found.add(path);
-                collect(child, path, found, depth + 1);
+            if (!child.isDirectory()) {
+                continue;
             }
+            String name = child.getName();
+            // What a game file import leaves behind is never a texture or an SI pack.
+            if (name.startsWith(GameFileCopier.IMPORTED_PREFIX)
+                    || name.contains(GameFileCopier.UNREADABLE_MARKER)) {
+                continue;
+            }
+            String path = prefix + "/" + name;
+            // A name the native validator would refuse takes its whole subtree with it, since every
+            // path below carries the same prefix. Offering one would cost the entire save: the
+            // bridge validates every key before writing any, so one bad path refuses them all.
+            if (!isGamePath(path)) {
+                continue;
+            }
+            found.add(path);
+            collect(child, path, found, depth + 1);
         }
     }
 }

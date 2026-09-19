@@ -49,7 +49,8 @@ public final class ExtensionSettingsTest {
         for (String key : new String[] {"si loader:files", "si loader:directives"}) {
             assert !Arrays.asList(ExtensionSettings.KEYS).contains(key) : key;
             assert !store.contains("\"" + key + "\"") : key;
-            // ...though the section is still ours, so a reset of the group would reach it.
+            // Reset extensions walks the draft, which only ever holds the keys above, so neither is
+            // cleared there either; the section still belongs to this screen for every other purpose.
             assert ExtensionSettings.isExtensionKey(key) : key;
         }
         assert !ExtensionSettings.isExtensionKey("isle:music");
@@ -97,6 +98,25 @@ public final class ExtensionSettingsTest {
         assert !ExtensionSettings.isIniWord(long64.append('a').toString(), 64);
         assert !ExtensionSettings.isIniWord("aaa", 2);
 
+        // A folder path, checked here before the native validator sees it. The invalid cases are
+        // the ones tests/android/configstore.cpp asserts from the other side.
+        for (String path : new String[] {"/si", "/LEGO/mytextures", "/a", "/t\u00e9xtures"}) {
+            assert ExtensionSettings.isGamePath(path) : path;
+        }
+        for (String path : new String[] {
+            "", "textures", "/", "/LEGO/../etc", "/LEGO\\textures", "/my textures", "/a,b", "/a\tb",
+            "/a;b", "/a#b", "/a=b", "/[a]", "/a\u007f"
+        }) {
+            assert !ExtensionSettings.isGamePath(path) : path;
+        }
+        // Bounded in bytes, as the native validator bounds it, so a multi-byte name is measured the
+        // way the file will hold it.
+        StringBuilder long255 = new StringBuilder("/");
+        while (long255.length() < 255) long255.append('a');
+        assert ExtensionSettings.isGamePath(long255.toString());
+        assert !ExtensionSettings.isGamePath(long255.toString() + "a");
+        assert !ExtensionSettings.isGamePath("/" + new String(new char[127]).replace('\0', '\u00e9') + "aa");
+
         // Enumeration. Paths are game-relative with their own leading slash, as the extensions read
         // them, and both rows pick from the same list of folders.
         File root = temp();
@@ -106,6 +126,15 @@ public final class ExtensionSettingsTest {
         write(root, "textures/brick.bmp");
         write(root, "mods/MYMOD.SI");
         write(root, "notes.txt");
+        // Names the native validator refuses, and the staging a game file import leaves behind.
+        write(root, "my textures/brick.bmp");
+        write(root, "my textures/nested/brick.bmp");
+        write(root, "a,b/brick.bmp");
+        write(root, "semi;colon/brick.bmp");
+        write(root, "back\\slash/brick.bmp");
+        write(root, new String(new char[255]).replace('\0', 'a') + "/brick.bmp");
+        write(root, "imported-1/LEGO/Scripts/ISLE.SI");
+        write(root, "LEGO.unreadable.1/Scripts/ISLE.SI");
 
         List<String> folders = Arrays.asList(ExtensionSettings.folders(root));
         assert folders.contains("/LEGO") : folders;
@@ -116,6 +145,19 @@ public final class ExtensionSettingsTest {
         // Files are not folders, whatever they are named.
         assert !folders.contains("/notes.txt") : folders;
         assert !folders.contains("/mods/MYMOD.SI") : folders;
+        // A name the validator would refuse is never offered, and nothing below it is either, since
+        // every path down there carries the same prefix. Offering one would cost the whole save.
+        for (String path : folders) {
+            assert !path.startsWith("/my textures") : path;
+        }
+        assert !folders.contains("/a,b") : folders;
+        assert !folders.contains("/semi;colon") : folders;
+        assert !folders.contains("/back\\slash") : folders;
+        // Past the byte bound by one, so the name fits the filesystem but not the setting.
+        assert !folders.contains("/" + new String(new char[255]).replace('\0', 'a')) : folders;
+        // What an import leaves behind is game files, never a pack.
+        assert !folders.contains("/imported-1") : folders;
+        assert !folders.contains("/LEGO.unreadable.1") : folders;
         // Both defaults are always offered, so either row can go back to its own before the folder
         // it names exists.
         String[] defaults = {ExtensionSettings.DEFAULT_TEXTURE_PATH, ExtensionSettings.DEFAULT_SI_PATH};
@@ -128,10 +170,9 @@ public final class ExtensionSettingsTest {
         assert new TreeSet<>(Arrays.asList(ExtensionSettings.folders(new File(empty, "missing"))))
                 .equals(new TreeSet<>(Arrays.asList(defaults)));
 
-        // Every offered path is one the validator accepts: rooted, no "..", no backslash, no comma
-        // and no whitespace.
+        // Every offered path is one the validator accepts, whatever the game files hold.
         for (String path : ExtensionSettings.folders(root)) {
-            assert path.startsWith("/") && !path.contains("..") && !path.matches(".*[\\s,\\\\].*") : path;
+            assert ExtensionSettings.isGamePath(path) : path;
         }
 
         // One directory can hold more entries than the list is allowed to offer, so the cap has to

@@ -182,8 +182,10 @@ int main()
 		{"extensions:third person camera", {"true", "false"}},
 		{"extensions:multiplayer", {"true", "false"}},
 		{"isle:wide view angle", {"true", "false"}},
-		{"texture loader:texture path", {"/textures", "/LEGO/mytextures", "/a"}},
-		{"si loader:si path", {"/si", "/LEGO/mymods", "/a"}},
+		// Bytes above 127 are a folder name's business, not the file's: the path is written quoted
+		// and read back whole.
+		{"texture loader:texture path", {"/textures", "/LEGO/mytextures", "/a", "/t\xc3\xa9xtures"}},
+		{"si loader:si path", {"/si", "/LEGO/mymods", "/a", "/t\xc3\xa9xtures"}},
 		{"multiplayer:relay url", {"ws://host", "wss://host.example:8080/path", "ws://1"}},
 		{"multiplayer:room", {"lobby", "room-1", "A"}},
 		{"multiplayer:actor", {"pepper", "Pepper", "brickstr"}},
@@ -201,10 +203,12 @@ int main()
 		{"extensions:multiplayer", {"0", "no", "FALSE"}},
 		{"isle:wide view angle", {"1", "yes"}},
 		// A path is relative to the game data root, so it carries its own leading slash; "..", a
-		// backslash, a comma and whitespace would each break the path or the list it sits in.
+		// backslash, a comma and whitespace would each break the path or the list it sits in, and
+		// the ini characters would not survive a line someone rewrote by hand without quotes. One
+		// rule covers both keys; the cases are split between them only to keep each list short.
 		{"texture loader:texture path",
-		 {"textures", "/", "/LEGO/../etc", "/LEGO\\textures", "/my textures", "/a,b", "/a\tb"}},
-		{"si loader:si path", {"mymods", "/", "/LEGO/../mods", "/LEGO\\mods", "/my mods", "/a,b"}},
+		 {"textures", "/", "/LEGO/../etc", "/LEGO\\textures", "/my textures", "/a,b", "/a\tb", "/a;b", "/a\x7f"}},
+		{"si loader:si path", {"mymods", "/", "/LEGO/../mods", "/LEGO\\mods", "/my mods", "/a#b", "/a=b", "/[a]"}},
 		{"multiplayer:relay url", {"http://host", "https://host", "host", "ws://", "wss://", "ws:// host", "ws://ho st"}
 		},
 		{"multiplayer:room", {"my room", "room;1", "room#1", "room=1", "room,1", "[room]", "rööm"}},

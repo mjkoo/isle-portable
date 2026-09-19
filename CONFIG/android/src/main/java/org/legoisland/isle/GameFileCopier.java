@@ -39,7 +39,7 @@ final class GameFileCopier {
     static final String GAME_DIR = "LEGO";
 
     static final String IMPORTED_PREFIX = "imported-";
-    private static final String UNREADABLE_MARKER = ".unreadable.";
+    static final String UNREADABLE_MARKER = ".unreadable.";
 
     static final int MAX_DEPTH = 16;
     static final int MAX_FILES = 20000;

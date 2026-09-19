@@ -255,10 +255,20 @@ static bool ParseNumber(const char* p_value, double& p_number)
 
 // The extension keys and rules below mirror ExtensionSettings.java; keep them in step.
 
+// iniparser writes every value quoted, so whatever Settings stores comes back whole. A line
+// written by hand is not quoted, though, and iniparser truncates an unquoted value at a comment
+// character and will not parse one holding "=" or brackets, so the two text rules below both
+// refuse ,;#=[] and leave a value that reads the same either way.
+static bool IsIniSafe(unsigned char p_char)
+{
+	return p_char > ' ' && p_char != 127 && !strchr(",;#=[]", p_char);
+}
+
 // An extension path names a folder inside the game files. ResolveGamePath concatenates the game
 // data root with the value and inserts no separator, so the value has to start with its own slash,
 // and "/.." would reach outside the game files. The si loader splits its own file list on
-// whitespace as well as commas, so a path holding either could never be read back whole.
+// whitespace as well as commas, so a path holding either could never sit in that list. Bytes above
+// 127 are left alone: the name comes from the filesystem and may well not be ASCII.
 static bool IsGamePath(const std::string& p_path)
 {
 	if (p_path.size() < 2 || p_path.size() > 255 || p_path[0] != '/') {
@@ -268,7 +278,7 @@ static bool IsGamePath(const std::string& p_path)
 		return false;
 	}
 	for (unsigned char c : p_path) {
-		if (c <= ' ' || c == 127 || c == ',') {
+		if (c <= 127 && !IsIniSafe(c)) {
 			return false;
 		}
 	}
@@ -296,15 +306,16 @@ static bool IsRelayUrl(const std::string& p_value)
 	return true;
 }
 
-// iniparser writes "key = value" and reads a line back up to its comment character, so a value
-// carrying one of these would not survive the round trip.
+// The ini rule above, and ASCII besides: the room and the character are typed by hand on every
+// device that means to meet in the same place, so the bytes have to be ones every keyboard agrees
+// on rather than ones that merely survive the file.
 static bool IsIniWord(const std::string& p_value, size_t p_max)
 {
 	if (p_value.empty() || p_value.size() > p_max) {
 		return false;
 	}
 	for (unsigned char c : p_value) {
-		if (c <= ' ' || c >= 127 || strchr(",;#=[]", c)) {
+		if (c >= 127 || !IsIniSafe(c)) {
 			return false;
 		}
 	}
