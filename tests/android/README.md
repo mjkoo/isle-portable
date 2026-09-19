@@ -41,6 +41,26 @@ GPU format names, the sRGB variants alongside their linear ones, and a refusal f
 mapping cannot describe rather than a reinterpretation. A separate check ensures HRESULT remains
 signed and 32-bit so failures are recognized on 64-bit hosts.
 
+The `ini_file` test covers the shared configuration writer in `util/inifile.h`, which both the
+Android settings store and the desktop `isle-config` write through. It pins the line-length
+arithmetic (the 30-character name padding, the doubling of backslashes and quotes, names longer
+than the padding, section entries with no colon) and proves the limit is iniparser's real cliff
+rather than a guess: a value at the limit reloads, and one character more makes the whole dumped
+file refuse to load. It also covers the replacement itself - a fresh file leaves no `.new` sibling,
+an existing file is replaced, a blocked temporary leaves the previous file byte-identical, and a
+rename that cannot land removes the temporary instead of leaving it to be mistaken for the
+configuration. It is written against `std::filesystem` rather than `mkdtemp` so the same binary
+runs on msys2 and MSVC, which is the only way to exercise the Windows branch of the replacement;
+that branch is compiled by CI but its behavior needs one `ctest -R ini_file` on msys2.
+
+The desktop tool's own merge has no host test, because reaching `CConfigApp::WriteRegisterSettings`
+drags in Qt, the device enumerator and miniwin. Verify it by hand instead: build `isle-config` with
+`-DISLE_BUILD_CONFIG=ON`, point it at a scratch copy with `--ini`, and confirm that saving keeps
+every key the tool does not own - the `[gamepad]` section, the touch layout keys, `[multiplayer]`,
+`si loader:si path` and `si loader:directives`, `mediapath`, `Cursor Sensitivity`, `Active in
+Background`, `Show Touch Controls` and anything hand-added. Compare the files parsed, not as text:
+the dumper normalizes case, order and quoting, so a textual diff is all noise.
+
 After building the desktop project with its fetched iniparser dependency:
 
 ```sh
