@@ -105,6 +105,7 @@ private:
 	SDL_GPUGraphicsPipeline* m_transparentPipeline;
 	SDL_GPUGraphicsPipeline* m_uiPipeline;
 	SDL_GPUTexture* m_transferTexture = nullptr;
+	SDL_GPUTextureFormat m_transferTextureFormat = SDL_GPU_TEXTUREFORMAT_INVALID;
 	SDL_GPUTexture* m_depthTexture = nullptr;
 	SDL_GPUTexture* m_dummyTexture;
 	int m_uploadBufferSize;
