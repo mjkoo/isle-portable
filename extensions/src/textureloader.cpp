@@ -3,6 +3,7 @@
 #include "extensions/common/pathutils.h"
 #include "legovideomanager.h"
 #include "misc.h"
+#include "misc/legotexture.h"
 #include "mxdirectx/mxdirect3d.h"
 #include "mxmain.h"
 #include "tgl/d3drm/impl.h"
@@ -27,7 +28,7 @@ void TextureLoaderExt::AddExcludedFile(const std::string& p_file)
 	excludedFiles.emplace_back(p_file);
 }
 
-bool TextureLoaderExt::PatchTexture(LegoTextureInfo* p_textureInfo)
+bool TextureLoaderExt::PatchTexture(LegoTextureInfo* p_textureInfo, LegoTexture* p_texture)
 {
 	SDL_Surface* surface = FindTexture(p_textureInfo->m_name);
 	if (!surface) {
@@ -68,36 +69,50 @@ bool TextureLoaderExt::PatchTexture(LegoTextureInfo* p_textureInfo)
 	MxU8* dst = (MxU8*) desc.lpSurface;
 	Uint8* srcPixels = (Uint8*) surface->pixels;
 
-	if (details->bits_per_pixel == 8) {
-		SDL_Palette* sdlPalette = SDL_GetSurfacePalette(surface);
-		if (!sdlPalette) {
-			p_textureInfo->m_surface->Unlock(desc.lpSurface);
-			SDL_DestroySurface(surface);
-			return false;
-		}
+	// LegoTextureInfo::Create returns as soon as this succeeds, so everything it would otherwise
+	// guarantee has to be set up here. That includes m_palette: LegoTextureContainer::GetCached
+	// copies a head texture for phoneme animation and references the palette without checking it,
+	// so a texture without one crashes the game as soon as that character speaks. An 8-bit
+	// replacement brings its own colours; anything else borrows the palette of the texture it
+	// replaces, which is what the cached 8-bit copy is built against.
+	SDL_Palette* sdlPalette = details->bits_per_pixel == 8 ? SDL_GetSurfacePalette(surface) : nullptr;
+	if (!sdlPalette && p_texture && p_texture->GetImage()) {
+		sdlPalette = p_texture->GetImage()->GetPalette();
+	}
+	if (!sdlPalette) {
+		p_textureInfo->m_surface->Unlock(desc.lpSurface);
+		SDL_DestroySurface(surface);
+		return false;
+	}
 
-		PALETTEENTRY entries[256];
-		for (int i = 0; i < sdlPalette->ncolors; ++i) {
+	PALETTEENTRY entries[256];
+	memset(entries, 0, sizeof(entries));
+	for (int i = 0; i < 256; ++i) {
+		if (i < sdlPalette->ncolors) {
 			entries[i].peRed = sdlPalette->colors[i].r;
 			entries[i].peGreen = sdlPalette->colors[i].g;
 			entries[i].peBlue = sdlPalette->colors[i].b;
 			entries[i].peFlags = PC_NONE;
 		}
-
-		LPDIRECTDRAWPALETTE ddPalette = nullptr;
-		if (pDirectDraw->CreatePalette(DDPCAPS_8BIT | DDPCAPS_ALLOW256, entries, &ddPalette, nullptr) != DD_OK) {
-			p_textureInfo->m_surface->Unlock(desc.lpSurface);
-			SDL_DestroySurface(surface);
-			return false;
+		else {
+			entries[i].peFlags = D3DPAL_RESERVED;
 		}
-
-		p_textureInfo->m_surface->SetPalette(ddPalette);
-		ddPalette->Release();
 	}
+
+	LPDIRECTDRAWPALETTE ddPalette = nullptr;
+	if (pDirectDraw->CreatePalette(DDPCAPS_8BIT | DDPCAPS_ALLOW256, entries, &ddPalette, nullptr) != DD_OK) {
+		p_textureInfo->m_surface->Unlock(desc.lpSurface);
+		SDL_DestroySurface(surface);
+		return false;
+	}
+
+	if (details->bits_per_pixel == 8) {
+		p_textureInfo->m_surface->SetPalette(ddPalette);
+	}
+	p_textureInfo->m_palette = ddPalette;
 
 	memcpy(dst, srcPixels, surface->pitch * surface->h);
 	p_textureInfo->m_surface->Unlock(desc.lpSurface);
-	p_textureInfo->m_palette = nullptr;
 
 	if (((TglImpl::RendererImpl*) VideoManager()->GetRenderer())
 			->CreateTextureFromSurface(p_textureInfo->m_surface, &p_textureInfo->m_texture) != D3DRM_OK) {

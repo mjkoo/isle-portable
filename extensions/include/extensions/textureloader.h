@@ -3,6 +3,8 @@
 #include "extensions/extensions.h"
 #include "legotextureinfo.h"
 
+class LegoTexture;
+
 #include <array>
 #include <map>
 #include <vector>
@@ -12,7 +14,7 @@ namespace Extensions
 class TextureLoaderExt {
 public:
 	static void Initialize();
-	static bool PatchTexture(LegoTextureInfo* p_textureInfo);
+	static bool PatchTexture(LegoTextureInfo* p_textureInfo, LegoTexture* p_texture);
 	static void AddExcludedFile(const std::string& p_file);
 
 	static std::map<std::string, std::string> options;
