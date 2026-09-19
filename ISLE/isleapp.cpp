@@ -1556,6 +1556,21 @@ MxResult IsleApp::SetupWindow()
 #endif
 
 	if (!SetupLegoOmni()) {
+#ifdef ANDROID
+		// A window created for the GPU backend has no way back within this launch: the OpenGL
+		// devices cannot initialize on it, so nothing else is enumerated to fall back to. The
+		// startup dialog's Settings button is the way out, so say which setting to change
+		// rather than leaving the generic "quit all other applications" message to do it.
+		if (!(SDL_GetWindowFlags(window) & SDL_WINDOW_OPENGL) && g_startupError[0] == '\0') {
+			SDL_snprintf(
+				g_startupError,
+				sizeof(g_startupError),
+				"The Vulkan renderer could not start on this device.\n"
+				"Choose a different one under Display > Renderer, or Game default."
+			);
+			SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "%s", g_startupError);
+		}
+#endif
 		return FAILURE;
 	}
 
