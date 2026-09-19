@@ -34,6 +34,23 @@ static SDL_EnumerationResult SDLCALL CollectDirectoryEntries(void* p_userdata, c
 	return SDL_ENUM_CONTINUE;
 }
 
+// One spelling for a game-relative path. The separator, the leading slash and the case are all the
+// writer's to choose, and ResolveGamePath resolves every spelling to the same file, so a path built
+// here and one taken from the configuration file have to be folded together before they can be
+// compared.
+static std::string NormalizeGamePath(const std::string& p_path)
+{
+	std::string normalized;
+	for (char character : p_path) {
+		char separated = character == '\\' ? '/' : character;
+		if (separated == '/' && (normalized.empty() || normalized.back() == '/')) {
+			continue;
+		}
+		normalized += (char) SDL_tolower((unsigned char) separated);
+	}
+	return normalized;
+}
+
 void SiLoaderExt::Initialize()
 {
 	for (const auto& option : defaults) {
@@ -90,20 +107,31 @@ void SiLoaderExt::CollectFolder(const std::string& p_folder)
 		return SDL_strcasecmp(p_a.c_str(), p_b.c_str()) < 0;
 	});
 
+	std::vector<std::string> named;
+	named.reserve(files.size());
+	for (const std::string& file : files) {
+		named.emplace_back(NormalizeGamePath(file));
+	}
+
 	for (const std::string& entry : entries) {
 		size_t dot = entry.rfind('.');
 		if (dot == std::string::npos || SDL_strcasecmp(entry.c_str() + dot, ".si") != 0) {
 			continue;
 		}
 
-		std::string file = p_folder + "/" + entry;
-		bool named = std::find_if(files.begin(), files.end(), [&file](const std::string& p_file) {
-						 return SDL_strcasecmp(p_file.c_str(), file.c_str()) == 0;
-					 }) != files.end();
-		// Already named in "files": load it once, in the place that list asked for it.
-		if (!named) {
-			files.emplace_back(file);
+		// A directory may be named like a file, and the enumeration does not say which this is.
+		SDL_PathInfo info;
+		std::string resolved = std::string(path.GetData()) + "/" + entry;
+		if (!SDL_GetPathInfo(resolved.c_str(), &info) || info.type != SDL_PATHTYPE_FILE) {
+			continue;
 		}
+
+		std::string file = p_folder + "/" + entry;
+		// Already named in "files": load it once, in the place that list asked for it.
+		if (std::find(named.begin(), named.end(), NormalizeGamePath(file)) != named.end()) {
+			continue;
+		}
+		files.emplace_back(file);
 	}
 }
 
