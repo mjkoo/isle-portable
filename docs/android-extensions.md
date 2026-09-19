@@ -22,6 +22,10 @@ folders it finds in the game files. To add your own, put them in the folder you 
 **Data > Game files > Replace game files**, then choose them here. Both defaults are always
 offered, so you can pick one before you have created it.
 
+A folder is only listed if its name can be stored in `isle.ini` and read back: no spaces,
+commas, backslashes or `; # = [ ]`, and nothing below such a folder is listed either. If a
+folder you added is missing from the list, rename it.
+
 **Custom textures** looks for `<texture folder>/<name>.bmp` for each texture the game draws.
 The default folder is `/textures`. A pack may hold as many files as you like.
 

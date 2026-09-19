@@ -293,11 +293,12 @@ value and is not rewritten.
 ## Extensions
 
 Configuration tests cover the extension keys: the enable flags, a texture folder and an SI
-folder that must be rooted in the game files and free of the whitespace and commas the si
-loader splits its own file list on, the WebSocket relay address, the room and character that
-must survive the ini round trip, the lighting model's exact values, removal of each, and that
-a section is created for the options and reused afterwards without disturbing a hand-edited
-`files` or `directives`, neither of which the validator accepts.
+folder that must be rooted in the game files, free of the whitespace and commas the si loader
+splits its own file list on and of the characters an unquoted hand-edited line would lose,
+while leaving a non-ASCII folder name alone; the WebSocket relay address, the room and
+character that must survive the ini round trip, the lighting model's exact values, removal of
+each, and that a section is created for the options and reused afterwards without disturbing a
+hand-edited `files` or `directives`, neither of which the validator accepts.
 
 Separately, every value has to fit on one line of the configuration file. iniparser does not
 skip an over-long line, it fails the whole load, and a configuration that will not load is
@@ -308,9 +309,12 @@ that is written escaped and so costs two characters rather than one.
 
 A standalone Java test reads the native validator and checks that every key Settings offers
 appears there, that extension keys survive Reset these settings while the two Display rows do
-not, that the typed relay and room rules match on both sides, that the folder enumeration
-offers only rooted paths and both extension defaults, and that its cap holds inside a single
-directory rather than only on the way down. Run it from the repository root:
+not, and that the typed relay, room and folder rules match on both sides, lengths included,
+which the native side measures in bytes. It also checks the folder enumeration: both extension
+defaults are always offered, a name the native validator would refuse is skipped along with
+everything below it, so is the staging a game file import leaves behind, every path that is
+offered passes the same rule, and the cap holds inside a single directory rather than only on
+the way down. Run it from the repository root:
 
 ```sh
 mkdir -p build/android-extensions-java
@@ -325,8 +329,12 @@ java -ea -cp build/android-extensions-java org.legoisland.isle.ExtensionSettings
 On device, a fresh configuration must show every row as Game default, with both folder rows
 offering the folders the imported game files hold plus the two extension defaults. Third
 person camera is the cheapest end-to-end check: turn it on, save, relaunch, and the camera is
-visibly behind the player. A `textures/` folder included in the source before a Replace game
-files import must change a texture in the Infocenter. An `si/` folder holding two `.si` files
+visibly behind the player. A folder whose name holds a space or a comma must not appear in
+either folder row. A `textures/` folder included in the source before a Replace game files
+import must change a texture in the Infocenter. Replacing a character's head texture with a
+24-bit BMP is the case worth watching: a replacement that is not itself 8-bit borrows the
+palette of the texture it replaces, and the phoneme animation copies that texture down to 8
+bits, so check that character's face while they speak. An `si/` folder holding two `.si` files
 must load both once Custom SI files is on, and choosing a different folder must load only what
 that one holds. Multiplayer must warn until both a relay and a room are set, refuse an
 `http://` address or one with a space, and say that it turns the third person camera on. Reset
