@@ -5,6 +5,8 @@
 
 #include <array>
 #include <map>
+#include <string_view>
+#include <utility>
 #include <vector>
 
 class LegoTexture;
