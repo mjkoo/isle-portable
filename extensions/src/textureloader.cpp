@@ -116,6 +116,10 @@ bool TextureLoaderExt::PatchTexture(LegoTextureInfo* p_textureInfo, LegoTexture*
 
 	if (((TglImpl::RendererImpl*) VideoManager()->GetRenderer())
 			->CreateTextureFromSurface(p_textureInfo->m_surface, &p_textureInfo->m_texture) != D3DRM_OK) {
+		// LegoTextureInfo::Create carries on and makes a palette of its own over this one, so hand
+		// the reference back rather than leaving it for an assignment that never releases it.
+		p_textureInfo->m_palette->Release();
+		p_textureInfo->m_palette = nullptr;
 		SDL_DestroySurface(surface);
 		return false;
 	}
