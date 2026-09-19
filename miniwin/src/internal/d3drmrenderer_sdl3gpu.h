@@ -160,7 +160,8 @@ inline static void Direct3DRMSDL3GPU_EnumDevice(LPD3DENUMDEVICESCALLBACK cb, voi
 	// created with SDL_WINDOW_OPENGL. vkCreateAndroidSurfaceKHR then fails with
 	// VK_ERROR_NATIVE_WINDOW_IN_USE_KHR for that same window, so SDL_ClaimWindowForGPUDevice() can
 	// never succeed. Do not advertise a device we would not be able to render into: the game picks
-	// the first enumerated device it considers usable and does not fall back to another one.
+	// the first enumerated device it considers usable, and falls back to another only when the
+	// configured id does not resolve - never when a device it resolved then fails to create.
 	if (!DDWindow || (SDL_GetWindowFlags(DDWindow) & SDL_WINDOW_OPENGL)) {
 		return;
 	}

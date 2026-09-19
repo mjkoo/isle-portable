@@ -1558,16 +1558,23 @@ MxResult IsleApp::SetupWindow()
 
 	if (!SetupLegoOmni()) {
 #ifdef ANDROID
-		// A window created for the GPU backend has no way back within this launch: the OpenGL
-		// devices cannot initialize on it, so nothing else is enumerated to fall back to. The
-		// startup dialog's Settings button is the way out, so say which setting to change
+		// A window created for the GPU backend has no way back within this launch.
+		// LegoVideoManager::Create falls back to the best device only when the configured id
+		// does not resolve; a device that resolves and then fails to create ends the startup.
+		// The startup dialog's Settings button is the way out, so say which setting to change
 		// rather than leaving the generic "quit all other applications" message to do it.
+		//
+		// SetupLegoOmni fails for sound, media and allocation reasons too, none of which set
+		// this message, so claim only what is certain: the game did not start with the renderer
+		// that was chosen. Name it the way the Settings row names it, since "Vulkan" appears
+		// nowhere a player can see.
 		if (!(SDL_GetWindowFlags(window) & SDL_WINDOW_OPENGL) && g_startupError[0] == '\0') {
-			SDL_snprintf(
+			SDL_strlcpy(
 				g_startupError,
-				sizeof(g_startupError),
-				"The Vulkan renderer could not start on this device.\n"
-				"Choose a different one under Display > Renderer, or Game default."
+				"\"LEGO® Island\" did not start with the SDL3 GPU HAL renderer.\n"
+				"Choose a different one under Display > Renderer, or Game default.\n"
+				"The log says what failed.",
+				sizeof(g_startupError)
 			);
 			SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "%s", g_startupError);
 		}
