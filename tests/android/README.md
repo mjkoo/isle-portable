@@ -413,6 +413,34 @@ process right after confirming: the change must apply on the next launch. Remove
 through the prompt and play; saves must be unchanged. Check the startup import still behaves as
 before, a controller through every dialog, and the minified release.
 
+## Audio focus
+
+The `audiofocus` target covers the policy that turns what the system did to the game's sound into
+the gain it plays at: each change's gain written literally, so moving one fails here; a duck
+applied once and not re-applied; getting the sound back restoring exactly the volume the game
+started at rather than an approximation of it; several reports between two takes collapsing to the
+last, which is what a loss and the gain undoing it both arriving while the activity is paused looks
+like; the two silent cases differing to the system but not to the mixer, so moving between them
+applies nothing; and a value outside the enum refused rather than resolved to a gain nobody chose.
+It needs neither SDL nor iniparser.
+
+On device, preserve the config and saves first. Play audio in another app and launch the game: the
+other app must stop, and `adb shell dumpsys audio` must show `org.legoisland.isle` holding focus
+with `GAIN` and must not show it after Home. `adb emu gsm call 5551234` raises a ringing call, which
+takes focus while the activity is still resumed - the one case SDL's own activity-pause handling
+does not cover - and the log must read gain `0.00` then `1.00` after `adb emu gsm cancel`. Answering
+with `adb emu gsm accept` pauses the activity as well; the game must come back with sound.
+
+Nothing on a stock emulator image asks to duck, so build a throwaway app that requests
+`AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK`, `AUDIOFOCUS_GAIN_TRANSIENT` and `AUDIOFOCUS_GAIN` on demand,
+drive it with `am start`, and check the three gains. Remove it afterwards. Confirm by ear as well as
+by log that a duck leaves dialogue audible rather than silencing it. Then check the paths that
+already pause - the in-game menu, a Settings round trip, the quit prompt, Home and resume - and that
+audio returns in each, since Settings abandons and re-requests focus on the way through. Repeat the
+request check and one duck on the minified release, the JNI method being reached only through
+R8-processed Java.
+
+
 ## Renderers
 
 `renderers` covers the device id miniwin synthesizes for a renderer the enumeration could not
