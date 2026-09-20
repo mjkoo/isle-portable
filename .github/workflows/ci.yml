@@ -129,11 +129,13 @@ jobs:
           echo "VITASDK=$VITASDK" >> $GITHUB_ENV
           echo "$VITASDK/bin" >> $GITHUB_PATH
 
-      # Full history: the Android version code is the commit count, and a shallow
-      # clone reports 1 with no error to distinguish it from a real answer.
+      # Full history for the Android job: the version code is the commit count, and a
+      # shallow clone reports 1 with no error to distinguish it from a real answer. The
+      # quotes are load-bearing - a bare 0 is falsy in a GitHub expression, so it would
+      # fall through to the 1 and leave every job shallow.
       - uses: actions/checkout@v6
         with:
-          fetch-depth: 0
+          fetch-depth: ${{ matrix.android && '0' || '1' }}
 
       - name: Checkout LFS
         if: ${{ matrix.build-assets }}
