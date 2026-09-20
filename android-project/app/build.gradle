@@ -9,9 +9,15 @@ def repoRoot = androidProject.parentFile
 // architecture with no libisle.so in it.
 def isleAbis = ['armeabi-v7a', 'arm64-v8a', 'x86', 'x86_64']
 
+// Read through providers rather than File.text, for the same reason the git calls below go
+// through providers.exec: a configuration-time read that Gradle cannot see is a configuration
+// cache that does not notice the file changing.
+def repoFile = { String path -> providers.fileContents(layout.projectDirectory.file("../../${path}")).asText.orNull }
+
 // The version CPack already derives its own from, so the two cannot disagree.
 def projectVersion = {
-    def matcher = new File(repoRoot, 'CMakeLists.txt').text =~ /project\(isle\b[^)]*\bVERSION\s+([0-9][0-9.]*)/
+    def declaration = repoFile('CMakeLists.txt')
+    def matcher = declaration ? declaration =~ /project\(isle\b[^)]*\bVERSION\s+([0-9][0-9.]*)/ : null
     return matcher ? matcher[0][1] : '0'
 }()
 
@@ -152,8 +158,8 @@ def sdl3Revision = {
     if (project.hasProperty('isleSdl3Revision')) {
         return project.isleSdl3Revision as String
     }
-    def declaration = file("${androidProject}/../CMake/SDL3Revision.cmake").text
-    def matcher = declaration =~ /set\(ISLE_SDL3_REVISION\s+"([^"]+)"/
+    def declaration = repoFile('CMake/SDL3Revision.cmake')
+    def matcher = declaration ? declaration =~ /set\(ISLE_SDL3_REVISION\s+"([^"]+)"/ : null
     if (!matcher) {
         throw new GradleException("No ISLE_SDL3_REVISION in CMake/SDL3Revision.cmake")
     }
