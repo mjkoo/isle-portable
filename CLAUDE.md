@@ -38,10 +38,10 @@ Useful options (all in the top-level `CMakeLists.txt`, most are `cmake_dependent
 - `-DISLE_SDL3_REVISION=<ref>` / `-DISLE_SDL3_REPOSITORY=<url>` - SDL3 is pinned repo-wide in
   `CMake/SDL3Revision.cmake`, which `android-project/downloadSDL3.cmake` and
   `android-project/app/build.gradle` read too, so the desktop build and the APK cannot disagree
-  about it; Gradle spells the override `-PisleSdl3Revision=<ref>`. A build tree configured before
-  the pin keeps `FETCHCONTENT_UPDATES_DISCONNECTED=ON` in its cache and fails the first
-  reconfigure with "not allowed to contact remote"; reconfigure it once with
-  `-DFETCHCONTENT_UPDATES_DISCONNECTED=OFF`. Nothing has to be deleted.
+  about it. Neither is a cache entry, so a bump lands on the next configure in every tree; passing
+  either on the command line does create one, which is what makes an override stick until it is
+  deleted from `CMakeCache.txt`. Gradle forwards the revision only, spelled
+  `-PisleSdl3Revision=<ref>`; it always takes the repository from the pin file.
 - `-DISLE_BUILD_CONFIG=OFF` - skip `isle-config` (the Qt6 settings GUI) if Qt6 is unavailable.
 - `-DISLE_WERROR=ON` - what CI uses on most platforms.
 - `-DENABLE_CLANG_TIDY=ON` - CI runs clang-tidy on the Linux and mingw64 jobs only.

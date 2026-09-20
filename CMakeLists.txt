@@ -253,6 +253,9 @@ if (DOWNLOAD_DEPENDENCIES)
         EXCLUDE_FROM_ALL
       )
     elseif (NINTENDO_SWITCH)
+      # Pinned here rather than in CMake/SDL3Revision.cmake: this fork is Switch-only and is
+      # named by tag, so it has no revision to share with the other trees. The commented-out
+      # entries are the forks tried before it.
       FetchContent_Declare(
         SDL3
         # Official repo missing Threads support?
@@ -265,10 +268,8 @@ if (DOWNLOAD_DEPENDENCIES)
       )
       set(CMAKE_DISABLE_PRECOMPILE_HEADERS ON CACHE BOOL "Disable PCH globally" FORCE)
     else()
-      # No UPDATE_DISCONNECTED: with a branch name it kept a fetch out of every reconfigure, but
-      # with a revision it makes a stale tree a fatal error, because the requested object is not
-      # present locally and the update step may not go and get it. The update step is nearly free
-      # once the revision is already checked out.
+      # No UPDATE_DISCONNECTED: the update step has to be free to fetch a pinned revision that
+      # the local clone does not have yet. It costs almost nothing once the revision is there.
       FetchContent_Declare(
         SDL3
         GIT_REPOSITORY "${ISLE_SDL3_REPOSITORY}"
