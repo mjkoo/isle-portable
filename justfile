@@ -26,7 +26,7 @@ android-test:
 
 # Needs SIGNING_KEY_ALIAS, SIGNING_KEY_PASSWORD, SIGNING_STORE_FILE and
 # SIGNING_STORE_PASSWORD in the environment.
-[doc('Build the signed release APK')]
+[doc('Build the signed per-ABI and universal release APKs')]
 [working-directory: 'android-project']
 android-apk-release:
     {{ android_shell }} ./gradlew packageRelease -PcmakeArgs="{{ android_cmake_args }}"

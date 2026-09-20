@@ -35,6 +35,13 @@ Useful options (all in the top-level `CMakeLists.txt`, most are `cmake_dependent
   FetchContent. Add search paths with `-DCMAKE_PREFIX_PATH=...`. iniparser is pinned; a build tree
   that fetched it before the pin keeps the old checkout, because `UPDATE_DISCONNECTED` will not
   move it, and fails with `'version.h' file not found`. Delete `_deps/iniparser-*` in that tree.
+- `-DISLE_SDL3_REVISION=<ref>` / `-DISLE_SDL3_REPOSITORY=<url>` - SDL3 is pinned repo-wide in
+  `CMake/SDL3Revision.cmake`, which `android-project/downloadSDL3.cmake` and
+  `android-project/app/build.gradle` read too, so the desktop build and the APK cannot disagree
+  about it; Gradle spells the override `-PisleSdl3Revision=<ref>`. A build tree configured before
+  the pin keeps `FETCHCONTENT_UPDATES_DISCONNECTED=ON` in its cache and fails the first
+  reconfigure with "not allowed to contact remote"; reconfigure it once with
+  `-DFETCHCONTENT_UPDATES_DISCONNECTED=OFF`. Nothing has to be deleted.
 - `-DISLE_BUILD_CONFIG=OFF` - skip `isle-config` (the Qt6 settings GUI) if Qt6 is unavailable.
 - `-DISLE_WERROR=ON` - what CI uses on most platforms.
 - `-DENABLE_CLANG_TIDY=ON` - CI runs clang-tidy on the Linux and mingw64 jobs only.
@@ -49,8 +56,10 @@ Useful options (all in the top-level `CMakeLists.txt`, most are `cmake_dependent
 Cross-compiles are driven entirely by toolchain files / SDK env, e.g.
 `--toolchain CMake/i586-pc-msdosdjgpp.cmake` (DOS), `emcmake cmake ...` (web),
 `-DCMAKE_TOOLCHAIN_FILE=/opt/devkitpro/cmake/3DS.cmake`, `-DCMAKE_SYSTEM_NAME=iOS`. Android builds
-through Gradle in `android-project/` (`./gradlew assembleDebug -PcmakeArgs="..."`). Packaging lives
-in `packaging/` and runs through CPack.
+through Gradle in `android-project/` (`./gradlew assembleDebug -PcmakeArgs="..."`), writing one APK
+per ABI plus a universal one into `app/build/outputs/apk/debug/`; `versionCode` is the commit
+count, so it wants a full clone or `-PisleVersionCode=<n>`. Packaging lives in `packaging/` and
+runs through CPack.
 
 Running the game requires an existing copy of LEGO Island 1.1 (English); paths are configured in
 `isle.ini` next to the executable or under `SDL_GetPrefPath("isledecomp", "isle")`.
