@@ -434,6 +434,34 @@ message when the GPU renderer cannot start, which must name it as the Settings r
 reach Settings with a populated list. An emulator that cannot present Vulkan can still show the fallback: a device id
 naming SDL3 GPU HAL there must start on OpenGL ES instead of failing.
 
+## Output gain
+
+The `output_gain` target covers the arbiter in `ISLE/outputgain.h`, which is the only writer of the
+mixer's master volume. Two things turn the game down - its own pause and whatever the system last
+did to the sound - and the test is where their composition is pinned: a pause silences the mix
+whatever the system left, the system moving the sound around while the game is paused writes
+nothing, and a resume restores exactly the gain the system asked for, so a duck that outlives a
+pause comes back at 0.2 rather than at full volume. It also covers the two properties every caller
+relies on: a take reports a move and only a move, and several changes between two takes collapse to
+the last state, the pump running once an iteration. It needs neither SDL nor iniparser, and builds
+with the configuration tests above:
+
+```sh
+ctest --test-dir build/android-config-tests -R output_gain --output-on-failure
+```
+
+Note that writing the composition as a product rather than as a pause that wins outright is
+*equivalent*, both factors being exact, so no test distinguishes the two. Mutations that do get
+caught: dropping the pause from the composition, restoring full volume on resume instead of the
+system's gain, and removing the guard that reports only a move.
+
+On device, the ear is what decides this one. Start the game, get a character talking, and open the
+in-game menu: the voice must stop, not carry on under the menu, and must come back on Resume.
+Repeat for the quit prompt and for a Settings round trip, and for Home and back. The sound is not
+expected to resume mid-word - it keeps running silently while it is down - so what is being checked
+is silence and its return, not continuity. With the focus driver below, duck the game first and
+then pause and resume it: the log must show the resume returning to `0.20`, not to `1.00`.
+
 ## Audio focus
 
 The `audiofocus` target covers what the game does when the system takes its sound away. It reads

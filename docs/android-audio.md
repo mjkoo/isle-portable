@@ -5,6 +5,15 @@ app was playing, and it gives the focus back when you leave it. It holds the foc
 long as it is making a sound: opening its own menu or quit prompt does not give it up, but leaving
 for another app does.
 
+## When the game is paused
+
+Anything that pauses the game stops its sound with it: the in-game menu, the quit prompt, Settings,
+and leaving for another app. That covers speech and the sounds of the island, not only the music
+and the cutscenes.
+
+A stopped sound does not wait where it left off. It keeps running silently, so a line of dialogue
+that began just before you opened the menu may be over, or part way through, when you come back.
+
 ## When something else needs the sound
 
 The game turns down or falls silent rather than pausing, so a cutscene keeps running while another
