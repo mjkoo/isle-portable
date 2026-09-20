@@ -2,6 +2,7 @@
 #define MXSOUNDMANAGER_H
 
 #include "decomp.h"
+#include "lego1_export.h"
 #include "mxatom.h"
 #include "mxaudiomanager.h"
 #include "mxminiaudio.h"
@@ -31,17 +32,14 @@ public:
 	// cached sounds, 3D sounds and music alike. SetVolume is not: cached and 3D sounds read the
 	// global volume once, when they start.
 	//
-	// Deliberately not SDL_SetAudioStreamGain on m_stream, which would be the obvious choice and
-	// deadlocks: SDL's audio thread holds the stream's lock across the wait for the device, so a
-	// caller on the main thread blocks in it forever. miniaudio's bus volume is an atomic store.
+	// Deliberately not SDL_SetAudioStreamGain on m_stream, which deadlocks: SDL's audio thread
+	// holds the stream's lock across its wait for the device. miniaudio's bus volume is an
+	// atomic store.
 	//
-	// Inline so a platform layer outside lego1 can call it without an export.
-	void SetOutputGain(float p_gain)
-	{
-		if (m_engine) {
-			ma_engine_set_volume(m_engine, p_gain);
-		}
-	}
+	// Exported and out of line rather than inline, because a caller outside lego1 sees a
+	// different ma_engine: miniaudio is linked PRIVATE, so only lego1 compiles its headers with
+	// MA_NO_DEVICE_IO and the rest, and m_engine's own members land at other offsets there.
+	LEGO1_EXPORT void SetOutputGain(float p_gain);
 
 	float GetAttenuation(MxU32 p_volume);
 

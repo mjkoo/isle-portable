@@ -169,6 +169,13 @@ void MxSoundManager::Destroy()
 	Destroy(FALSE);
 }
 
+void MxSoundManager::SetOutputGain(float p_gain)
+{
+	if (m_engine) {
+		ma_engine_set_volume(m_engine, p_gain);
+	}
+}
+
 // FUNCTION: LEGO1 0x100aeac0
 // FUNCTION: BETA10 0x10133203
 void MxSoundManager::SetVolume(MxS32 p_volume)
