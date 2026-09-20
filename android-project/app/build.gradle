@@ -156,6 +156,11 @@ afterEvaluate {
     tasks.named('compileSDL3AndroidArchive').configure {
         environment "ANDROID_HOME", androidPath
         environment "ANDROID_NDK_HOME", ndkPath
+        // Exec tracks its executable and args, but getEnvironment is @Internal, so the
+        // toolchain the .aar is compiled against is invisible to the up-to-date check:
+        // moving to another NDK would keep the archive the old one produced.
+        inputs.property('androidHome', androidPath.toString())
+        inputs.property('ndkPath', ndkPath.toString())
     }
 }
 
@@ -236,11 +241,22 @@ tasks.register('compileSDL3AndroidArchive', Exec) {
     outputs.file(aarDest)
 
     doLast {
-        def aarFile = file("${androidProject}/${sdl3Dir}/build-android").listFiles().find {
-            it.name.endsWith(".aar")
+        // listFiles answers null for a directory that is not there, and renameTo reported a
+        // move it could not make by returning false, so the unchecked pair left the task
+        // successful with no archive where `dependencies` says one is.
+        def buildDir = file("${androidProject}/${sdl3Dir}/build-android")
+        def aarFile = (buildDir.listFiles() ?: new File[0]).find { it.name.endsWith(".aar") }
+        if (!aarFile) {
+            throw new GradleException("build-release.py left no .aar in ${buildDir}")
         }
         aarDest.parentFile.mkdirs()
-        aarFile.renameTo(aarDest)
+        // Files.move rather than renameTo: it replaces the archive already sitting there,
+        // which renameTo refuses to do on Windows, and it says why when it cannot.
+        java.nio.file.Files.move(
+                aarFile.toPath(),
+                aarDest.toPath(),
+                java.nio.file.StandardCopyOption.REPLACE_EXISTING
+        )
     }
 }
 
