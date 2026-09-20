@@ -103,10 +103,11 @@ private:
 	float m_applied = 1.0f;
 };
 
-// Reports a focus change from the thread Android delivered it on.
-void Android_ReportAudioFocus(int p_change);
+// Reports what AudioManager said, from the thread Android delivered it on.
+void Android_ReportAudioFocus(int p_androidChange);
 
-// Reads the gain the game should now play at, on the SDL thread. True when it changed.
-bool Android_TakeAudioGain(float* p_gain);
+// Plays the game at whatever the system last left it at. Call from the SDL thread; it does
+// nothing until the gain moves.
+void Android_ApplyAudioGain();
 
 #endif
