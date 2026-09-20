@@ -129,7 +129,11 @@ jobs:
           echo "VITASDK=$VITASDK" >> $GITHUB_ENV
           echo "$VITASDK/bin" >> $GITHUB_PATH
 
+      # Full history: the Android version code is the commit count, and a shallow
+      # clone reports 1 with no error to distinguish it from a real answer.
       - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
 
       - name: Checkout LFS
         if: ${{ matrix.build-assets }}
