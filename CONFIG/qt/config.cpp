@@ -80,6 +80,7 @@ bool CConfigApp::InitInstance()
 	m_exclusive_full_screen = FALSE;
 	m_transition_type = 3; // 3: Mosaic
 	m_wide_view_angle = TRUE;
+	m_draw_cursor = FALSE;
 	m_use_joystick = TRUE;
 	m_music = TRUE;
 	m_flip_surfaces = FALSE;
