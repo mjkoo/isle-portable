@@ -12,7 +12,7 @@ def isleAbis = ['armeabi-v7a', 'arm64-v8a', 'x86', 'x86_64']
 // Read through providers rather than File.text, for the same reason the git calls below go
 // through providers.exec: a configuration-time read that Gradle cannot see is a configuration
 // cache that does not notice the file changing.
-def repoFile = { String path -> providers.fileContents(layout.projectDirectory.file("../../${path}")).asText.orNull }
+def repoFile = { String path -> providers.fileContents(layout.projectDirectory.file(new File(repoRoot, path).path)).asText.orNull }
 
 // The version CPack already derives its own from, so the two cannot disagree. A miss is that
 // agreement breaking, so it stops the build rather than falling back to a number nobody chose.
@@ -104,8 +104,8 @@ android {
         }
     }
 
-    // One APK per architecture. The four native payloads are about 5.5 to 8.3 MiB each, so a
-    // single APK makes every player download three architectures their device cannot load.
+    // One APK per architecture. The native payload dominates the download, so a single APK
+    // makes every player carry three architectures their device cannot load.
     splits {
         abi {
             enable true
@@ -168,6 +168,9 @@ def sdl3Dir = 'build/_deps/sdl3-src'
 def sdl3SrcDir = file("${androidProject}/${sdl3Dir}")
 def sdl3RevFile = file("${androidProject}/build/sdl3-rev.txt")
 def aarDest = file("${projectDir}/libs/SDL3.aar")
+// Resolved here, not in the task bodies: Project.file() is a configuration-time API.
+def sdl3ReleaseScript = new File(sdl3SrcDir, 'build-scripts/build-release.py')
+def sdl3AndroidOutDir = new File(sdl3SrcDir, 'build-android')
 
 // The revision downloadSDL3.cmake will check out. -PisleSdl3Revision overrides it, the same
 // escape hatch CMake spells -DISLE_SDL3_REVISION; otherwise it is read from the file that names
@@ -188,11 +191,10 @@ tasks.register('downloadSDL3', Exec) {
     workingDir = androidProject
     commandLine 'cmake', "-DISLE_SDL3_REVISION=${sdl3Revision}", '-P', 'downloadSDL3.cmake'
 
-    // Keyed on the revision, which is the question an existing checkout could not answer while
-    // the tag was "main": the old check treated any checkout as current, so a moved pin would
-    // have kept building the .aar from whatever was already on disk. The script decides where
-    // the fetch lands, and the pin file names the repository it comes from - which this build
-    // never parses - so both are inputs in their own right.
+    // Keyed on the revision, so moving the pin refetches instead of building the .aar from
+    // whatever is already on disk. The script decides where the fetch lands, and the pin file
+    // names the repository it comes from - which this build never parses - so both are inputs
+    // in their own right.
     inputs.property('sdl3Revision', sdl3Revision)
     inputs.file("${androidProject}/downloadSDL3.cmake").withPropertyName('downloadScript')
     inputs.file("${repoRoot}/CMake/SDL3Revision.cmake").withPropertyName('sdl3Pin')
@@ -200,18 +202,22 @@ tasks.register('downloadSDL3', Exec) {
     // The revision answers "is this the right SDL3?"; this answers "is it still there?".
     // Deleting build/_deps to reclaim disk leaves sdl3-rev.txt behind, and the fetch would
     // otherwise be skipped for a source tree compileSDL3AndroidArchive is about to read.
-    outputs.upToDateWhen { file("${sdl3SrcDir}/build-scripts/build-release.py").exists() }
+    outputs.upToDateWhen { sdl3ReleaseScript.exists() }
 
     doLast {
-        // --git-dir pins the search to this tree. Without it `git -C` walks up out of an empty
-        // or missing sdl3-src and answers with isle-portable's own HEAD, so the mismatch below
-        // reports a sha from the wrong repository instead of saying the checkout is not there.
+        // --git-dir keeps the search inside this tree. Without it `git -C` walks up out of an
+        // empty or missing sdl3-src and answers with isle-portable's own HEAD, so the check
+        // below would compare against a sha from the wrong repository.
+        def out = new StringBuffer()
+        def err = new StringBuffer()
         def rev = ['git', '-C', sdl3SrcDir.path, '--git-dir=.git', 'rev-parse', 'HEAD'].execute()
-        rev.waitFor()
+        // waitForProcessOutput, not waitFor: waiting on a process whose pipes nobody is reading
+        // deadlocks once one of them fills.
+        rev.waitForProcessOutput(out, err)
         if (rev.exitValue() != 0) {
-            throw new GradleException("Could not read the SDL3 revision in ${sdl3SrcDir}")
+            throw new GradleException("Could not read the SDL3 revision in ${sdl3SrcDir}: ${err.toString().trim()}")
         }
-        def head = rev.text.trim()
+        def head = out.toString().trim()
         // Catches a fetch that did not land where it was told to. A checkout moved by hand
         // behind Gradle's back is a different problem and this does not see it: with the
         // revision and sdl3-rev.txt both unchanged the task never runs.
@@ -232,26 +238,23 @@ tasks.register('compileSDL3AndroidArchive', Exec) {
             '--fast', '--force',
             "--root=${sdl3Dir}", "--android-api=${android.defaultConfig.minSdk}"
 
-    // What the archive is built from and against. Declaring them is what lets Gradle
-    // answer "is it current?"; ensureSDL3 used to answer that by hand and only checked
-    // that some archive existed, so changing minSdk silently kept one built for the old
-    // API level.
+    // What the archive is built from and against, so that changing either rebuilds it.
+    // Checking only that some archive exists would keep one built for an older API level.
     inputs.property('androidApi', android.defaultConfig.minSdk)
     inputs.file(sdl3RevFile)
     outputs.file(aarDest)
 
     doLast {
-        // listFiles answers null for a directory that is not there, and renameTo reported a
-        // move it could not make by returning false, so the unchecked pair left the task
-        // successful with no archive where `dependencies` says one is.
-        def buildDir = file("${androidProject}/${sdl3Dir}/build-android")
-        def aarFile = (buildDir.listFiles() ?: new File[0]).find { it.name.endsWith(".aar") }
+        // listFiles answers null for a directory that is not there, so the archive has to be
+        // checked for rather than assumed: without it the task succeeds leaving no archive
+        // where `dependencies` says one is.
+        def aarFile = (sdl3AndroidOutDir.listFiles() ?: new File[0]).find { it.name.endsWith(".aar") }
         if (!aarFile) {
-            throw new GradleException("build-release.py left no .aar in ${buildDir}")
+            throw new GradleException("build-release.py left no .aar in ${sdl3AndroidOutDir}")
         }
         aarDest.parentFile.mkdirs()
-        // Files.move rather than renameTo: it replaces the archive already sitting there,
-        // which renameTo refuses to do on Windows, and it says why when it cannot.
+        // Files.move rather than renameTo: it replaces an archive already sitting there, which
+        // renameTo refuses to do on Windows, and it throws instead of returning false.
         java.nio.file.Files.move(
                 aarFile.toPath(),
                 aarDest.toPath(),
