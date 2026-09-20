@@ -13,8 +13,8 @@ android_cmake_args := "-DCMAKE_BUILD_TYPE=Release -DISLE_USE_DX5=false -DISLE_BU
 default:
     @just --list
 
-# Build the per-ABI and universal debug APKs into
-# android-project/app/build/outputs/apk/debug/.
+# Output lands in android-project/app/build/outputs/apk/debug/.
+[doc('Build the per-ABI and universal debug APKs')]
 [working-directory: 'android-project']
 android-apk:
     {{ android_shell }} ./gradlew assembleDebug -PcmakeArgs="{{ android_cmake_args }}"
@@ -59,7 +59,7 @@ android-avd:
 android-emulator gpu="host":
     {{ emulator_shell }} emulator -avd {{ avd_name }} -no-snapshot -no-boot-anim -gpu {{ gpu }}
 
-# Wait for the booted device, then install the debug APK over any existing one.
+# Wait for the booted device, then install the arm64 debug APK over any existing one.
 android-install:
     # The arm64 split, matching the AVD. `-d` because versionCode is now the commit count,
     # so moving to an older branch would otherwise be refused as a downgrade.
