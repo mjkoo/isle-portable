@@ -15,11 +15,10 @@ import android.os.Build;
  * pause that never becomes a stop.
  */
 final class AudioFocus {
-    // Mirrored by the AudioFocus::Change enum in ISLE/android/audiofocus.h. Native refuses
-    // anything else, so adding a case here means adding it there.
-    private static final int GAIN = 0, LOSS = 1, LOSS_TRANSIENT = 2, LOSS_TRANSIENT_CAN_DUCK = 3;
-
-    private static native void reportNativeChange(int change);
+    // Whatever AudioManager reported, passed on untranslated. Native reads the AUDIOFOCUS_*
+    // numbering itself, so there is no second copy of the mapping here to fall out of step, and a
+    // value this class never thought about still reaches somewhere that decides what to do.
+    private static native void reportNativeChange(int focusChange);
 
     private final AudioManager manager;
     private final AudioManager.OnAudioFocusChangeListener listener = this::onFocusChange;
@@ -62,7 +61,7 @@ final class AudioFocus {
         held = result == AudioManager.AUDIOFOCUS_REQUEST_GRANTED;
         if (held) {
             // A request granted after a loss gets no callback of its own, so say so here.
-            reportNativeChange(GAIN);
+            reportNativeChange(AudioManager.AUDIOFOCUS_GAIN);
         }
         else {
             // The system refuses focus while the phone is ringing or in a call, and to anything
@@ -70,7 +69,7 @@ final class AudioFocus {
             // whatever gain it happened to be at: silent when it was already silent, and not
             // playing over the call when it was not. A refusal comes with no registration, so
             // nothing would ever arrive to undo it - onWindowFocusChanged asks again instead.
-            reportNativeChange(LOSS_TRANSIENT);
+            reportNativeChange(AudioManager.AUDIOFOCUS_LOSS_TRANSIENT);
         }
     }
 
@@ -106,25 +105,11 @@ final class AudioFocus {
     }
 
     private void onFocusChange(int focusChange) {
-        switch (focusChange) {
-            case AudioManager.AUDIOFOCUS_GAIN:
-                held = true;
-                reportNativeChange(GAIN);
-                break;
-            case AudioManager.AUDIOFOCUS_LOSS:
-                // The system has taken it for good; a fresh request on the next resume is the only
-                // way back.
-                held = false;
-                reportNativeChange(LOSS);
-                break;
-            case AudioManager.AUDIOFOCUS_LOSS_TRANSIENT:
-                reportNativeChange(LOSS_TRANSIENT);
-                break;
-            case AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK:
-                reportNativeChange(LOSS_TRANSIENT_CAN_DUCK);
-                break;
-            default:
-                break;
+        if (focusChange == AudioManager.AUDIOFOCUS_LOSS) {
+            // Taken for good. The framework has already dropped us, so only a fresh request gets
+            // it back, and the next onStart is where that happens.
+            held = false;
         }
+        reportNativeChange(focusChange);
     }
 }

@@ -3,9 +3,7 @@
 
 #include <atomic>
 
-// What the system does to an application's sound when something else needs it. Java translates
-// the AudioManager.AUDIOFOCUS_* constants into these, so this header stays free of them and the
-// policy below can be tested on a host.
+// What the system does to an application's sound when something else needs it.
 //
 // Reported from the thread Android delivers the change on and taken on the SDL thread. Only the
 // latest report survives, because the two run independently: several changes can land between one
@@ -18,6 +16,22 @@ public:
 		e_loss = 1,
 		e_lossTransient = 2,
 		e_lossTransientCanDuck = 3
+	};
+
+	// The AudioManager.AUDIOFOCUS_* values. Public Android API, fixed since API 8, so Java hands
+	// this side the number it was given rather than translating it first: there is no second copy
+	// of the mapping to keep in step, and a variant neither side thought about still lands
+	// somewhere defined.
+	enum AndroidChange {
+		e_androidLossTransientCanDuck = -3,
+		e_androidLossTransient = -2,
+		e_androidLoss = -1,
+		e_androidNone = 0,
+		e_androidGain = 1
+		// 2, 3 and 4 are the GAIN_TRANSIENT variants. Every positive value means the sound is
+		// ours again, so they are read by sign rather than named: an external focus policy, as
+		// Android Automotive and some TV builds install, can send any of them, and treating one
+		// as unknown would leave the game silent with nothing left to put it right.
 	};
 
 	// Loud enough to keep dialogue intelligible under a navigation prompt, quiet enough that the
@@ -38,14 +52,37 @@ public:
 		return 1.0f;
 	}
 
-	// False for anything outside the enum, which leaves the gain alone rather than guessing. Java
-	// only sends translated values, so this catches a constant the two sides stopped agreeing on.
-	bool Report(int p_change)
+	static bool ChangeFor(int p_androidChange, Change* p_change)
 	{
-		if (p_change < e_gain || p_change > e_lossTransientCanDuck) {
+		if (p_androidChange >= e_androidGain) {
+			*p_change = e_gain;
+			return true;
+		}
+		switch (p_androidChange) {
+		case e_androidLoss:
+			*p_change = e_loss;
+			return true;
+		case e_androidLossTransient:
+			*p_change = e_lossTransient;
+			return true;
+		case e_androidLossTransientCanDuck:
+			*p_change = e_lossTransientCanDuck;
+			return true;
+		default:
+			// AUDIOFOCUS_NONE, and anything further out that Android has not defined. Neither
+			// says the sound moved, so leave the gain where it is rather than guessing.
 			return false;
 		}
-		m_change.store(p_change, std::memory_order_relaxed);
+	}
+
+	// Takes what AudioManager reported, untranslated. False leaves the gain alone.
+	bool Report(int p_androidChange)
+	{
+		Change change;
+		if (!ChangeFor(p_androidChange, &change)) {
+			return false;
+		}
+		m_change.store(change, std::memory_order_relaxed);
 		return true;
 	}
 
