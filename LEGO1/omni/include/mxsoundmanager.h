@@ -26,15 +26,20 @@ public:
 
 	// [library:audio]
 	// Lets a platform layer duck or silence the game when the system takes the sound away from
-	// it. Presenters, cached sounds, 3D sounds and music all reach the device through this one
-	// stream, so a gain here is the only knob that reaches every one of them. SetVolume is not:
-	// cached and 3D sounds read the global volume once, when they start.
+	// it, as Android does for a notification or a ringing call. Everything the game plays is
+	// mixed by this engine, so its master volume is the only knob that reaches presenters,
+	// cached sounds, 3D sounds and music alike. SetVolume is not: cached and 3D sounds read the
+	// global volume once, when they start.
+	//
+	// Deliberately not SDL_SetAudioStreamGain on m_stream, which would be the obvious choice and
+	// deadlocks: SDL's audio thread holds the stream's lock across the wait for the device, so a
+	// caller on the main thread blocks in it forever. miniaudio's bus volume is an atomic store.
 	//
 	// Inline so a platform layer outside lego1 can call it without an export.
 	void SetOutputGain(float p_gain)
 	{
-		if (m_stream != NULL) {
-			SDL_SetAudioStreamGain(m_stream, p_gain);
+		if (m_engine) {
+			ma_engine_set_volume(m_engine, p_gain);
 		}
 	}
 
