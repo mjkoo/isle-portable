@@ -34,6 +34,13 @@ public class IsleActivity extends SDLActivity {
     private TouchLayoutController mTouchLayoutController;
     private boolean mLayoutRequested;
     private AudioFocus mAudioFocus;
+    /**
+     * False when SDLActivity gave up in onCreate over libraries it could not load, which is also
+     * the one path where libisle.so is never loaded. Audio focus is the only thing this class
+     * calls into native of its own accord rather than being called from it, so it is the only
+     * thing that has to ask.
+     */
+    private boolean mLibrariesLoaded;
 
     @Override protected void onCreate(Bundle state) {
         super.onCreate(state);
@@ -57,6 +64,7 @@ public class IsleActivity extends SDLActivity {
         // SDLActivity creates its layout as a RelativeLayout; the overlay above relies on that too.
         mTouchLayoutController = new TouchLayoutController((RelativeLayout) mLayout, mMenuButton, escape, space,
             this::onTouchLayoutRead);
+        mLibrariesLoaded = true;
     }
 
     public void showMenuButton() {
@@ -124,6 +132,7 @@ public class IsleActivity extends SDLActivity {
      */
     @Override protected void onStart() {
         super.onStart();
+        if (!mLibrariesLoaded) return;
         if (mAudioFocus == null) mAudioFocus = new AudioFocus(this);
         mAudioFocus.request();
     }
