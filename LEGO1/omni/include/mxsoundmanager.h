@@ -24,6 +24,20 @@ public:
 
 	ma_engine* GetEngine() { return m_engine; }
 
+	// [library:audio]
+	// Lets a platform layer duck or silence the game when the system takes the sound away from
+	// it. Presenters, cached sounds, 3D sounds and music all reach the device through this one
+	// stream, so a gain here is the only knob that reaches every one of them. SetVolume is not:
+	// cached and 3D sounds read the global volume once, when they start.
+	//
+	// Inline so a platform layer outside lego1 can call it without an export.
+	void SetOutputGain(float p_gain)
+	{
+		if (m_stream != NULL) {
+			SDL_SetAudioStreamGain(m_stream, p_gain);
+		}
+	}
+
 	float GetAttenuation(MxU32 p_volume);
 
 	MxPresenter* FindPresenter(const MxAtomId& p_atomId, MxU32 p_objectId);
