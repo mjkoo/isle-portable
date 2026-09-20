@@ -413,34 +413,6 @@ process right after confirming: the change must apply on the next launch. Remove
 through the prompt and play; saves must be unchanged. Check the startup import still behaves as
 before, a controller through every dialog, and the minified release.
 
-## Audio focus
-
-The `audiofocus` target covers the policy that turns what the system did to the game's sound into
-the gain it plays at: each change's gain written literally, so moving one fails here; a duck
-applied once and not re-applied; getting the sound back restoring exactly the volume the game
-started at rather than an approximation of it; several reports between two takes collapsing to the
-last, which is what a loss and the gain undoing it both arriving while the activity is paused looks
-like; the two silent cases differing to the system but not to the mixer, so moving between them
-applies nothing; and a value outside the enum refused rather than resolved to a gain nobody chose.
-It needs neither SDL nor iniparser.
-
-On device, preserve the config and saves first. Play audio in another app and launch the game: the
-other app must stop, and `adb shell dumpsys audio` must show `org.legoisland.isle` holding focus
-with `GAIN` and must not show it after Home. `adb emu gsm call 5551234` raises a ringing call, which
-takes focus while the activity is still resumed - the one case SDL's own activity-pause handling
-does not cover - and the log must read gain `0.00` then `1.00` after `adb emu gsm cancel`. Answering
-with `adb emu gsm accept` pauses the activity as well; the game must come back with sound.
-
-Nothing on a stock emulator image asks to duck, so build a throwaway app that requests
-`AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK`, `AUDIOFOCUS_GAIN_TRANSIENT` and `AUDIOFOCUS_GAIN` on demand,
-drive it with `am start`, and check the three gains. Remove it afterwards. Confirm by ear as well as
-by log that a duck leaves dialogue audible rather than silencing it. Then check the paths that
-already pause - the in-game menu, a Settings round trip, the quit prompt, Home and resume - and that
-audio returns in each, since Settings abandons and re-requests focus on the way through. Repeat the
-request check and one duck on the minified release, the JNI method being reached only through
-R8-processed Java.
-
-
 ## Renderers
 
 `renderers` covers the device id miniwin synthesizes for a renderer the enumeration could not
@@ -461,3 +433,54 @@ and choosing one must get back. Check both render resolutions, rotation, and the
 message when the GPU renderer cannot start, which must name it as the Settings row does and
 reach Settings with a populated list. An emulator that cannot present Vulkan can still show the fallback: a device id
 naming SDL3 GPU HAL there must start on OpenGL ES instead of failing.
+
+## Audio focus
+
+The `audiofocus` target covers what the game does when the system takes its sound away. It reads
+the `AudioManager.AUDIOFOCUS_*` numbers Java passes through untranslated, so the mapping has one
+definition and the test is where the numbers are written down: every positive value, 1 for
+`AUDIOFOCUS_GAIN` and 2, 3 and 4 for the `GAIN_TRANSIENT` variants an external focus policy can
+send, has to mean the sound is ours again, or the game is left silent with nothing able to put it
+right. It also covers -1, -2 and -3 reaching their gains, `AUDIOFOCUS_NONE` and undefined values
+refused so the gain stays where it is, a duck applied once and not re-applied, the sound coming
+back restoring exactly 1.0 rather than an approximation of it, several reports between two takes
+collapsing to the last, and the two silent cases applying nothing between them. It needs neither
+SDL nor iniparser, and builds with the configuration tests above:
+
+```sh
+ctest --test-dir build/android-config-tests -R android_audio_focus --output-on-failure
+```
+
+On device, preserve the config and saves first. Play audio in another app and launch the game: the
+other app must stop, and `adb shell dumpsys audio` must show `org.legoisland.isle` holding focus
+with `GAIN`. Focus follows onStart and onStop, not onResume and onPause, because that is where SDL
+stops and starts mixing - so the game must still hold focus while its own quit prompt is up, which
+pauses nothing, and must have released it after Home and after opening Settings, which stop the
+activity.
+
+Nothing on a stock emulator image asks for focus on demand, so this needs a throwaway app of its
+own. It has to be a **foreground service**: an activity would take window focus and pause the game
+under test, and a background receiver is refused focus outright. Give it modes that request
+`AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK`, `AUDIOFOCUS_GAIN_TRANSIENT`,
+`AUDIOFOCUS_GAIN_TRANSIENT_EXCLUSIVE` and `AUDIOFOCUS_GAIN`, and one that abandons, then drive it
+with `adb shell am start-foreground-service -n <pkg>/.FocusService --es mode <mode>` and read the
+gains out of the game's log. Remove it afterwards.
+
+The exclusive mode is the one worth keeping: it locks the focus stack, so the game's own request is
+refused, which is what happens to a player who returns to the game during a call. The game must go
+silent rather than stay at whatever gain it had, and must come back to 1.00 when the driver
+abandons and the window regains focus - a refusal leaves no registration, so nothing else would
+ever restore it.
+
+`adb emu gsm call` is not a substitute. It reports `OK` and never reaches the framework on the
+API 35 `google_apis` image: `dumpsys telephony.registry` keeps `mCallState=0`, `dumpsys telecom`
+lists no ringing call, and `gsm.sim.state` is empty. The ringing-call case is covered by the
+driver's transient mode, which is what a ringing call requests.
+
+Confirm by ear as well as by log that a duck leaves dialogue audible rather than silencing it.
+Check the paths that already pause - the in-game menu, a Settings round trip, the quit prompt, Home
+and resume - and that audio returns in each. Install the **x86** APK on an arm64 device to exercise
+the path where the native libraries will not load: SDL's error dialog must appear and survive,
+because audio focus is the one thing this app calls into native on its own account. Repeat the
+request check and one duck on the minified release, the JNI method being reached only through
+R8-processed Java.
