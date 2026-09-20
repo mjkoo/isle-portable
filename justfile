@@ -59,11 +59,12 @@ android-avd:
 android-emulator gpu="host":
     {{ emulator_shell }} emulator -avd {{ avd_name }} -no-snapshot -no-boot-anim -gpu {{ gpu }}
 
-# Wait for the booted device, then install the arm64 debug APK over any existing one.
-android-install:
-    # The arm64 split, matching the AVD. `-d` because versionCode is now the commit count,
-    # so moving to an older branch would otherwise be refused as a downgrade.
-    {{ emulator_shell }} sh -c 'adb wait-for-device && while [ -z "$(adb shell getprop sys.boot_completed | tr -d "\r")" ]; do sleep 1; done && adb install -r -d android-project/app/build/outputs/apk/debug/app-arm64-v8a-debug.apk'
+# The default ABI matches the AVD above; pass `universal` for the one holding all four.
+[doc('Wait for the booted device, then install the debug APK for that ABI over any existing one')]
+android-install abi="arm64-v8a":
+    # `-d` because versionCode is the commit count, so moving to an older branch would
+    # otherwise be refused as a downgrade.
+    {{ emulator_shell }} sh -c 'adb wait-for-device && while [ -z "$(adb shell getprop sys.boot_completed | tr -d "\r")" ]; do sleep 1; done && adb install -r -d android-project/app/build/outputs/apk/debug/app-{{ abi }}-debug.apk'
 
 # adb push leaves the tree owned by `shell` mode 0770, which the app's own uid cannot
 # read: startup fails with "Error enumerating files ... Permission denied". Hence chmod.
