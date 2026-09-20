@@ -1,9 +1,5 @@
 #include "audiofocus.h"
 
-#include "legomain.h"
-#include "legosoundmanager.h"
-#include "misc.h"
-
 #include <SDL3/SDL_log.h>
 #include <jni.h>
 
@@ -16,19 +12,14 @@ void Android_ReportAudioFocus(int p_androidChange)
 	}
 }
 
-void Android_ApplyAudioGain()
+bool Android_TakeAudioFocusGain(float* p_gain)
 {
-	// The sound manager is checked before the gain is taken, so a focus change that arrives
-	// before the game has one stays pending instead of being consumed and dropped.
-	if (!Lego() || !Lego()->GetSoundManager()) {
-		return;
+	if (!g_audioFocus.Take(p_gain)) {
+		return false;
 	}
 
-	float gain;
-	if (g_audioFocus.Take(&gain)) {
-		SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Audio focus changed, playing at gain %.2f", gain);
-		Lego()->GetSoundManager()->SetOutputGain(gain);
-	}
+	SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Audio focus changed, playing at gain %.2f", *p_gain);
+	return true;
 }
 
 extern "C" JNIEXPORT void JNICALL

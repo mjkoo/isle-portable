@@ -106,8 +106,8 @@ private:
 // Reports what AudioManager said, from the thread Android delivered it on.
 void Android_ReportAudioFocus(int p_androidChange);
 
-// Plays the game at whatever the system last left it at. Call from the SDL thread; it does
-// nothing until the gain moves.
-void Android_ApplyAudioGain();
+// Hands over whatever the system last left the game's sound at, for the output gain to compose
+// with the game's own pause. True only when it moved. Call from the SDL thread.
+bool Android_TakeAudioFocusGain(float* p_gain);
 
 #endif

@@ -13,6 +13,7 @@
 #include "legomain.h"
 #include "legomodelpresenter.h"
 #include "legopartpresenter.h"
+#include "legosoundmanager.h"
 #include "legoutils.h"
 #include "legovideomanager.h"
 #include "legoworldpresenter.h"
@@ -29,6 +30,7 @@
 #include "mxtransitionmanager.h"
 #include "mxutilities.h"
 #include "mxvariabletable.h"
+#include "outputgain.h"
 #include "res/arrow_bmp.h"
 #include "res/busy_bmp.h"
 #include "res/isle_bmp.h"
@@ -154,6 +156,9 @@ MxS32 g_targetDepth = 16;
 
 // GLOBAL: ISLE 0x410064
 MxS32 g_reqEnableRMDevice = FALSE;
+
+// The one writer of the mixer's master volume. SDL thread only.
+static OutputGain g_outputGain;
 
 MxFloat g_lastJoystickMouseX = 0;
 MxFloat g_lastJoystickMouseY = 0;
@@ -466,6 +471,33 @@ static bool SDLCALL LifecycleEventWatch(void* p_userdata, SDL_Event* p_event)
 }
 #endif
 
+// Plays the game at the volume its pause state and the system between them call for.
+//
+// Polled rather than hung off each Pause()/Resume(), because LEGO1 pauses itself too: the Pause
+// key goes through LegoNavController, which no call site here can see.
+static void ApplyOutputGain()
+{
+#ifdef ANDROID
+	float focus;
+	if (Android_TakeAudioFocusGain(&focus)) {
+		g_outputGain.SetFocus(focus);
+	}
+#endif
+
+	// Taking the gain is what records it as applied, so nothing may be taken before there is an
+	// engine to apply it to. A focus change that arrives first waits in the gain above instead.
+	if (!Lego() || !SoundManager()) {
+		return;
+	}
+
+	g_outputGain.SetPaused(Lego()->IsPaused());
+
+	float gain;
+	if (g_outputGain.Take(&gain)) {
+		SoundManager()->SetOutputGain(gain);
+	}
+}
+
 // Shuts the game down. ~IsleApp runs IsleApp::Close, which saves and then tickles the world
 // down, so a quit has to come through here: returning SDL_APP_SUCCESS on its own skips all of
 // it, since SDL_AppQuit never touches g_isle.
@@ -548,6 +580,10 @@ static SDL_AppResult HandleBackButton()
 		Lego()->Pause();
 	}
 
+	// The prompt loops here rather than returning to SDL_AppIterate, so the pause reaches the
+	// mixer from this side or not until the player has answered.
+	ApplyOutputGain();
+
 	// Before the prompt rather than after the answer, so the dialog can say what actually
 	// happened. Android can reclaim the process at any point while a prompt is up, and the save
 	// is cheap and idempotent, so paying it on a cancelled press is the better trade.
@@ -591,6 +627,7 @@ static SDL_AppResult HandleBackButton()
 	if (pausedHere && Lego() && (!g_androidBackgrounded || quit)) {
 		Lego()->Resume();
 	}
+	ApplyOutputGain();
 
 	if (quit) {
 		CloseGame();
@@ -778,9 +815,10 @@ static void PublishTouchControls()
 
 SDL_AppResult SDL_AppIterate(void* appstate)
 {
-#ifdef ANDROID
 	// Before the back button, which returns out of the iteration it handles one on.
-	Android_ApplyAudioGain();
+	ApplyOutputGain();
+
+#ifdef ANDROID
 	if (Android_TakeTouchControlsReset()) {
 		CancelInputForQuitPrompt();
 	}
@@ -982,6 +1020,7 @@ SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event)
 #ifdef ANDROID
 				if (Lego()) {
 					Lego()->Pause();
+					ApplyOutputGain();
 				}
 				bool saved = SaveGameStateForLifecycleEvent("render failure");
 				g_confirmingQuit = true;
