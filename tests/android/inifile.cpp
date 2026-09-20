@@ -5,14 +5,23 @@
 #include <fstream>
 #include <iterator>
 #include <memory>
+#include <random>
 #include <string>
 
 // std::filesystem rather than mkdtemp, so this same binary runs on msys2 and MSVC and exercises
-// the Windows branch of the replacement, which is the only place SDL_RenamePath is reached.
+// the Windows branch of the replacement. The root carries a per-run number so two runs cannot
+// delete each other's trees; a failing run leaves its tree behind to be looked at, since assert
+// aborts without unwinding.
+static const std::filesystem::path& Root()
+{
+	static const std::filesystem::path root =
+		std::filesystem::temp_directory_path() / ("isle-inifile-test-" + std::to_string(std::random_device{}()));
+	return root;
+}
+
 static std::filesystem::path MakeDirectory(const char* p_name)
 {
-	std::filesystem::path directory = std::filesystem::temp_directory_path() / "isle-inifile-test" / p_name;
-	std::filesystem::remove_all(directory);
+	std::filesystem::path directory = Root() / p_name;
 	std::filesystem::create_directories(directory);
 	return directory;
 }
@@ -32,6 +41,16 @@ static Dictionary MakeDictionary(const char* p_key, const std::string& p_value)
 	assert(iniparser_set(dict.get(), "isle", nullptr) == 0);
 	assert(iniparser_set(dict.get(), p_key, p_value.c_str()) == 0);
 	return dict;
+}
+
+// iniparser_getstring hands back the default, here nullptr, for a key it does not hold. Comparing
+// that against a std::string is undefined, and a missing key is exactly what these assertions are
+// watching for, so check the pointer before it is read.
+static std::string Value(const dictionary* p_dict, const char* p_key)
+{
+	const char* value = iniparser_getstring(p_dict, p_key, nullptr);
+	assert(value);
+	return value;
 }
 
 int main()
@@ -55,27 +74,30 @@ int main()
 	assert(IniFile::FitsOnOneLine("isle:" + longName, std::string(longKeyRoom, 'a').c_str()));
 	assert(!IniFile::FitsOnOneLine("isle:" + longName, std::string(longKeyRoom + 1, 'a').c_str()));
 
-	// A key with no colon is a section entry: the whole of it is the name.
+	// A key with no colon is measured whole. iniparser dumps such an entry as a section header
+	// rather than a padded key, so the limit cannot bite there; FitsOnOneLine is simply
+	// conservative about it.
 	assert(IniFile::FitsOnOneLine(longName, std::string(longKeyRoom, 'a').c_str()));
 	assert(!IniFile::FitsOnOneLine(longName, std::string(longKeyRoom + 1, 'a').c_str()));
 
 	assert(IniFile::FitsOnOneLine("isle:x", ""));
 
-	// The limit is iniparser's own cliff, not a guess. A value at the limit survives a dump and a
-	// load; one character more and the load refuses the whole file, taking every other key with
-	// it. Built from backslashes because iniparser_set truncates a stored value at ASCIILINESZ,
-	// which would hide the case if the length came from plain characters.
+	// The limit is iniparser's own cliff, not a guess, and these two lengths are literal rather
+	// than derived from kLineLimit so that moving the constant either way fails this test. A 987
+	// character value dumps as a 1022 character line - 30 columns of padded name, " = \"\"", and
+	// the value - which iniparser's 1024 byte fgets reads back whole. One character more and the
+	// load refuses the entire file, taking every other setting in it.
 	{
 		std::filesystem::path directory = MakeDirectory("limit");
-		const std::string atLimit(shortKeyRoom / 2, '\\');
+		const std::string atLimit(987, 'a');
 		assert(IniFile::FitsOnOneLine("isle:x", atLimit.c_str()));
 		std::string path = (directory / "isle.ini").string();
 		assert(IniFile::Save(path, MakeDictionary("isle:x", atLimit).get()).empty());
 		Dictionary loaded(iniparser_load(path.c_str()), iniparser_freedict);
 		assert(loaded);
-		assert(iniparser_getstring(loaded.get(), "isle:x", nullptr) == atLimit);
+		assert(Value(loaded.get(), "isle:x") == atLimit);
 
-		const std::string overLimit(shortKeyRoom / 2 + 1, '\\');
+		const std::string overLimit(988, 'a');
 		assert(!IniFile::FitsOnOneLine("isle:x", overLimit.c_str()));
 		std::string overPath = (directory / "over.ini").string();
 		assert(IniFile::Save(overPath, MakeDictionary("isle:x", overLimit).get()).empty());
@@ -90,7 +112,7 @@ int main()
 		assert(IniFile::Save(path, MakeDictionary("isle:music", "true").get()).empty());
 		Dictionary loaded(iniparser_load(path.c_str()), iniparser_freedict);
 		assert(loaded);
-		assert(iniparser_getstring(loaded.get(), "isle:music", nullptr) == std::string("true"));
+		assert(Value(loaded.get(), "isle:music") == "true");
 		assert(!std::filesystem::exists(path + ".new"));
 	}
 
@@ -99,14 +121,15 @@ int main()
 	{
 		std::filesystem::path directory = MakeDirectory("replace");
 		std::string path = (directory / "isle.ini").string();
-		std::ofstream(path) << "[isle]\nmusic = \"false\"\n";
+		std::ofstream(path) << "[isle]\nmusic = \"false\"\ncustom = \"keep\"\n";
 		assert(IniFile::Save(path, MakeDictionary("isle:music", "true").get()).empty());
 		Dictionary loaded(iniparser_load(path.c_str()), iniparser_freedict);
 		assert(loaded);
-		assert(iniparser_getstring(loaded.get(), "isle:music", nullptr) == std::string("true"));
-		// Only what the caller passed is written: preserving the rest is the caller's job, done by
-		// loading the file before it changes anything.
+		assert(Value(loaded.get(), "isle:music") == "true");
+		// Save writes the dictionary it is given and nothing else: the key that was only on disk
+		// is gone. Preserving it is the caller's job, done by loading the file first.
 		assert(Read(path).find("custom") == std::string::npos);
+		assert(!std::filesystem::exists(path + ".new"));
 	}
 
 	// A temporary that cannot be written leaves the previous file exactly as it was.
@@ -145,6 +168,6 @@ int main()
 		assert(!std::filesystem::exists(path + ".new"));
 	}
 
-	std::filesystem::remove_all(std::filesystem::temp_directory_path() / "isle-inifile-test");
+	std::filesystem::remove_all(Root());
 	return 0;
 }
