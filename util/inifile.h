@@ -2,14 +2,16 @@
 #define INIFILE_H
 
 #include <cerrno>
+#include <cstddef>
 #include <cstdio>
 #include <cstring>
 #include <iniparser.h>
 #include <string>
 
 #ifdef _WIN32
-#include <SDL3/SDL_filesystem.h>
+#include <filesystem>
 #include <io.h>
+#include <system_error>
 #else
 #include <unistd.h>
 #endif
@@ -55,16 +57,21 @@ inline int Commit(FILE* p_file)
 #endif
 }
 
-// Replace p_path with p_temp, which must not be readable as two files at any point. POSIX rename
-// replaces the destination; the Windows CRT's does not, so that branch goes through SDL, which is
-// MoveFileExW with MOVEFILE_REPLACE_EXISTING and converts the path to wide characters on the way.
-// The real <windows.h> is not an option here: CONFIG/qt builds against miniwin's shim of that name.
+// Replace p_path with p_temp. POSIX rename replaces the destination; the Windows CRT's rename
+// fails when it already exists, so that branch goes through std::filesystem::rename, which the
+// standard requires to replace an existing file and which MSVC implements as MoveFileExW with
+// MOVEFILE_REPLACE_EXISTING. It also takes the path in the same narrow encoding fopen and remove
+// do, which matters: an SDL or wide-character rename would read these bytes as UTF-8 while the
+// open and the cleanup read them as the ANSI code page, and the three calls would name different
+// files as soon as the path left ASCII. The real <windows.h> is not an option for MoveFileEx here,
+// because CONFIG/qt builds against miniwin's shim of that name.
 inline std::string RenameOver(const std::string& p_temp, const std::string& p_path)
 {
 #ifdef _WIN32
-	if (!SDL_RenamePath(p_temp.c_str(), p_path.c_str())) {
-		const char* error = SDL_GetError();
-		return error && *error ? error : "the file could not be replaced";
+	std::error_code code;
+	std::filesystem::rename(p_temp, p_path, code);
+	if (code) {
+		return code.message();
 	}
 #else
 	if (rename(p_temp.c_str(), p_path.c_str()) != 0) {
@@ -106,4 +113,4 @@ inline std::string Save(const std::string& p_path, const dictionary* p_dictionar
 
 } // namespace IniFile
 
-#endif // INIFILE_H
+#endif

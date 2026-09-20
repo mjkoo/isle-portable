@@ -18,12 +18,6 @@ target_compile_features(inifile PRIVATE cxx_std_17)
 target_compile_options(inifile PRIVATE -Wall -Wextra -Werror -UNDEBUG)
 target_include_directories(inifile PRIVATE ../../util "${INIPARSER_INCLUDE_DIR}")
 target_link_libraries(inifile PRIVATE "${INIPARSER_LIBRARY}")
-# Only the Windows branch of the replacement reaches SDL, so only it needs SDL to link.
-if(WIN32)
-  find_library(SDL3_LIBRARY NAMES SDL3 HINTS ../../build/_deps/sdl3-build REQUIRED)
-  target_include_directories(inifile PRIVATE "${SDL3_INCLUDE_DIR}")
-  target_link_libraries(inifile PRIVATE "${SDL3_LIBRARY}")
-endif()
 add_test(NAME ini_file COMMAND inifile)
 
 add_executable(savesnapshot savesnapshot.cpp ../../ISLE/android/savesnapshot.cpp)
