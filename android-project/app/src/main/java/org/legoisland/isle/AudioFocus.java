@@ -78,9 +78,12 @@ final class AudioFocus {
      * app playing over a game that is no longer making a sound.
      */
     void abandon() {
-        if (manager == null || !held) {
+        if (manager == null) {
             return;
         }
+        // Not conditional on holding it. After a permanent loss the framework has already dropped
+        // us, but the listener stays registered on the application's AudioManager until this call,
+        // and with it this object and anything a later dispatch for that id would reach.
         held = false;
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             manager.abandonAudioFocusRequest((AudioFocusRequest) request);
@@ -105,9 +108,12 @@ final class AudioFocus {
     }
 
     private void onFocusChange(int focusChange) {
+        // Only cleared, never set. Callbacks are posted from a binder thread, so a gain the
+        // framework sent just before it processed an abandon can arrive after it; setting the flag
+        // there would convince the next onStart that focus was already held and skip the request,
+        // leaving the game a whole session in the foreground holding none.
         if (focusChange == AudioManager.AUDIOFOCUS_LOSS) {
-            // Taken for good. The framework has already dropped us, so only a fresh request gets
-            // it back, and the next onStart is where that happens.
+            // Taken for good. Only a fresh request gets it back, and onStart is where that is.
             held = false;
         }
         reportNativeChange(focusChange);
