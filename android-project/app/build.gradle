@@ -177,13 +177,22 @@ tasks.register('downloadSDL3', Exec) {
     // Keyed on the revision, which is the question an existing checkout could not answer while
     // the tag was "main": the old check treated any checkout as current, so a moved pin would
     // have kept building the .aar from whatever was already on disk. The script decides where
-    // the fetch lands and from which repository, so it is an input in its own right.
+    // the fetch lands, and the pin file names the repository it comes from - which this build
+    // never parses - so both are inputs in their own right.
     inputs.property('sdl3Revision', sdl3Revision)
     inputs.file("${androidProject}/downloadSDL3.cmake").withPropertyName('downloadScript')
+    inputs.file("${repoRoot}/CMake/SDL3Revision.cmake").withPropertyName('sdl3Pin')
     outputs.file(sdl3RevFile)
+    // The revision answers "is this the right SDL3?"; this answers "is it still there?".
+    // Deleting build/_deps to reclaim disk leaves sdl3-rev.txt behind, and the fetch would
+    // otherwise be skipped for a source tree compileSDL3AndroidArchive is about to read.
+    outputs.upToDateWhen { file("${sdl3SrcDir}/build-scripts/build-release.py").exists() }
 
     doLast {
-        def rev = ['git', '-C', sdl3SrcDir.path, 'rev-parse', 'HEAD'].execute()
+        // --git-dir pins the search to this tree. Without it `git -C` walks up out of an empty
+        // or missing sdl3-src and answers with isle-portable's own HEAD, so the mismatch below
+        // reports a sha from the wrong repository instead of saying the checkout is not there.
+        def rev = ['git', '-C', sdl3SrcDir.path, '--git-dir=.git', 'rev-parse', 'HEAD'].execute()
         rev.waitFor()
         if (rev.exitValue() != 0) {
             throw new GradleException("Could not read the SDL3 revision in ${sdl3SrcDir}")
