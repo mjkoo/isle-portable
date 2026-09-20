@@ -2,6 +2,48 @@ plugins {
     id 'com.android.application'
 }
 def androidProject = projectDir.parentFile
+def repoRoot = androidProject.parentFile
+
+// The version CPack already derives its own from, so the two cannot disagree.
+def projectVersion = {
+    def matcher = new File(repoRoot, 'CMakeLists.txt').text =~ /project\(isle\b[^)]*\bVERSION\s+([0-9][0-9.]*)/
+    return matcher ? matcher[0][1] : '0'
+}()
+
+def gitOutput = { List<String> args ->
+    try {
+        def output = providers.exec {
+            commandLine(['git', '-C', repoRoot.path] + args)
+            ignoreExitValue = true
+        }
+        // A non-zero exit is a question git answered with "no"; a missing git throws instead.
+        return output.result.get().exitValue == 0 ? output.standardOutput.asText.get().trim() : null
+    }
+    catch (Exception ignored) {
+        return null
+    }
+}
+
+// versionCode is the commit count, which is the only monotone source here: the sole tag is
+// `continuous`, a rolling tag that gets re-pointed, so git describe would count backwards.
+def isleVersion = {
+    if (project.hasProperty('isleVersionCode')) {
+        def override = project.isleVersionCode as int
+        return [override, "${projectVersion}.${override}".toString()]
+    }
+    // A shallow clone answers `rev-list --count` with 1 and exit 0, which is indistinguishable
+    // from a real count, so ask git whether it is shallow rather than trusting the number.
+    def shallow = gitOutput(['rev-parse', '--is-shallow-repository'])
+    def count = shallow == 'false' ? gitOutput(['rev-list', '--count', 'HEAD']) : null
+    def sha = count ? gitOutput(['rev-parse', '--short', 'HEAD']) : null
+    if (!count || !sha) {
+        logger.warn('isle: no usable git history here ({}), so this APK is version 1. ' +
+                'Fetch the full history, or pass -PisleVersionCode=<n>.',
+                shallow == null ? 'not a git repository' : 'shallow clone')
+        return [1, "${projectVersion}+unknown".toString()]
+    }
+    return [count as int, "${projectVersion}.${count}+g${sha}".toString()]
+}()
 
 android {
     namespace "org.legoisland.isle"
@@ -17,8 +59,8 @@ android {
         applicationId 'org.legoisland.isle'
         minSdk 21
         targetSdk 35
-        versionCode 1
-        versionName '1.0'
+        versionCode isleVersion[0]
+        versionName isleVersion[1]
         testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
 
         externalNativeBuild {
