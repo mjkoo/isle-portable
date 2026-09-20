@@ -26,3 +26,7 @@
 -keep class org.legoisland.isle.TouchControlsView {
     native <methods>;
 }
+
+-keep class org.legoisland.isle.AudioFocus {
+    native <methods>;
+}

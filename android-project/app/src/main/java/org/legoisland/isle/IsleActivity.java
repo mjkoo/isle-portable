@@ -33,6 +33,7 @@ public class IsleActivity extends SDLActivity {
     private TouchControlsView mTouchControls;
     private TouchLayoutController mTouchLayoutController;
     private boolean mLayoutRequested;
+    private AudioFocus mAudioFocus;
 
     @Override protected void onCreate(Bundle state) {
         super.onCreate(state);
@@ -117,11 +118,14 @@ public class IsleActivity extends SDLActivity {
     @Override protected void onResume() {
         super.onResume();
         mResumed = true;
+        if (mAudioFocus == null) mAudioFocus = new AudioFocus(this);
+        mAudioFocus.request();
         updateTouchControls();
     }
 
     @Override protected void onPause() {
         mResumed = false;
+        if (mAudioFocus != null) mAudioFocus.abandon();
         updateTouchControls();
         super.onPause();
     }
