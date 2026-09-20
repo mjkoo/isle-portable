@@ -64,6 +64,14 @@ final class AudioFocus {
             // A request granted after a loss gets no callback of its own, so say so here.
             reportNativeChange(GAIN);
         }
+        else {
+            // The system refuses focus while the phone is ringing or in a call, and to anything
+            // asking under a holder that locked the stack. Say so rather than leaving the game at
+            // whatever gain it happened to be at: silent when it was already silent, and not
+            // playing over the call when it was not. A refusal comes with no registration, so
+            // nothing would ever arrive to undo it - onWindowFocusChanged asks again instead.
+            reportNativeChange(LOSS_TRANSIENT);
+        }
     }
 
     /**

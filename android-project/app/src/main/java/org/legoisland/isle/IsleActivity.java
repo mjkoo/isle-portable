@@ -147,6 +147,10 @@ public class IsleActivity extends SDLActivity {
 
     @Override public void onWindowFocusChanged(boolean hasFocus) {
         super.onWindowFocusChanged(hasFocus);
+        // Asking again costs nothing once focus is held, and it is the only event that arrives
+        // when a call the game was refused focus under finally ends: the activity never stopped,
+        // so nothing else fires, and a refusal leaves no registration to be called back on.
+        if (hasFocus && mAudioFocus != null) mAudioFocus.request();
         updateTouchControls();
     }
 
