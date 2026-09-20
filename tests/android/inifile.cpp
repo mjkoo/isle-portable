@@ -1,6 +1,8 @@
 #include "inifile.h"
 
+#include <algorithm>
 #include <cassert>
+#include <cctype>
 #include <filesystem>
 #include <fstream>
 #include <iterator>
@@ -41,6 +43,21 @@ static Dictionary MakeDictionary(const char* p_key, const std::string& p_value)
 	assert(iniparser_set(dict.get(), "isle", nullptr) == 0);
 	assert(iniparser_set(dict.get(), p_key, p_value.c_str()) == 0);
 	return dict;
+}
+
+// Counts case-insensitively, so a key that came back in its original case rather than lowercased
+// is still counted rather than missed.
+static size_t Occurrences(const std::string& p_text, const std::string& p_needle)
+{
+	std::string text = p_text;
+	std::transform(text.begin(), text.end(), text.begin(), [](unsigned char p_char) {
+		return static_cast<char>(std::tolower(p_char));
+	});
+	size_t count = 0;
+	for (size_t at = text.find(p_needle); at != std::string::npos; at = text.find(p_needle, at + 1)) {
+		++count;
+	}
+	return count;
 }
 
 // iniparser_getstring hands back the default, here nullptr, for a key it does not hold. Comparing
@@ -166,6 +183,46 @@ int main()
 		assert(!IniFile::Save(path, MakeDictionary("isle:music", "true").get()).empty());
 		assert(!std::filesystem::exists(path));
 		assert(!std::filesystem::exists(path + ".new"));
+	}
+
+	// What the desktop tool's merge rests on: iniparser lowercases entries on the way in and on
+	// the way out, so a dialog that sets "isle:Music" lands in the slot the loader made for
+	// "music" instead of adding a second one. That is a property of a fetched library, and the
+	// merge silently doubles every key it writes if it ever stops holding.
+	{
+		std::filesystem::path directory = MakeDirectory("mixed-case");
+		std::string path = (directory / "isle.ini").string();
+		std::ofstream(path) << "[isle]\nmusic = \"false\"\n";
+		Dictionary dict(iniparser_load(path.c_str()), iniparser_freedict);
+		assert(dict);
+		assert(iniparser_set(dict.get(), "isle:Music", "true") == 0);
+		assert(IniFile::Save(path, dict.get()).empty());
+		Dictionary loaded(iniparser_load(path.c_str()), iniparser_freedict);
+		assert(loaded);
+		assert(Value(loaded.get(), "isle:music") == "true");
+		assert(Occurrences(Read(path), "music") == 1);
+	}
+
+	// The whole load-modify-save idiom, which is what keeps settings the writer does not know
+	// about. Sections it never touches have to come back untouched.
+	{
+		std::filesystem::path directory = MakeDirectory("merge");
+		std::string path = (directory / "isle.ini").string();
+		std::ofstream(path) << "[isle]\nmusic = \"false\"\ncustom = \"keep\"\n"
+							<< "[gamepad]\nsouth = \"click\"\n"
+							<< "[multiplayer]\nroom = \"islanders\"\n";
+		Dictionary dict(iniparser_load(path.c_str()), iniparser_freedict);
+		assert(dict);
+		assert(iniparser_set(dict.get(), "isle:Music", "true") == 0);
+		assert(iniparser_set(dict.get(), "isle:Island Quality", "2") == 0);
+		assert(IniFile::Save(path, dict.get()).empty());
+		Dictionary loaded(iniparser_load(path.c_str()), iniparser_freedict);
+		assert(loaded);
+		assert(Value(loaded.get(), "isle:music") == "true");
+		assert(Value(loaded.get(), "isle:island quality") == "2");
+		assert(Value(loaded.get(), "isle:custom") == "keep");
+		assert(Value(loaded.get(), "gamepad:south") == "click");
+		assert(Value(loaded.get(), "multiplayer:room") == "islanders");
 	}
 
 	std::filesystem::remove_all(Root());
