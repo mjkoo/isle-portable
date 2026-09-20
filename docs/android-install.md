@@ -20,15 +20,17 @@ Picking the one that matches your device is worth doing: the arm64 release APK i
 If you do not know what your device is, the universal APK always works. To check, run
 `adb shell getprop ro.product.cpu.abi`, or read the CPU line in an app like Device Info HW.
 
-All five are the same version and are signed with the same key, so one can be installed over
-another without uninstalling first.
-
 `debug` builds log more and are not minified; `release` builds are what you want for playing.
+
+Within one of those, all five APKs are the same version and carry the same signature, so you can
+install a different one over what you already have without uninstalling first. Swapping between a
+`debug` and a `release` APK is not the same thing: they are signed with different keys, and Android
+refuses the install until the old one is removed.
 
 ## Which build you are running
 
-The version name is the project version, the number of commits behind it, and the commit it was
-built from:
+The version name is the project version, the number of commits in the history it was built from,
+and the commit itself:
 
 ```
 0.1.2721+g92a28e0e
@@ -43,7 +45,8 @@ guessing.
 
 ## After installing
 
-The game needs an existing copy of LEGO Island 1.1 (English). The first launch asks for the folder
-holding `LEGO/Scripts` and `LEGO/data` and copies it into the app's own storage. See
+The game needs an existing copy of LEGO Island 1.1 (English). The first launch asks for a folder
+holding one, either the folder that contains `LEGO` or the `LEGO` folder itself, and copies it into
+`Android/data/org.legoisland.isle/files/`. No storage permission is required. See
 [Android game files](android-game-files.md) for replacing or removing it later, and
 [Android saves](android-saves.md) for getting saves on and off the device.
