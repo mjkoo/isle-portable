@@ -13,7 +13,8 @@ android_cmake_args := "-DCMAKE_BUILD_TYPE=Release -DISLE_USE_DX5=false -DISLE_BU
 default:
     @just --list
 
-# Build the debug APK into android-project/app/build/outputs/apk/debug/.
+# Build the per-ABI and universal debug APKs into
+# android-project/app/build/outputs/apk/debug/.
 [working-directory: 'android-project']
 android-apk:
     {{ android_shell }} ./gradlew assembleDebug -PcmakeArgs="{{ android_cmake_args }}"
@@ -60,7 +61,9 @@ android-emulator gpu="host":
 
 # Wait for the booted device, then install the debug APK over any existing one.
 android-install:
-    {{ emulator_shell }} sh -c 'adb wait-for-device && while [ -z "$(adb shell getprop sys.boot_completed | tr -d "\r")" ]; do sleep 1; done && adb install -r android-project/app/build/outputs/apk/debug/app-debug.apk'
+    # The arm64 split, matching the AVD. `-d` because versionCode is now the commit count,
+    # so moving to an older branch would otherwise be refused as a downgrade.
+    {{ emulator_shell }} sh -c 'adb wait-for-device && while [ -z "$(adb shell getprop sys.boot_completed | tr -d "\r")" ]; do sleep 1; done && adb install -r -d android-project/app/build/outputs/apk/debug/app-arm64-v8a-debug.apk'
 
 # adb push leaves the tree owned by `shell` mode 0770, which the app's own uid cannot
 # read: startup fails with "Error enumerating files ... Permission denied". Hence chmod.

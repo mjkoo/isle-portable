@@ -4,6 +4,11 @@ plugins {
 def androidProject = projectDir.parentFile
 def repoRoot = androidProject.parentFile
 
+// The ABIs the native build produces and the ones the APKs are split along have to agree. Held
+// once, because two identical lists twenty lines apart drift, and the failure is an APK for an
+// architecture with no libisle.so in it.
+def isleAbis = ['armeabi-v7a', 'arm64-v8a', 'x86', 'x86_64']
+
 // The version CPack already derives its own from, so the two cannot disagree.
 def projectVersion = {
     def matcher = new File(repoRoot, 'CMakeLists.txt').text =~ /project\(isle\b[^)]*\bVERSION\s+([0-9][0-9.]*)/
@@ -69,7 +74,7 @@ android {
                 if (project.hasProperty('cmakeArgs')) {
                     project.cmakeArgs.split(" ").each {arg -> arguments arg}
                 }
-                abiFilters 'armeabi-v7a', 'arm64-v8a', 'x86', 'x86_64'
+                abiFilters(*isleAbis)
             }
         }
     }
@@ -77,6 +82,21 @@ android {
         cmake {
             version "3.30.5"
             path '../../CMakeLists.txt'
+        }
+    }
+
+    // One APK per architecture. The four native payloads are about 5.5 to 8.3 MiB each, so a
+    // single APK makes every player download three architectures their device cannot load.
+    splits {
+        abi {
+            enable true
+            reset()
+            include(*isleAbis)
+            // Keep a works-anywhere APK too. Sideloading from the releases page is the only
+            // distribution route, and a player who does not know their ABI needs something to
+            // click. The splits are told apart by filename, so they share a version code;
+            // installing one over another is a reinstall, not a downgrade.
+            universalApk true
         }
     }
 
