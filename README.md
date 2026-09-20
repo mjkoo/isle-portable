@@ -62,6 +62,9 @@ To achieve our goal of platform independence, we need to replace any Windows-onl
 
 ## Android settings
 
+The releases page carries one APK per CPU architecture plus a universal one; see
+[installing the Android build](docs/android-install.md) for which to take.
+
 The Android app launches directly into the game. Tap the menu button, in the upper-right
 corner by default, or use Android's Back button or gesture, to open Resume / Settings / Quit.
 
