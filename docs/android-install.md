@@ -14,8 +14,8 @@ architectures they contain.
 | `app-x86-*.apk` | Older 32-bit x86 emulators |
 | `app-universal-*.apk` | All four at once: take this if you are not sure |
 
-Picking the one that matches your device is worth doing: the arm64 release APK is 4.4 MiB against
-14 MiB for the universal one, because the other three architectures are dead weight on it.
+Picking the one that matches your device is worth doing: the universal APK is roughly three times
+the size of a single-architecture one, because the other three architectures are dead weight on it.
 
 If you do not know what your device is, the universal APK always works. To check, run
 `adb shell getprop ro.product.cpu.abi`, or read the CPU line in an app like Device Info HW.
@@ -41,7 +41,8 @@ org.legoisland.isle` prints both it and the version code. The version code is th
 its own, so a later build always sorts above an earlier one and Android treats it as an upgrade.
 
 A build made outside a full git clone cannot know any of this, and says `+unknown` rather than
-guessing.
+guessing. A build given its version code directly, with `-PisleVersionCode=<n>`, uses that number
+and names itself `0.1.<n>` with no commit on the end.
 
 ## After installing
 
