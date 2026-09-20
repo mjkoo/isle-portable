@@ -580,8 +580,9 @@ static SDL_AppResult HandleBackButton()
 		Lego()->Pause();
 	}
 
-	// The prompt loops here rather than returning to SDL_AppIterate, so the pause reaches the
-	// mixer from this side or not until the player has answered.
+	// The prompt below loops here rather than returning to SDL_AppIterate, so the pause has to
+	// reach the mixer from this side; left to the pump it would not arrive until the player had
+	// answered.
 	ApplyOutputGain();
 
 	// Before the prompt rather than after the answer, so the dialog can say what actually
