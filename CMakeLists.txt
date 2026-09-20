@@ -239,6 +239,7 @@ if (DOWNLOAD_DEPENDENCIES)
   # FetchContent downloads and configures dependencies
   message(STATUS "Fetching SDL3 and iniparser. This might take a while...")
   include(FetchContent)
+  include(CMake/SDL3Revision.cmake)
 
   if(ANDROID)
     # Built by Gradle
@@ -264,13 +265,19 @@ if (DOWNLOAD_DEPENDENCIES)
       )
       set(CMAKE_DISABLE_PRECOMPILE_HEADERS ON CACHE BOOL "Disable PCH globally" FORCE)
     else()
-      set(ISLE_SDL3_GIT_REPO "https://github.com/libsdl-org/SDL.git" CACHE STRING "The SDL3 git repo")
-      set(ISLE_SDL3_GIT_TAG "main" CACHE STRING "The SDL3 git tag")
+      # New cache names on purpose. Trees configured before the pin already hold
+      # ISLE_SDL3_GIT_TAG=main, and set(... CACHE ...) never overwrites an existing entry, so
+      # reusing the old names would leave every one of them silently following main.
+      set(ISLE_SDL3_REPOSITORY "${ISLE_SDL3_DEFAULT_GIT_REPO}" CACHE STRING "The SDL3 git repo")
+      set(ISLE_SDL3_REVISION "${ISLE_SDL3_DEFAULT_GIT_TAG}" CACHE STRING "The SDL3 git revision")
+      # No UPDATE_DISCONNECTED: with a branch name it kept a fetch out of every reconfigure, but
+      # with a revision it makes a stale tree a fatal error, because the requested object is not
+      # present locally and the update step may not go and get it. The update step is nearly free
+      # once the revision is already checked out.
       FetchContent_Declare(
         SDL3
-        GIT_REPOSITORY "${ISLE_SDL3_GIT_REPO}"
-        GIT_TAG "${ISLE_SDL3_GIT_TAG}"
-        UPDATE_DISCONNECTED TRUE
+        GIT_REPOSITORY "${ISLE_SDL3_REPOSITORY}"
+        GIT_TAG "${ISLE_SDL3_REVISION}"
         EXCLUDE_FROM_ALL
       )
     endif()
