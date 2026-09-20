@@ -8,8 +8,9 @@
 // policy below can be tested on a host.
 //
 // Reported from the thread Android delivers the change on and taken on the SDL thread. Only the
-// latest report survives: SDL_AppIterate does not run while the activity is paused, so a loss and
-// the gain that undoes it can both arrive before the game looks again.
+// latest report survives, because the two run independently: several changes can land between one
+// look and the next, and applying anything but the last of them would leave the game at a gain the
+// system has already moved on from.
 class AudioFocus {
 public:
 	enum Change {

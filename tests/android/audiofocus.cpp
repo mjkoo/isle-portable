@@ -43,9 +43,9 @@ int main()
 		assert(!focus.Take(&gain));
 	}
 
-	// Only the latest report survives. SDL_AppIterate does not run while the activity is paused,
-	// so a loss and the gain undoing it can both land before the game looks again; taking the
-	// loss first would leave the game silent until something else moved the gain.
+	// Only the latest report survives. Reports and takes run on different threads, so a loss and
+	// the gain undoing it can both land between one look and the next; taking the loss first would
+	// leave the game silent until something else moved the gain.
 	{
 		AudioFocus focus;
 		assert(focus.Report(AudioFocus::e_lossTransient));

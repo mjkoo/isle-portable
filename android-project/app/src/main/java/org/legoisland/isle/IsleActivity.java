@@ -115,17 +115,32 @@ public class IsleActivity extends SDLActivity {
         }
     }
 
+    /**
+     * Audio focus follows onStart/onStop rather than onResume/onPause, because that is where SDL
+     * stops and starts the thread that mixes: SDLActivity.mHasMultiWindow is a compile-time
+     * SDK_INT >= 24, so from Android 7 onwards its pauseNativeThread runs in onStop. Asking in
+     * onResume would leave the game mixing at full volume, holding no focus, for the whole of a
+     * pause that never becomes a stop - a split-screen or dialog-themed activity over the game.
+     */
+    @Override protected void onStart() {
+        super.onStart();
+        if (mAudioFocus == null) mAudioFocus = new AudioFocus(this);
+        mAudioFocus.request();
+    }
+
+    @Override protected void onStop() {
+        if (mAudioFocus != null) mAudioFocus.abandon();
+        super.onStop();
+    }
+
     @Override protected void onResume() {
         super.onResume();
         mResumed = true;
-        if (mAudioFocus == null) mAudioFocus = new AudioFocus(this);
-        mAudioFocus.request();
         updateTouchControls();
     }
 
     @Override protected void onPause() {
         mResumed = false;
-        if (mAudioFocus != null) mAudioFocus.abandon();
         updateTouchControls();
         super.onPause();
     }

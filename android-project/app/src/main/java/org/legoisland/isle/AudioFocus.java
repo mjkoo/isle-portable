@@ -10,9 +10,9 @@ import android.os.Build;
  * Holds the system's audio focus while the game is in front, so that starting the game stops
  * whatever else was playing and the game gets told when something needs the sound back.
  *
- * <p>SDL already silences the audio device when the activity is paused, so this covers the cases
- * where the game keeps running: a notification, a navigation prompt, or a call that is ringing but
- * not yet answered.
+ * <p>SDL silences the audio device when the activity stops, so this covers everything short of
+ * that: a notification, a navigation prompt, a call that is ringing but not yet answered, and any
+ * pause that never becomes a stop.
  */
 final class AudioFocus {
     // Mirrored by the AudioFocus::Change enum in ISLE/android/audiofocus.h. Native refuses
@@ -45,7 +45,7 @@ final class AudioFocus {
         }
     }
 
-    /** Called from onResume. A request that is refused leaves the game playing, unchanged. */
+    /** Called from onStart, and again whenever the window regains focus. */
     void request() {
         if (manager == null || held) {
             return;
@@ -67,8 +67,8 @@ final class AudioFocus {
     }
 
     /**
-     * Called from onPause. Holding focus while backgrounded would stop another app playing over a
-     * game SDL has already silenced.
+     * Called from onStop, where SDL stops mixing. Holding focus past that point would stop another
+     * app playing over a game that is no longer making a sound.
      */
     void abandon() {
         if (manager == null || !held) {
@@ -81,8 +81,8 @@ final class AudioFocus {
         else {
             abandonLegacy();
         }
-        // Not reported: the game is about to be silenced by the activity pause either way, and
-        // leaving the gain alone is what lets it come back at full volume on resume.
+        // Not reported: SDL stops mixing as this returns, and leaving the gain where it is lets
+        // the next granted request put it back.
     }
 
     // The API 21 to 25 route. AudioFocusRequest replaced it at 26, and this project's floor is
