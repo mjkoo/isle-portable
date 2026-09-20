@@ -161,11 +161,17 @@ struct Config {
 	bool SaveIni()
 	{
 		FILE* fd = fopen(g_iniPath, "w");
-		if (fd) {
-			iniparser_dump_ini(this->dict, fd);
-		}
-		else {
+		if (!fd) {
 			sceClibPrintf("failed to write isle.ini\n");
+			return false;
+		}
+		iniparser_dump_ini(this->dict, fd);
+		// save_and_launch reaches sceAppMgrLoadExec, which replaces this process rather than
+		// returning, so nothing flushes the stream on the way out and the settings the player
+		// just changed are lost. save_and_exit happens to survive on the return from main.
+		if (fclose(fd) != 0) {
+			sceClibPrintf("failed to close isle.ini\n");
+			return false;
 		}
 		return true;
 	}
