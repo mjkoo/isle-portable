@@ -36,9 +36,10 @@ public:
 	// holds the stream's lock across its wait for the device. miniaudio's bus volume is an
 	// atomic store.
 	//
-	// Exported and out of line rather than inline, because a caller outside lego1 sees a
-	// different ma_engine: miniaudio is linked PRIVATE, so only lego1 compiles its headers with
-	// MA_NO_DEVICE_IO and the rest, and m_engine's own members land at other offsets there.
+	// Exported and out of line rather than inline. lego1 hands its consumers miniaudio's compile
+	// definitions along with miniaudio's headers, so they do see the same ma_engine this is
+	// compiled against - but a body that only ever compiles here cannot be wrong about the
+	// layout if that lapses, and the export is what the platform layer calls across the library.
 	LEGO1_EXPORT void SetOutputGain(float p_gain);
 
 	float GetAttenuation(MxU32 p_volume);

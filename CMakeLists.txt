@@ -576,6 +576,10 @@ if (WIN32)
 endif()
 target_link_libraries(lego1 PRIVATE libsmacker miniaudio)
 target_include_directories(lego1 PUBLIC $<BUILD_INTERFACE:$<TARGET_PROPERTY:miniaudio,INTERFACE_INCLUDE_DIRECTORIES>>)
+# The definitions go with the headers. miniaudio's cut ma_engine down, so anything compiling its
+# headers without them sees a larger type, and with it a different offset for everything
+# MxSoundManager keeps after m_engine.
+target_compile_definitions(lego1 PUBLIC $<BUILD_INTERFACE:$<TARGET_PROPERTY:miniaudio,INTERFACE_COMPILE_DEFINITIONS>>)
 
 # lego1_impl sources
 target_sources(lego1 PRIVATE
