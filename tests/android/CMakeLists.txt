@@ -85,6 +85,12 @@ target_compile_options(gamepadbindings PRIVATE -Wall -Wextra -Werror -UNDEBUG)
 target_include_directories(gamepadbindings PRIVATE ../../ISLE "${SDL3_INCLUDE_DIR}")
 add_test(NAME gamepad_bindings COMMAND gamepadbindings)
 
+add_executable(outputgain outputgain.cpp)
+target_compile_features(outputgain PRIVATE cxx_std_17)
+target_compile_options(outputgain PRIVATE -Wall -Wextra -Werror -UNDEBUG)
+target_include_directories(outputgain PRIVATE ../../ISLE)
+add_test(NAME output_gain COMMAND outputgain)
+
 add_executable(audiofocus audiofocus.cpp)
 target_compile_features(audiofocus PRIVATE cxx_std_17)
 target_compile_options(audiofocus PRIVATE -Wall -Wextra -Werror -UNDEBUG)
