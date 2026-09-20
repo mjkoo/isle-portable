@@ -83,23 +83,40 @@ def sdl3SrcDir = file("${androidProject}/${sdl3Dir}")
 def sdl3RevFile = file("${androidProject}/build/sdl3-rev.txt")
 def aarDest = file("${projectDir}/libs/SDL3.aar")
 
+// The revision downloadSDL3.cmake will check out, read from the file that names it for the
+// whole repository so this build and the CMake one cannot disagree about what SDL3 is.
+def sdl3Revision = {
+    def declaration = file("${androidProject}/../CMake/SDL3Revision.cmake").text
+    def matcher = declaration =~ /ISLE_SDL3_DEFAULT_GIT_TAG\s+"([^"]+)"/
+    if (!matcher) {
+        throw new GradleException("No ISLE_SDL3_DEFAULT_GIT_TAG in CMake/SDL3Revision.cmake")
+    }
+    return matcher[0][1]
+}()
+
 tasks.register('downloadSDL3', Exec) {
     workingDir = androidProject
     commandLine 'cmake', '-P', 'downloadSDL3.cmake'
 
-    // downloadSDL3.cmake follows GIT_TAG "main", so the revision is only known once
-    // the fetch has happened. Record it, to give the archive build below something to
-    // key on. Noticing that main has moved is a separate problem and needs a pinned
-    // version; until then an existing checkout counts as current, which is what the
-    // hand-written check in ensureSDL3 assumed anyway.
+    // Keyed on the pinned revision, which is the question an existing checkout could not
+    // answer while the tag was "main": the old check treated any checkout as current, so a
+    // moved pin would have kept building the .aar from whatever was already on disk.
+    inputs.property('sdl3Revision', sdl3Revision)
     outputs.file(sdl3RevFile)
-    outputs.upToDateWhen { sdl3SrcDir.directory }
 
     doLast {
         def rev = ['git', '-C', sdl3SrcDir.path, 'rev-parse', 'HEAD'].execute()
         rev.waitFor()
+        if (rev.exitValue() != 0) {
+            throw new GradleException("Could not read the SDL3 revision in ${sdl3SrcDir}")
+        }
+        def head = rev.text.trim()
+        // The check that would have caught the trees diverging in the first place.
+        if (head != sdl3Revision) {
+            throw new GradleException("SDL3 is at ${head}, expected the pinned ${sdl3Revision}")
+        }
         sdl3RevFile.parentFile.mkdirs()
-        sdl3RevFile.text = rev.exitValue() == 0 ? rev.text.trim() : 'unknown'
+        sdl3RevFile.text = head
     }
 }
 
