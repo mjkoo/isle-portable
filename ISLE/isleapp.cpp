@@ -13,6 +13,7 @@
 #include "legomain.h"
 #include "legomodelpresenter.h"
 #include "legopartpresenter.h"
+#include "legosoundmanager.h"
 #include "legoutils.h"
 #include "legovideomanager.h"
 #include "legoworldpresenter.h"
@@ -86,6 +87,7 @@
 
 #ifdef ANDROID
 #include "android/activity.h"
+#include "android/audiofocus.h"
 #include "android/config.h"
 #include "android/configstore.h"
 #include "android/filepicker.h"
@@ -783,6 +785,15 @@ SDL_AppResult SDL_AppIterate(void* appstate)
 	}
 	if (Android_TakeMenuRequest() && g_isle && g_isle->GetGameStarted() && !g_closed && !g_confirmingQuit) {
 		return HandleBackButton();
+	}
+	// Checked before the gain is taken, so a focus change arriving before the sound manager
+	// exists stays pending instead of being consumed and dropped.
+	if (Lego() && Lego()->GetSoundManager()) {
+		float gain;
+		if (Android_TakeAudioGain(&gain)) {
+			SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Audio focus changed, playing at gain %.2f", gain);
+			Lego()->GetSoundManager()->SetOutputGain(gain);
+		}
 	}
 #endif
 
