@@ -64,6 +64,12 @@ target_compile_options(touchactions PRIVATE -Wall -Wextra -Werror -UNDEBUG)
 target_include_directories(touchactions PRIVATE ../../ISLE/android)
 add_test(NAME android_touch_actions COMMAND touchactions)
 
+add_executable(audiofocus audiofocus.cpp)
+target_compile_features(audiofocus PRIVATE cxx_std_17)
+target_compile_options(audiofocus PRIVATE -Wall -Wextra -Werror -UNDEBUG)
+target_include_directories(audiofocus PRIVATE ../../ISLE/android)
+add_test(NAME android_audio_focus COMMAND audiofocus)
+
 add_executable(touchinput touchinput.cpp)
 target_compile_features(touchinput PRIVATE cxx_std_17)
 target_compile_options(touchinput PRIVATE -Wall -Wextra -Werror -UNDEBUG)
