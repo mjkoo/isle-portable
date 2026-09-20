@@ -488,6 +488,22 @@ bool CConfigApp::WriteRegisterSettings() const
 #undef SetIniBool
 #undef SetIniInt
 
+	// The merge brought in values this dialog never wrote. One of them can be longer than a line
+	// once the dumper pads its name and doubles its backslashes, and writing it would leave a
+	// file nothing can read - the opposite of what keeping those keys was for.
+	const std::string overlong = IniFile::FindOverlongEntry(dict);
+	if (!overlong.empty()) {
+		iniparser_freedict(dict);
+		QMessageBox::warning(
+			nullptr,
+			"Could not save settings",
+			QString("The existing value for \"%1\" is too long for the configuration file, so it has not "
+					"been changed. Shorten it and try again.")
+				.arg(QString::fromStdString(overlong))
+		);
+		return false;
+	}
+
 	const std::string error = IniFile::Save(m_iniPath, dict);
 	iniparser_freedict(dict);
 	if (!error.empty()) {

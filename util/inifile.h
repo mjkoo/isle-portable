@@ -46,6 +46,24 @@ inline bool FitsOnOneLine(const std::string& p_key, const char* p_value)
 	return length <= kLineLimit;
 }
 
+// A dictionary that was loaded before it was edited carries values this writer never produced,
+// and the dumper's padding and escaping can push one of them past the limit even though it read
+// back fine. Dumping it anyway would write a file the next load refuses, so a caller that merges
+// asks this first. Returns the first entry that would not survive, or an empty string.
+inline std::string FindOverlongEntry(const dictionary* p_dictionary)
+{
+	if (!p_dictionary) {
+		return {};
+	}
+	for (size_t i = 0; i < p_dictionary->size; ++i) {
+		if (p_dictionary->key[i] && p_dictionary->val[i] &&
+			!FitsOnOneLine(p_dictionary->key[i], p_dictionary->val[i])) {
+			return p_dictionary->key[i];
+		}
+	}
+	return {};
+}
+
 // Push the bytes past the standard library's buffers, so a crash after Save returns cannot lose a
 // file the caller has been told was written.
 inline int Commit(FILE* p_file)

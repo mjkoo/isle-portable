@@ -225,6 +225,25 @@ int main()
 		assert(Value(loaded.get(), "multiplayer:room") == "islanders");
 	}
 
+	// A value that loaded fine can still be too long to write back, because the dumper pads the
+	// name to 30 columns and doubles every backslash. A merging writer has to find it before it
+	// replaces a readable file with an unreadable one.
+	{
+		Dictionary fine = MakeDictionary("isle:diskpath", "/games/lego");
+		assert(IniFile::FindOverlongEntry(fine.get()).empty());
+		assert(IniFile::FindOverlongEntry(nullptr).empty());
+
+		// 494 backslashes escape to 988 characters, which with a 30 column name and " = \"\"" makes
+		// a 1023 character line, one past what the next load will read.
+		Dictionary tooLong = MakeDictionary("isle:diskpath", std::string(494, '\\'));
+		assert(IniFile::FindOverlongEntry(tooLong.get()) == "isle:diskpath");
+
+		// A section entry carries no value and cannot be measured against the limit.
+		Dictionary sectionOnly(dictionary_new(0), iniparser_freedict);
+		assert(iniparser_set(sectionOnly.get(), "gamepad", nullptr) == 0);
+		assert(IniFile::FindOverlongEntry(sectionOnly.get()).empty());
+	}
+
 	std::filesystem::remove_all(Root());
 	return 0;
 }
