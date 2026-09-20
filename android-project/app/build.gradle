@@ -14,17 +14,21 @@ def isleAbis = ['armeabi-v7a', 'arm64-v8a', 'x86', 'x86_64']
 // cache that does not notice the file changing.
 def repoFile = { String path -> providers.fileContents(layout.projectDirectory.file("../../${path}")).asText.orNull }
 
-// The version CPack already derives its own from, so the two cannot disagree.
+// The version CPack already derives its own from, so the two cannot disagree. A miss is that
+// agreement breaking, so it stops the build rather than falling back to a number nobody chose.
 def projectVersion = {
     def declaration = repoFile('CMakeLists.txt')
     def matcher = declaration ? declaration =~ /project\(isle\b[^)]*\bVERSION\s+([0-9][0-9.]*)/ : null
-    return matcher ? matcher[0][1] : '0'
+    if (!matcher) {
+        throw new GradleException('No project(isle ... VERSION ...) in CMakeLists.txt')
+    }
+    return matcher[0][1]
 }()
 
 def gitOutput = { List<String> args ->
     try {
         def output = providers.exec {
-            commandLine(['git', '-C', repoRoot.path] + args)
+            commandLine(['git'] + args)
             ignoreExitValue = true
         }
         // A non-zero exit is a question git answered with "no"; a missing git throws instead.
@@ -35,6 +39,8 @@ def gitOutput = { List<String> args ->
     }
 }
 
+def gitInRepo = { List<String> args -> gitOutput(['-C', repoRoot.path] + args) }
+
 // versionCode is the commit count, which is the only monotone source here: the sole tag is
 // `continuous`, a rolling tag that gets re-pointed, so git describe would count backwards.
 def isleVersion = {
@@ -44,17 +50,20 @@ def isleVersion = {
     }
     // A shallow clone answers `rev-list --count` with 1 and exit 0, which is indistinguishable
     // from a real count, so ask git whether it is shallow rather than trusting the number.
-    def shallow = gitOutput(['rev-parse', '--is-shallow-repository'])
-    def count = shallow == 'false' ? gitOutput(['rev-list', '--count', 'HEAD']) : null
-    def sha = count ? gitOutput(['rev-parse', '--short', 'HEAD']) : null
+    def shallow = gitInRepo(['rev-parse', '--is-shallow-repository'])
+    def count = shallow == 'false' ? gitInRepo(['rev-list', '--count', 'HEAD']) : null
+    def sha = count ? gitInRepo(['rev-parse', '--short', 'HEAD']) : null
     if (count && sha) {
         return [code: count as int, name: "${projectVersion}.${count}+g${sha}".toString()]
     }
     // A missing git binary comes back as the same null a repository refusing to answer gives,
     // so ask what went wrong before naming it. Only reached once the version is already lost.
+    // Nothing here reads stderr, so a directory that is not a repository and one git will not
+    // touch (dubious ownership, another uid) are one case: say what happened, not why.
     def reason = gitOutput(['--version']) == null ? 'no git on PATH'
-            : shallow == null ? 'not a git repository'
-            : 'shallow clone'
+            : shallow == null ? "git would not read the repository at ${repoRoot}"
+            : shallow != 'false' ? 'shallow clone'
+            : 'git would not name HEAD'
     logger.warn('isle: no usable git history here ({}), so this APK is version 1. ' +
             'Pass -PisleVersionCode=<n> to set one, or build from a full clone.', reason)
     return [code: 1, name: "${projectVersion}+unknown".toString()]
