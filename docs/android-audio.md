@@ -18,7 +18,9 @@ app talks over it.
 | Another app takes the sound for good | Falls silent until you leave the game and come back |
 
 If you return to the game while a call is still going, the game stays silent: the system will not
-hand the sound to anything else during a call. It comes back by itself once the call ends.
+hand the sound to anything else during a call. It comes back by itself once the call ends. On
+Android 7 and older, which cannot queue the request, it comes back the next time you leave the game
+and return.
 
 ## Volume
 

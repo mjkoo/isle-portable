@@ -466,18 +466,24 @@ under test, and a background receiver is refused focus outright. Give it modes t
 with `adb shell am start-foreground-service -n <pkg>/.FocusService --es mode <mode>` and read the
 gains out of the game's log. Remove it afterwards.
 
-The exclusive mode is the one worth keeping: it locks the focus stack, so the game's own request is
-refused, which is what happens to a player who returns to the game during a call. The game must go
-silent rather than stay at whatever gain it had, and must come back to 1.00 when the driver
-abandons and the window regains focus - a refusal leaves no registration, so nothing else would
-ever restore it.
+The exclusive mode is the one worth keeping: it locks the focus stack, which is what a player who
+returns to the game during a call runs into. The request is queued rather than refused, so the game
+must go silent rather than stay at whatever gain it had, and must come back to 1.00 when the driver
+abandons **without the game's window being touched** - that is the whole point of asking for
+delayed focus, and the check fails if it takes a switch away and back. Android 7 and older cannot
+queue a request and still needs the window, but no emulator image kept around here runs that far
+back.
 
 `adb emu gsm call` is not a substitute. It reports `OK` and never reaches the framework on the
 API 35 `google_apis` image: `dumpsys telephony.registry` keeps `mCallState=0`, `dumpsys telecom`
 lists no ringing call, and `gsm.sim.state` is empty. The ringing-call case is covered by the
 driver's transient mode, which is what a ringing call requests.
 
-Confirm by ear as well as by log that a duck leaves dialogue audible rather than silencing it.
+Confirm by ear as well as by log that a duck leaves dialogue audible rather than silencing it. A
+duck with nothing in the log is not a failure: from API 26 the system may turn the app down itself
+and never call the listener, and the game's own gain only covers the times it does not. The ear is
+what decides this one.
+
 Check the paths that already pause - the in-game menu, a Settings round trip, the quit prompt, Home
 and resume - and that audio returns in each. Install the **x86** APK on an arm64 device to exercise
 the path where the native libraries will not load: SDL's error dialog must appear and survive,
