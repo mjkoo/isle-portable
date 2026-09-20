@@ -53,9 +53,8 @@ Values are `click`, `space`, `escape`, `pause`, `menu` or `none`, in any letter 
 is `label`, `south` or `east`. A missing or unusable value keeps the default, and the game logs
 the unusable ones. `menu` does nothing outside Android. On Vita, Start has no default action
 because it is part of the system screenshot button combination; binding it brings that conflict
-back. The desktop
-isle-config program rewrites `isle.ini` without this section, so saving there removes custom
-buttons.
+back. The desktop isle-config program keeps this section when it saves, along with every other
+key it does not edit, so configuring on the desktop no longer removes custom buttons.
 
 ## Limits
 

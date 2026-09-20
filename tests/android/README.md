@@ -45,13 +45,20 @@ The `ini_file` test covers the shared configuration writer in `util/inifile.h`, 
 Android settings store and the desktop `isle-config` write through. It pins the line-length
 arithmetic (the 30-character name padding, the doubling of backslashes and quotes, names longer
 than the padding, section entries with no colon) and proves the limit is iniparser's real cliff
-rather than a guess: a value at the limit reloads, and one character more makes the whole dumped
-file refuse to load. It also covers the replacement itself - a fresh file leaves no `.new` sibling,
+rather than a guess: a 987 character value reloads and a 988 character one makes the whole dumped
+file refuse to load, both lengths written literally so that moving `kLineLimit` either way fails
+the test. That matters because `ASCIILINESZ` lives in iniparser's `.c` file rather than a public
+header, so nothing else in the tree would notice the library changing it. It also covers the replacement itself - a fresh file leaves no `.new` sibling,
 an existing file is replaced, a blocked temporary leaves the previous file byte-identical, and a
 rename that cannot land removes the temporary instead of leaving it to be mistaken for the
-configuration. It is written against `std::filesystem` rather than `mkdtemp` so the same binary
-runs on msys2 and MSVC, which is the only way to exercise the Windows branch of the replacement;
-that branch is compiled by CI but its behavior needs one `ctest -R ini_file` on msys2.
+configuration. Two further cases cover what the desktop tool's merge rests on, without needing
+Qt: that iniparser lowercases entries on the way in and on the way out, so a dialog writing
+`isle:Music` lands in the slot the loader made for `music` rather than adding a second one, and
+that a load-modify-save leaves `[gamepad]` and `[multiplayer]` untouched. A last case covers
+finding a value that loaded but is too long to write back. It is written against
+`std::filesystem` rather than `mkdtemp` so the same binary runs on msys2 and MSVC; the Windows
+branch of the replacement is compiled by CI through `isle-config`, and its behavior needs one
+`ctest -R ini_file` on msys2.
 
 The desktop tool's own merge has no host test, because reaching `CConfigApp::WriteRegisterSettings`
 drags in Qt, the device enumerator and miniwin. Verify it by hand instead: build `isle-config` with

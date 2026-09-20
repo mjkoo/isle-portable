@@ -402,9 +402,11 @@ bool CConfigApp::WriteRegisterSettings() const
 		}
 	}
 
-	// Keep what this tool does not own. The same isle.ini holds the gamepad bindings, the touch
-	// layout, the extension settings and whatever a player has added by hand, and rebuilding the
-	// file from the keys below would delete all of it. Only the keys this dialog edits are set.
+	// Keep the keys this tool does not own. The same isle.ini holds the gamepad bindings, the
+	// touch layout and the extension settings, and rebuilding the file from the keys below would
+	// delete all of them; only the keys this dialog edits are set. Keys are all that survives:
+	// iniparser's loader drops comments, blank lines and the original key order and case, and
+	// anything written above the first [section] with it.
 	dictionary* dict = iniparser_load(m_iniPath.c_str());
 	if (!dict) {
 		if (SDL_GetPathInfo(m_iniPath.c_str(), nullptr)) {
@@ -437,6 +439,12 @@ bool CConfigApp::WriteRegisterSettings() const
 
 	if (m_device_enumerator->FormatDeviceName(buffer, m_driver, m_device) >= 0) {
 		iniparser_set(dict, "isle:3D Device ID", buffer);
+	}
+	else {
+		// The only key written conditionally, so the only one the merge would otherwise make
+		// permanent. Leaving a device id that no longer names anything here would keep the game
+		// from falling back to the best device it can find.
+		iniparser_unset(dict, "isle:3D Device ID");
 	}
 	iniparser_set(dict, "isle:diskpath", m_base_path.c_str());
 	iniparser_set(dict, "isle:cdpath", m_cd_path.c_str());
