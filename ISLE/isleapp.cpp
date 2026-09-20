@@ -494,6 +494,9 @@ static void ApplyOutputGain()
 
 	float gain;
 	if (g_outputGain.Take(&gain)) {
+		// What the game plays at, as against what the system asked for: a pause is not reported
+		// anywhere else, and the two part company whenever one outlives the other.
+		SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Playing at gain %.2f", gain);
 		SoundManager()->SetOutputGain(gain);
 	}
 }
