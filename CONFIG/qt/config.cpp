@@ -154,6 +154,17 @@ bool CConfigApp::ReadRegisterSettings()
 
 	dictionary* dict = iniparser_load(m_iniPath.c_str());
 	if (!dict) {
+		if (SDL_GetPathInfo(m_iniPath.c_str(), nullptr)) {
+			// Showing defaults over a file that is still there would invite the user to configure
+			// everything and only find out at Save, which refuses rather than replacing it.
+			QMessageBox::warning(
+				nullptr,
+				"Could not read settings",
+				QString::fromStdString(m_iniPath) +
+					" could not be read, so these are defaults. Saving will not overwrite it; repair or "
+					"remove the file first."
+			);
+		}
 		dict = dictionary_new(0);
 	}
 
@@ -362,7 +373,7 @@ bool CConfigApp::AdjustDisplayBitDepthBasedOnRenderStatus()
 }
 
 // FUNCTION: CONFIG 00403890
-void CConfigApp::WriteRegisterSettings() const
+bool CConfigApp::WriteRegisterSettings() const
 
 {
 	char buffer[128];
@@ -384,10 +395,10 @@ void CConfigApp::WriteRegisterSettings() const
 		if (!IniFile::FitsOnOneLine(text.m_key, text.m_value.c_str())) {
 			QMessageBox::warning(
 				nullptr,
-				"Failed to save ini",
+				"Could not save settings",
 				QString("The value for \"%1\" is too long for the configuration file.").arg(text.m_key)
 			);
-			return;
+			return false;
 		}
 	}
 
@@ -401,10 +412,10 @@ void CConfigApp::WriteRegisterSettings() const
 			// there to be repaired, so say so and leave the file alone.
 			QMessageBox::warning(
 				nullptr,
-				"Failed to save ini",
+				"Could not save settings",
 				QString::fromStdString(m_iniPath) + " could not be read, so it has not been changed."
 			);
-			return;
+			return false;
 		}
 		// Nothing there yet: the first run writes a fresh configuration.
 		dict = dictionary_new(0);
@@ -477,14 +488,14 @@ void CConfigApp::WriteRegisterSettings() const
 #undef SetIniBool
 #undef SetIniInt
 
-	std::string error = IniFile::Save(m_iniPath, dict);
+	const std::string error = IniFile::Save(m_iniPath, dict);
 	iniparser_freedict(dict);
-	if (error.empty()) {
-		qInfo() << "New config written at" << QString::fromStdString(m_iniPath);
+	if (!error.empty()) {
+		QMessageBox::warning(nullptr, "Could not save settings", QString::fromStdString(error));
+		return false;
 	}
-	else {
-		QMessageBox::warning(nullptr, "Failed to save ini", QString::fromStdString(error));
-	}
+	qInfo() << "New config written at" << QString::fromStdString(m_iniPath);
+	return true;
 }
 
 // FUNCTION: CONFIG 0x00403a90

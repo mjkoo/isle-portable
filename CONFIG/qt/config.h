@@ -48,7 +48,7 @@ public:
 	DWORD GetConditionalDeviceRenderBitDepth() const;
 	DWORD GetDeviceRenderBitStatus() const;
 	bool AdjustDisplayBitDepthBasedOnRenderStatus();
-	void WriteRegisterSettings() const;
+	bool WriteRegisterSettings() const;
 	void SetIniPath(const std::string& p_path);
 	const std::string& GetIniPath() const;
 

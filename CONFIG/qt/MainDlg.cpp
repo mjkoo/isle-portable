@@ -234,16 +234,18 @@ void CMainDialog::reject()
 
 void CMainDialog::accept()
 {
-	if (m_modified) {
-		currentConfigApp->WriteRegisterSettings();
+	// A refused save has already said why, and the edits are still in the dialog. Closing here
+	// would throw them away, which is the opposite of what refusing is for.
+	if (m_modified && !currentConfigApp->WriteRegisterSettings()) {
+		return;
 	}
 	QDialog::accept();
 }
 
 void CMainDialog::launch()
 {
-	if (m_modified) {
-		currentConfigApp->WriteRegisterSettings();
+	if (m_modified && !currentConfigApp->WriteRegisterSettings()) {
+		return;
 	}
 
 	QDir::setCurrent(QCoreApplication::applicationDirPath());
