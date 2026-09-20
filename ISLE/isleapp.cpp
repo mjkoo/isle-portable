@@ -779,13 +779,14 @@ static void PublishTouchControls()
 SDL_AppResult SDL_AppIterate(void* appstate)
 {
 #ifdef ANDROID
+	// Before the back button, which returns out of the iteration it handles one on.
+	Android_ApplyAudioGain();
 	if (Android_TakeTouchControlsReset()) {
 		CancelInputForQuitPrompt();
 	}
 	if (Android_TakeMenuRequest() && g_isle && g_isle->GetGameStarted() && !g_closed && !g_confirmingQuit) {
 		return HandleBackButton();
 	}
-	Android_ApplyAudioGain();
 #endif
 
 #ifdef ANDROID
