@@ -49,18 +49,6 @@ and names itself `0.1.<n>` with no commit on the end.
 The game needs an existing copy of LEGO Island 1.1 (English). The first launch asks for a folder
 holding one, either the folder that contains `LEGO` or the `LEGO` folder itself, and copies it into
 `Android/data/org.legoisland.isle/files/`. No storage permission is required. See
-[Android game files](android-game-files.md) for replacing or removing it later, and
-[Android saves](android-saves.md) for getting saves on and off the device.
-
-## Sound and other apps
-
-The game takes the system's audio focus while it is in front, so starting it stops music that
-another app was playing, and it gives the focus back whenever you leave it.
-
-While you play, an app that needs the sound briefly gets it. A notification or a navigation prompt
-turns the game down until it has finished talking; a call that is ringing silences the game until
-you answer or dismiss it; and answering a call leaves the game in the background, silent, until you
-return to it. The game does not pause for any of these, so a cutscene keeps running while another
-app talks over it.
-
-If something else takes the sound for good, the game stays silent until you leave it and come back.
+[Android game files](android-game-files.md) for replacing or removing it later,
+[Android saves](android-saves.md) for getting saves on and off the device, and
+[Android audio](android-audio.md) for what happens when another app needs the sound.

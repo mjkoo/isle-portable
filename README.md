@@ -86,6 +86,10 @@ saves and settings, and the game asks for a folder again when it next starts. Bo
 game, and the current files stay playable until then. See
 [Android game files](docs/android-game-files.md).
 
+The game holds the system's audio focus while it is in front, so it stops music another app was
+playing, and it turns down or falls silent when something else needs the sound rather than
+pausing. See [Android audio](docs/android-audio.md).
+
 **Data > Export saves** writes a ZIP of the save files captured when the menu opened.
 Choose a destination in the system picker; no storage permission is required. Export
 preserves staged settings edits and excludes config and game assets. See
