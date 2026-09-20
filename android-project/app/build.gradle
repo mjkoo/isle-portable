@@ -40,20 +40,24 @@ def gitOutput = { List<String> args ->
 def isleVersion = {
     if (project.hasProperty('isleVersionCode')) {
         def override = project.isleVersionCode as int
-        return [override, "${projectVersion}.${override}".toString()]
+        return [code: override, name: "${projectVersion}.${override}".toString()]
     }
     // A shallow clone answers `rev-list --count` with 1 and exit 0, which is indistinguishable
     // from a real count, so ask git whether it is shallow rather than trusting the number.
     def shallow = gitOutput(['rev-parse', '--is-shallow-repository'])
     def count = shallow == 'false' ? gitOutput(['rev-list', '--count', 'HEAD']) : null
     def sha = count ? gitOutput(['rev-parse', '--short', 'HEAD']) : null
-    if (!count || !sha) {
-        logger.warn('isle: no usable git history here ({}), so this APK is version 1. ' +
-                'Fetch the full history, or pass -PisleVersionCode=<n>.',
-                shallow == null ? 'not a git repository' : 'shallow clone')
-        return [1, "${projectVersion}+unknown".toString()]
+    if (count && sha) {
+        return [code: count as int, name: "${projectVersion}.${count}+g${sha}".toString()]
     }
-    return [count as int, "${projectVersion}.${count}+g${sha}".toString()]
+    // A missing git binary comes back as the same null a repository refusing to answer gives,
+    // so ask what went wrong before naming it. Only reached once the version is already lost.
+    def reason = gitOutput(['--version']) == null ? 'no git on PATH'
+            : shallow == null ? 'not a git repository'
+            : 'shallow clone'
+    logger.warn('isle: no usable git history here ({}), so this APK is version 1. ' +
+            'Pass -PisleVersionCode=<n> to set one, or build from a full clone.', reason)
+    return [code: 1, name: "${projectVersion}+unknown".toString()]
 }()
 
 android {
@@ -70,8 +74,8 @@ android {
         applicationId 'org.legoisland.isle'
         minSdk 21
         targetSdk 35
-        versionCode isleVersion[0]
-        versionName isleVersion[1]
+        versionCode isleVersion.code
+        versionName isleVersion.name
         testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
 
         externalNativeBuild {
