@@ -36,13 +36,13 @@ public:
 
 	// Loud enough to keep dialogue intelligible under a navigation prompt, quiet enough that the
 	// prompt wins. Not measured; see docs/android-install.md.
-	static constexpr float c_duckedGain = 0.2f;
+	static constexpr float kDuckedGain = 0.2f;
 
 	static float GainFor(Change p_change)
 	{
 		switch (p_change) {
 		case e_lossTransientCanDuck:
-			return c_duckedGain;
+			return kDuckedGain;
 		case e_loss:
 		case e_lossTransient:
 			return 0.0f;

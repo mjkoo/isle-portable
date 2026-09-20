@@ -856,7 +856,6 @@ if (ISLE_BUILD_APP)
   if (ANDROID)
     target_sources(isle PRIVATE
             ISLE/android/activity.cpp
-            ISLE/android/audiofocus.cpp
             ISLE/android/config.cpp
             ISLE/android/configstore.cpp
             ISLE/android/settings.cpp
@@ -867,6 +866,7 @@ if (ISLE_BUILD_APP)
             ISLE/android/filepicker.cpp
             ISLE/android/quitprompt.cpp
             ISLE/android/renderers.cpp
+            ISLE/android/audiofocus.cpp
     )
   endif()
   if(VITA)

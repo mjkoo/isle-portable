@@ -64,12 +64,6 @@ target_compile_options(touchactions PRIVATE -Wall -Wextra -Werror -UNDEBUG)
 target_include_directories(touchactions PRIVATE ../../ISLE/android)
 add_test(NAME android_touch_actions COMMAND touchactions)
 
-add_executable(audiofocus audiofocus.cpp)
-target_compile_features(audiofocus PRIVATE cxx_std_17)
-target_compile_options(audiofocus PRIVATE -Wall -Wextra -Werror -UNDEBUG)
-target_include_directories(audiofocus PRIVATE ../../ISLE/android)
-add_test(NAME android_audio_focus COMMAND audiofocus)
-
 add_executable(touchinput touchinput.cpp)
 target_compile_features(touchinput PRIVATE cxx_std_17)
 target_compile_options(touchinput PRIVATE -Wall -Wextra -Werror -UNDEBUG)
@@ -90,6 +84,12 @@ target_compile_features(gamepadbindings PRIVATE cxx_std_17)
 target_compile_options(gamepadbindings PRIVATE -Wall -Wextra -Werror -UNDEBUG)
 target_include_directories(gamepadbindings PRIVATE ../../ISLE "${SDL3_INCLUDE_DIR}")
 add_test(NAME gamepad_bindings COMMAND gamepadbindings)
+
+add_executable(audiofocus audiofocus.cpp)
+target_compile_features(audiofocus PRIVATE cxx_std_17)
+target_compile_options(audiofocus PRIVATE -Wall -Wextra -Werror -UNDEBUG)
+target_include_directories(audiofocus PRIVATE ../../ISLE/android)
+add_test(NAME android_audio_focus COMMAND audiofocus)
 
 # Checks the face-button labels the default Click relies on against SDL itself. It needs a built
 # SDL3, such as the desktop build's, and is skipped without one.
