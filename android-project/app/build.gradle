@@ -145,25 +145,31 @@ def sdl3SrcDir = file("${androidProject}/${sdl3Dir}")
 def sdl3RevFile = file("${androidProject}/build/sdl3-rev.txt")
 def aarDest = file("${projectDir}/libs/SDL3.aar")
 
-// The revision downloadSDL3.cmake will check out, read from the file that names it for the
-// whole repository so this build and the CMake one cannot disagree about what SDL3 is.
+// The revision downloadSDL3.cmake will check out. -PisleSdl3Revision overrides it, the same
+// escape hatch CMake spells -DISLE_SDL3_REVISION; otherwise it is read from the file that names
+// it for the whole repository, so this build and the CMake one cannot disagree about SDL3.
 def sdl3Revision = {
+    if (project.hasProperty('isleSdl3Revision')) {
+        return project.isleSdl3Revision as String
+    }
     def declaration = file("${androidProject}/../CMake/SDL3Revision.cmake").text
-    def matcher = declaration =~ /ISLE_SDL3_DEFAULT_GIT_TAG\s+"([^"]+)"/
+    def matcher = declaration =~ /set\(ISLE_SDL3_REVISION\s+"([^"]+)"/
     if (!matcher) {
-        throw new GradleException("No ISLE_SDL3_DEFAULT_GIT_TAG in CMake/SDL3Revision.cmake")
+        throw new GradleException("No ISLE_SDL3_REVISION in CMake/SDL3Revision.cmake")
     }
     return matcher[0][1]
 }()
 
 tasks.register('downloadSDL3', Exec) {
     workingDir = androidProject
-    commandLine 'cmake', '-P', 'downloadSDL3.cmake'
+    commandLine 'cmake', "-DISLE_SDL3_REVISION=${sdl3Revision}", '-P', 'downloadSDL3.cmake'
 
-    // Keyed on the pinned revision, which is the question an existing checkout could not
-    // answer while the tag was "main": the old check treated any checkout as current, so a
-    // moved pin would have kept building the .aar from whatever was already on disk.
+    // Keyed on the revision, which is the question an existing checkout could not answer while
+    // the tag was "main": the old check treated any checkout as current, so a moved pin would
+    // have kept building the .aar from whatever was already on disk. The script decides where
+    // the fetch lands and from which repository, so it is an input in its own right.
     inputs.property('sdl3Revision', sdl3Revision)
+    inputs.file("${androidProject}/downloadSDL3.cmake").withPropertyName('downloadScript')
     outputs.file(sdl3RevFile)
 
     doLast {
@@ -173,9 +179,11 @@ tasks.register('downloadSDL3', Exec) {
             throw new GradleException("Could not read the SDL3 revision in ${sdl3SrcDir}")
         }
         def head = rev.text.trim()
-        // The check that would have caught the trees diverging in the first place.
+        // Catches a fetch that did not land where it was told to. A checkout moved by hand
+        // behind Gradle's back is a different problem and this does not see it: with the
+        // revision and sdl3-rev.txt both unchanged the task never runs.
         if (head != sdl3Revision) {
-            throw new GradleException("SDL3 is at ${head}, expected the pinned ${sdl3Revision}")
+            throw new GradleException("SDL3 is at ${head}, expected ${sdl3Revision}")
         }
         sdl3RevFile.parentFile.mkdirs()
         sdl3RevFile.text = head
