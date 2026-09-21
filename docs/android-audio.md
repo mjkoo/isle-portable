@@ -1,23 +1,27 @@
 # Android audio
 
 The game takes the system's audio focus while it is in front, so starting it stops music another
-app was playing, and it gives the focus back when you leave it. It holds the focus for exactly as
-long as it is making a sound: opening its own menu or quit prompt does not give it up, but leaving
-for another app does.
+app was playing, and it gives the focus back when you leave it. It keeps the focus for as long as
+it is the app you are in: opening its own menu or quit prompt does not give it up, even though the
+game falls quiet behind them, but leaving for another app does.
 
 ## When the game is paused
 
-Anything that pauses the game stops its sound with it: the in-game menu, the quit prompt, Settings,
-and leaving for another app. That covers speech and the sounds of the island, not only the music
-and the cutscenes.
+Pausing the game takes its sound with it. That happens when you open the menu or the quit prompt,
+when you go into Settings, and when you leave for another app. (`Active in Background` in
+`isle.ini` stops the game pausing when you leave it. Settings does not offer it, because on
+Android the game's own settings screen counts as leaving.)
 
-A stopped sound does not wait where it left off. It keeps running silently, so a line of dialogue
-that began just before you opened the menu may be over, or part way through, when you come back.
+What a paused sound does depends on which kind it is. The music, the cutscenes and the spoken
+lines that stream from disk stop where they are and pick up from the same place when you come
+back. The island's own sounds - a character's cached line, the noise of a machine - go quiet but
+keep running underneath, so one of those may have finished by the time you return.
 
 ## When something else needs the sound
 
-The game turns down or falls silent rather than pausing, so a cutscene keeps running while another
-app talks over it.
+This is not the same as pausing: when another app wants the sound, the game keeps playing and
+turns itself down or quiet, so a cutscene carries on while something talks over it. Answering a
+call is the exception, because leaving the game pauses it as above.
 
 | What happens | What the game does |
 | - | - |

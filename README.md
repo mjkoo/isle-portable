@@ -88,7 +88,8 @@ game, and the current files stay playable until then. See
 
 The game holds the system's audio focus while it is in front, so it stops music another app was
 playing, and it turns down or falls silent when something else needs the sound rather than
-pausing. See [Android audio](docs/android-audio.md).
+pausing. Pausing the game is separate and silences it on every platform, this one included. See
+[Android audio](docs/android-audio.md).
 
 **Data > Export saves** writes a ZIP of the save files captured when the menu opened.
 Choose a destination in the system picker; no storage permission is required. Export

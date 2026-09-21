@@ -436,15 +436,19 @@ naming SDL3 GPU HAL there must start on OpenGL ES instead of failing.
 
 ## Output gain
 
-The `output_gain` target covers the arbiter in `ISLE/outputgain.h`, which is the only writer of the
-mixer's master volume. Two things turn the game down - its own pause and whatever the system last
-did to the sound - and the test is where their composition is pinned: a pause silences the mix
+The `output_gain` target covers the arbiter in `ISLE/outputgain.h`. The arbiter writes nothing
+itself; it decides the one value `ApplyOutputGain` in `ISLE/isleapp.cpp` hands to
+`MxSoundManager::SetOutputGain`, which is the tree's only caller of that and so the only writer of
+the mixer's master volume. Two things turn the game down - its own pause and whatever the system
+last did to the sound - and the test is where their composition is pinned: a pause silences the mix
 whatever the system left, the system moving the sound around while the game is paused writes
 nothing, and a resume restores exactly the gain the system asked for, so a duck that outlives a
-pause comes back at 0.2 rather than at full volume. It also covers the two properties every caller
-relies on: a take reports a move and only a move, and several changes between two takes collapse to
-the last state, the pump running once an iteration. It needs neither SDL nor iniparser, and builds
-with the configuration tests above:
+pause comes back at 0.2 rather than at full volume. It also covers what every caller relies on: a
+take reports a move and only a move, an unmoved take leaves the caller's gain alone (the caller
+declares it uninitialised), several changes between two takes collapse to the last state, and a
+gain the class was never told a name for passes through unaltered. It links neither SDL nor
+iniparser, though the test project requires both to configure, and builds with the configuration
+tests above:
 
 ```sh
 ctest --test-dir build/android-config-tests -R output_gain --output-on-failure
@@ -453,14 +457,27 @@ ctest --test-dir build/android-config-tests -R output_gain --output-on-failure
 Note that writing the composition as a product rather than as a pause that wins outright is
 *equivalent*, both factors being exact, so no test distinguishes the two. Mutations that do get
 caught: dropping the pause from the composition, restoring full volume on resume instead of the
-system's gain, and removing the guard that reports only a move.
+system's gain, removing the guard that reports only a move, writing through on a take that reports
+nothing, a pause that writes again over a mix the system had already silenced, and a `SetFocus`
+that snaps a value it does not recognise. Not an exhaustive list, and one thing it cannot reach at
+all: the order in `ApplyOutputGain`, where the system's gain is taken *before* the sound manager is
+checked so that a focus change arriving during startup is kept rather than consumed. That ordering
+is held by a comment and nothing else, because reaching it needs LEGO1.
 
-On device, the ear is what decides this one. Start the game, get a character talking, and open the
-in-game menu: the voice must stop, not carry on under the menu, and must come back on Resume.
-Repeat for the quit prompt and for a Settings round trip, and for Home and back. The sound is not
-expected to resume mid-word - it keeps running silently while it is down - so what is being checked
-is silence and its return, not continuity. With the focus driver below, duck the game first and
-then pause and resume it: the log must show the resume returning to `0.20`, not to `1.00`.
+On device, the ear decides, and **it has to be the right sound**. A streamed line - a cutscene, the
+music - was already stopped by `MxSoundManager::Pause` before any of this existed, so checking one
+of those passes on an unpatched build. Listen instead for what this changes: the island's ambient
+sound, or a character's cached line. Open the in-game menu while one is playing: it must go quiet,
+not carry on under the menu, and come back on Resume. Repeat for the quit prompt, a Settings round
+trip, and Home and back. Those sounds keep running while they are silent, so one may have finished
+by the time you return; a streamed line, by contrast, must pick up where it stopped. Both are
+correct, and confusing them is how this check goes wrong.
+
+With the focus driver below, duck the game first and then pause and resume it: `Playing at gain`
+must report `0.20` on the resume rather than `1.00`. Read that line and not `Audio focus changed to
+gain`, which reports what the system asked for and not what comes out. If no duck is logged at all,
+see the caveat in that section: from API 26 the system may turn the app down itself without ever
+calling the listener, in which case the game's own gain never moves and this check cannot run.
 
 ## Audio focus
 
@@ -483,8 +500,8 @@ On device, preserve the config and saves first. Play audio in another app and la
 other app must stop, and `adb shell dumpsys audio` must show `org.legoisland.isle` holding focus
 with `GAIN`. Focus follows onStart and onStop, not onResume and onPause, because that is where SDL
 stops and starts mixing - so the game must still hold focus while its own quit prompt is up, which
-pauses nothing, and must have released it after Home and after opening Settings, which stop the
-activity.
+does not stop the activity (it does pause the game, and so silences it: see Output gain above), and
+must have released it after Home and after opening Settings, which stop the activity.
 
 Nothing on a stock emulator image asks for focus on demand, so this needs a throwaway app of its
 own. It has to be a **foreground service**: an activity would take window focus and pause the game
@@ -513,7 +530,8 @@ and never call the listener, and the game's own gain only covers the times it do
 what decides this one.
 
 Check the paths that already pause - the in-game menu, a Settings round trip, the quit prompt, Home
-and resume - and that audio returns in each. Install the **x86** APK on an arm64 device to exercise
+and resume. Each of those now silences the game on the way in, so what is checked here is that
+audio returns on the way out. Install the **x86** APK on an arm64 device to exercise
 the path where the native libraries will not load: SDL's error dialog must appear and survive,
 because audio focus is the one thing this app calls into native on its own account. Repeat the
 request check and one duck on the minified release, the JNI method being reached only through
