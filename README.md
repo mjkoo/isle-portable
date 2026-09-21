@@ -66,7 +66,12 @@ The releases page carries one APK per CPU architecture plus a universal one; see
 [installing the Android build](docs/android-install.md) for which to take.
 
 The Android app launches directly into the game. Tap the menu button, in the upper-right
-corner by default, or use Android's Back button or gesture, to open Resume / Settings / Quit.
+corner by default, or use Android's Back button or gesture, to open Resume / Settings /
+Save and quit. The last action reads **Quit** when there is nothing to save, or **Quit anyway**
+when the menu-opening save attempt reports failure. Backgrounding the app can attempt another
+save while the menu is open, and shutdown attempts one more without checking its result.
+Reopen the menu to retry the reported save; no message guarantees that a file was written.
+See [Android saves](docs/android-saves.md) for save timing and transfers.
 
 Settings exposes touch schemes, touch button size and opacity, cursor sensitivity, haptics,
 WASD, audio, render resolution, available renderers, filtering, graphics quality, controller

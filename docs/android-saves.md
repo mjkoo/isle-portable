@@ -16,6 +16,17 @@ bytes; it cannot guarantee that the engine serialized every recent change. A
 detected save failure is reported before export. Success means the document was
 written and closed, not that a cloud provider finished uploading it.
 
+The menu message reports the save attempt made when the menu opens. Its action is
+**Save and quit** after an apparently successful save attempt, **Quit** when there
+is nothing to save, or **Quit anyway** after a detected failure. Resume and Settings
+remain available in all three cases. Startup errors instead offer Settings and Close.
+
+Android background events can trigger more save attempts while the prompt is open,
+including when opening Settings. Shutdown attempts another save and does not check
+its result. These later attempts do not update the menu's message or captured export
+bytes. Reopening the menu retries the reported save. The engine does not report
+every write or serialization failure, so no message guarantees a file was written.
+
 Export does not apply or discard staged settings edits. Cancellation and failed
 writes attempt to remove the newly created output. If the provider refuses removal,
 the error identifies the potentially incomplete document. Closing Settings is
