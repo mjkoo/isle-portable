@@ -81,6 +81,51 @@ int main()
 		assert(!output.Take(&gain));
 	}
 
+	// Pausing a game the system has already silenced writes nothing. The two are different to the
+	// system and the same to the mixer, which is the property the audio focus test pins for its
+	// own class.
+	{
+		OutputGain output;
+		output.SetFocus(0.0f);
+		assert(output.Take(&gain));
+		assert(gain == 0.0f);
+		output.SetPaused(true);
+		assert(!output.Take(&gain));
+		output.SetPaused(false);
+		assert(!output.Take(&gain));
+	}
+
+	// A take that reports nothing leaves the gain alone rather than writing a value nobody chose.
+	// The caller declares it uninitialised, so this is what stops an unmoved take being applied.
+	// The sentinel has to be a value the class cannot produce, or a write of what was already
+	// there would read as the gain having been left alone.
+	{
+		OutputGain output;
+		output.SetFocus(0.2f);
+		assert(output.Take(&gain));
+		assert(gain == 0.2f);
+
+		gain = -1.0f;
+		output.SetFocus(0.2f);
+		assert(!output.Take(&gain));
+		assert(gain == -1.0f);
+	}
+
+	// A gain the system might grow a third level of ducking into. The class is told a number, not
+	// a case, so anything between silence and full volume has to reach the mixer unaltered.
+	{
+		OutputGain output;
+		output.SetFocus(0.5f);
+		assert(output.Take(&gain));
+		assert(gain == 0.5f);
+		output.SetPaused(true);
+		assert(output.Take(&gain));
+		assert(gain == 0.0f);
+		output.SetPaused(false);
+		assert(output.Take(&gain));
+		assert(gain == 0.5f);
+	}
+
 	// Several changes between two takes collapse to the last state. The pump runs once an
 	// iteration, so a pause and the resume undoing it can both land between one look and the next.
 	{

@@ -85,17 +85,17 @@ target_compile_options(gamepadbindings PRIVATE -Wall -Wextra -Werror -UNDEBUG)
 target_include_directories(gamepadbindings PRIVATE ../../ISLE "${SDL3_INCLUDE_DIR}")
 add_test(NAME gamepad_bindings COMMAND gamepadbindings)
 
-add_executable(outputgain outputgain.cpp)
-target_compile_features(outputgain PRIVATE cxx_std_17)
-target_compile_options(outputgain PRIVATE -Wall -Wextra -Werror -UNDEBUG)
-target_include_directories(outputgain PRIVATE ../../ISLE)
-add_test(NAME output_gain COMMAND outputgain)
-
 add_executable(audiofocus audiofocus.cpp)
 target_compile_features(audiofocus PRIVATE cxx_std_17)
 target_compile_options(audiofocus PRIVATE -Wall -Wextra -Werror -UNDEBUG)
 target_include_directories(audiofocus PRIVATE ../../ISLE/android)
 add_test(NAME android_audio_focus COMMAND audiofocus)
+
+add_executable(outputgain outputgain.cpp)
+target_compile_features(outputgain PRIVATE cxx_std_17)
+target_compile_options(outputgain PRIVATE -Wall -Wextra -Werror -UNDEBUG)
+target_include_directories(outputgain PRIVATE ../../ISLE)
+add_test(NAME output_gain COMMAND outputgain)
 
 # Checks the face-button labels the default Click relies on against SDL itself. It needs a built
 # SDL3, such as the desktop build's, and is skipped without one.
