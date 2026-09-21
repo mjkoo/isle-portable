@@ -26,11 +26,11 @@ final class QuitPromptText {
         case SAVE_ATTEMPTED:
             // The save API does not report every write failure, so do not promise persistence.
             message = "Game paused.";
-            positive = "Quit";
+            positive = "Save and quit";
             break;
         case SAVE_FAILED:
             message = "Your game could not be saved.";
-            positive = "Quit";
+            positive = "Quit anyway";
             break;
         default:
             message = "There is no saved game yet.";

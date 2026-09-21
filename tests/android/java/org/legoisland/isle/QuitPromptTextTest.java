@@ -38,9 +38,9 @@ public final class QuitPromptTextTest {
         assert assertions = true;
         if (!assertions) throw new AssertionError("Run with java -ea");
 
-        check(QuitPromptText.SAVE_ATTEMPTED, null, "Game paused.", "Quit");
+        check(QuitPromptText.SAVE_ATTEMPTED, null, "Game paused.", "Save and quit");
         check(QuitPromptText.SAVE_NOTHING_TO_SAVE, null, "There is no saved game yet.", "Quit");
-        check(QuitPromptText.SAVE_FAILED, null, "Your game could not be saved.", "Quit");
+        check(QuitPromptText.SAVE_FAILED, null, "Your game could not be saved.", "Quit anyway");
         check(-1, null, "There is no saved game yet.", "Quit");
         check(99, null, "There is no saved game yet.", "Quit");
         for (int result : new int[] {0, 1, 2, -1, 99}) {
