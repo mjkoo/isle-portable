@@ -20,15 +20,10 @@ import android.util.Log;
  * rule.
  */
 final class QuitPrompt {
-    // Mirrored in ISLE/android/quitprompt.h; keep the numbering in step.
+    // Mirrored in ISLE/android/quitprompt.cpp; keep the numbering in step.
     static final int STATUS_PENDING = -1;
     static final int STATUS_RESUME = 0;
     static final int STATUS_QUIT = 1;
-
-    // What the save that precedes the prompt did. Also mirrored in quitprompt.h.
-    static final int SAVE_ATTEMPTED = 0;
-    static final int SAVE_NOTHING_TO_SAVE = 1;
-    static final int SAVE_FAILED = 2;
 
     private static final String TAG = "IsleActivity";
 
@@ -88,17 +83,15 @@ final class QuitPrompt {
             return;
         }
 
+        QuitPromptText text = new QuitPromptText(mSaveResult, mStartupError);
         AlertDialog.Builder builder = new AlertDialog.Builder(mActivity);
-        builder.setTitle(mStartupError == null ? "LEGO Island" : "LEGO Island could not start");
-        // Say what actually happened. A player whose save just failed is exactly the one who
-        // must not be told otherwise with a Quit button in front of them - and one who has not
-        // registered has nothing saved either, which is not the same as a failure.
-        builder.setMessage(mStartupError == null ? saveMessage() : mStartupError);
-        builder.setPositiveButton(mStartupError == null ? "Quit" : "Close", (dialog, which) -> finish(STATUS_QUIT));
-        if (mStartupError == null) {
-            builder.setNegativeButton("Resume", (dialog, which) -> finish(STATUS_RESUME));
+        builder.setTitle(text.title);
+        builder.setMessage(text.message);
+        builder.setPositiveButton(text.positive, (dialog, which) -> finish(STATUS_QUIT));
+        if (text.negative != null) {
+            builder.setNegativeButton(text.negative, (dialog, which) -> finish(STATUS_RESUME));
         }
-        builder.setNeutralButton("Settings", (dialog, which) -> {
+        builder.setNeutralButton(text.neutral, (dialog, which) -> {
             mDialog = null;
             try {
                 mActivity.openSettings(mStartupError == null);
@@ -135,18 +128,6 @@ final class QuitPrompt {
         if (mAbandoned || mStatus != STATUS_PENDING) return;
         if (editLayout && mStartupError == null && mActivity.startTouchLayoutEditor(this::showDialog)) return;
         showDialog();
-    }
-
-    private String saveMessage() {
-        switch (mSaveResult) {
-        case SAVE_ATTEMPTED:
-            // The save API does not report every write failure, so do not promise persistence.
-            return "Game paused.";
-        case SAVE_FAILED:
-            return "Your game could not be saved.";
-        default:
-            return "There is no saved game yet.";
-        }
     }
 
     private void finish(int status) {

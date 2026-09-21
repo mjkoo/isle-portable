@@ -184,7 +184,7 @@ public class IsleActivity extends SDLActivity {
     }
 
     public void showStartupSettings(String error) {
-        QuitPrompt prompt = new QuitPrompt(this, QuitPrompt.SAVE_NOTHING_TO_SAVE, error);
+        QuitPrompt prompt = new QuitPrompt(this, QuitPromptText.SAVE_NOTHING_TO_SAVE, error);
         mQuitPrompt = prompt;
         prompt.show();
     }
