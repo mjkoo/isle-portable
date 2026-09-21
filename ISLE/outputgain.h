@@ -3,16 +3,19 @@
 
 // The one owner of the mixer's master volume.
 //
-// Two things turn the game down: its own pause, and whatever the system has done to the sound on
-// platforms that report that. Both reach the mix through the same engine volume, so both are
-// composed here rather than written to it independently, where the later writer would undo the
-// earlier one - a pause would be lifted by the next focus change, and a resume would play over a
-// duck the system had asked for.
+// Two things turn the game down - its own pause, and whatever the system has done to the sound on
+// platforms that report that - and both reach the mix through the same engine volume. Written
+// independently the later one undoes the earlier: a pause lifted by the next focus change, a
+// resume playing over a duck the system asked for.
 //
-// The game's pause is the reason this exists at all: MxSoundManager::Pause reaches the wave
-// presenters and nothing else, so cached and 3D sounds play on through a menu. The master volume
-// is the one knob that reaches all of them. They keep advancing while it is down; only their sound
-// is gone.
+// The pause is why this exists. MxSoundManager::Pause reaches the wave presenters and nothing
+// else, so cached and 3D sounds played on through a menu; the master volume is the one knob that
+// reaches them. It silences them rather than stopping them, so those keep advancing while they are
+// down, where a wave presenter is genuinely paused and picks up where it left off.
+//
+// It reaches a pause only where the caller does. The main loop is not running to poll it while an
+// Emscripten tab is hidden, or between a 3DS sleep and its wakeup, and Vita and Switch raise no
+// pause at all outside the game's own Pause key. See docs/android-audio.md.
 //
 // Owned by the SDL thread, which is where every setter and the take are called from.
 class OutputGain {
@@ -25,7 +28,7 @@ public:
 	// this at full volume for the life of the process.
 	void SetFocus(float p_focus) { m_focus = p_focus; }
 
-	// True when the gain moved, and only then, so the caller never rewrites what is already set.
+	// True when the gain moved, and only then, so the caller never re-applies what is already set.
 	bool Take(float* p_gain)
 	{
 		// A pause wins outright rather than scaling what the system left, so that resuming
