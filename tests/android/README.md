@@ -563,23 +563,23 @@ the default. Back up config and saves and record directory mode bits before test
 Restore all of them even if a step aborts, then compare the restored bytes.
 
 1. Register a player and change some progress. Open the menu with Back. Expect
-   **Game paused.** and **Resume | Settings | Save and quit** in negative, neutral,
-   positive button order. The old build says Quit, so this distinguishes the change.
+   **Game paused.** and **Save and quit | Settings | Resume** in positive, neutral,
+   negative order on the API 35 emulator with the app's current theme. The old build says Quit, so this distinguishes the change.
 2. Use a fresh, unregistered player set. Expect **There is no saved game yet.** and
-   **Resume | Settings | Quit**. The engine can return success without writing for
+   **Quit | Settings | Resume**. The engine can return success without writing for
    an unregistered player; that must not produce Save and quit.
 3. Restore the registered player. On the debug build, run
    `adb shell run-as org.legoisland.isle chmod 000 <savedir>` against the effective
    save directory. This blocks traversal even when slot files already exist.
    Open the menu. Expect **Your game could not be saved.** and
-   **Resume | Settings | Quit anyway**. Require the real
+   **Quit anyway | Settings | Resume**. Require the real
    `Failed to save game state (back button)` message in `adb logcat -s SDL`;
    successful chmod alone does not establish a save failure. Confirm Resume remains
    available, then Quit anyway exits without a second prompt.
 4. Restore the recorded mode bits. Relaunch and verify the earlier player and
    progress load. Back must again show **Game paused.** / **Save and quit**.
 5. With game data unavailable, relaunch and exercise startup failure. Expect
-   **LEGO Island could not start**, the error text, **Settings | Close**, and no Resume.
+   **LEGO Island could not start**, the error text, **Close | Settings**, and no Resume.
 6. Check a Settings round trip reapplies touch scheme and controller buttons on
    Resume. Scheduled Replace game files or Restore saves must close the game.
    A second Back over the prompt resumes. Menu and touch controls return on Resume.
