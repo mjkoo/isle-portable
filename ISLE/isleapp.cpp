@@ -157,9 +157,6 @@ MxS32 g_targetDepth = 16;
 // GLOBAL: ISLE 0x410064
 MxS32 g_reqEnableRMDevice = FALSE;
 
-// The one writer of the mixer's master volume. SDL thread only.
-static OutputGain g_outputGain;
-
 MxFloat g_lastJoystickMouseX = 0;
 MxFloat g_lastJoystickMouseY = 0;
 MxFloat g_lastMouseX = 320;
@@ -471,10 +468,13 @@ static bool SDLCALL LifecycleEventWatch(void* p_userdata, SDL_Event* p_event)
 }
 #endif
 
+// The one writer of the mixer's master volume. SDL thread only.
+static OutputGain g_outputGain;
+
 // Plays the game at the volume its pause state and the system between them call for.
 //
-// Polled rather than hung off each Pause()/Resume(), because LEGO1 pauses itself too: the Pause
-// key goes through LegoNavController, which no call site here can see.
+// Polled rather than hung off each Pause()/Resume(), because the game is also paused from places
+// this file cannot see: LEGO1's own Pause key goes through LegoNavController.
 static void ApplyOutputGain()
 {
 #ifdef ANDROID
@@ -486,8 +486,9 @@ static void ApplyOutputGain()
 	}
 #endif
 
-	// Taking the gain is what records it as applied, so nothing may be taken before there is an
-	// engine to apply it to. A focus change that arrives first waits in the gain above instead.
+	// The take above has to stay above this guard. It only moves the system's gain into the
+	// arbiter, which holds it; the arbiter's own take, below, is what records a value as applied,
+	// so a focus change arriving before the game has an engine is kept rather than consumed.
 	if (!Lego() || !SoundManager()) {
 		return;
 	}
