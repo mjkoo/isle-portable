@@ -14,12 +14,7 @@ void Android_ReportAudioFocus(int p_androidChange)
 
 bool Android_TakeAudioFocusGain(float* p_gain)
 {
-	if (!g_audioFocus.Take(p_gain)) {
-		return false;
-	}
-
-	SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Audio focus changed, playing at gain %.2f", *p_gain);
-	return true;
+	return g_audioFocus.Take(p_gain);
 }
 
 extern "C" JNIEXPORT void JNICALL

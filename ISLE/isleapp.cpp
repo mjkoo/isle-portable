@@ -480,6 +480,8 @@ static void ApplyOutputGain()
 #ifdef ANDROID
 	float focus;
 	if (Android_TakeAudioFocusGain(&focus)) {
+		// What the system asked for, which is not what the game plays at while it is paused.
+		SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Audio focus changed to gain %.2f", focus);
 		g_outputGain.SetFocus(focus);
 	}
 #endif
