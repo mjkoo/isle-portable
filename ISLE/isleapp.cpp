@@ -631,6 +631,8 @@ static SDL_AppResult HandleBackButton()
 	if (pausedHere && Lego() && (!g_androidBackgrounded || quit)) {
 		Lego()->Resume();
 	}
+
+	// The other half of the pair above: the sound comes back before the prompt's caller does.
 	ApplyOutputGain();
 
 	if (quit) {
@@ -819,9 +821,6 @@ static void PublishTouchControls()
 
 SDL_AppResult SDL_AppIterate(void* appstate)
 {
-	// Before the back button, which returns out of the iteration it handles one on.
-	ApplyOutputGain();
-
 #ifdef ANDROID
 	if (Android_TakeTouchControlsReset()) {
 		CancelInputForQuitPrompt();
@@ -894,6 +893,12 @@ SDL_AppResult SDL_AppIterate(void* appstate)
 #ifdef ANDROID
 	PublishTouchControls();
 #endif
+
+	// After the tick rather than before it, because two of the things that pause the game do so
+	// from inside one: LEGO1's own Pause key, and the resume that follows re-enabling the renderer.
+	// Taken at the top they would each be a frame late. The paths that return before this one
+	// either end the game or apply the gain themselves.
+	ApplyOutputGain();
 
 	return SDL_APP_CONTINUE;
 }
