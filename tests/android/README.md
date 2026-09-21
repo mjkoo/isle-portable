@@ -536,3 +536,21 @@ the path where the native libraries will not load: SDL's error dialog must appea
 because audio focus is the one thing this app calls into native on its own account. Repeat the
 request check and one duck on the minified release, the JNI method being reached only through
 R8-processed Java.
+
+## Pause prompt
+
+Run from the repository root with Java 17 (or inside `nix develop .#android`):
+
+```sh
+mkdir -p build/android-pause-java
+javac -d build/android-pause-java \
+  android-project/app/src/main/java/org/legoisland/isle/QuitPromptText.java \
+  tests/android/java/org/legoisland/isle/QuitPromptTextTest.java
+java -ea -cp build/android-pause-java org.legoisland.isle.QuitPromptTextTest
+```
+
+This pins the title, message and button labels for each save result and startup
+errors, including unknown save results and empty error text. Settings is always
+available; Resume appears only for a running game. It also checks the mirrored
+save constants against `quitprompt.h` and status constants against `quitprompt.cpp`.
+The host test cannot reach AlertDialog wiring or establish save durability.
