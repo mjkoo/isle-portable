@@ -271,7 +271,7 @@ public class IsleActivity extends SDLActivity {
 
     /**
      * Posts the confirmation the back button raises, told what the save that precedes it did as
-     * one of QuitPrompt's SAVE_ constants. Returns immediately; the caller polls
+     * one of QuitPromptText's SAVE_ constants. Returns immediately; the caller polls
      * getQuitPromptStatus().
      *
      * Called from native code (see ISLE/android/quitprompt.cpp); kept by proguard-rules.pro.
@@ -286,7 +286,7 @@ public class IsleActivity extends SDLActivity {
     }
 
     /**
-     * One of QuitPrompt's STATUS_ constants, which ISLE/android/quitprompt.h mirrors, or
+     * One of QuitPrompt's STATUS_ constants, which ISLE/android/quitprompt.cpp mirrors, or
      * STATUS_PENDING while the user has yet to answer. Reports STATUS_RESUME rather than
      * STATUS_QUIT if there is no prompt to answer, so a failure to post one cannot quit the
      * game on the player's behalf.

@@ -564,7 +564,8 @@ Restore all of them even if a step aborts, then compare the restored bytes.
 
 1. Register a player and change some progress. Open the menu with Back. Expect
    **Game paused.** and **Save and quit | Settings | Resume** in positive, neutral,
-   negative order on the API 35 emulator with the app's current theme. The old build says Quit, so this distinguishes the change.
+   negative order on the API 35 emulator with the app's current theme. The old build
+   says Quit, so this distinguishes the change.
 2. Use a fresh, unregistered player set. Expect **There is no saved game yet.** and
    **Quit | Settings | Resume**. The engine can return success without writing for
    an unregistered player; that must not produce Save and quit.
