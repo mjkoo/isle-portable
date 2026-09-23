@@ -409,9 +409,10 @@ jobs:
               $action_headers \
             --path LEGO1/omni LEGO1/lego/legoomni
 
+  # Upstream's rolling continuous release; this repository publishes through android-release.yml.
   release:
     name: 'Release'
-    if: ${{ github.event_name == 'push' && github.ref_name == 'master' }}
+    if: ${{ github.repository == 'isledecomp/isle-portable' && github.event_name == 'push' && github.ref_name == 'master' }}
     runs-on: ubuntu-latest
     needs:
       - build

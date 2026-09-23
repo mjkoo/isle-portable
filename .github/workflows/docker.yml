@@ -9,8 +9,10 @@ env:
   IMAGE_NAME: ${{ github.repository }}-emscripten
 
 jobs:
+  # Upstream's hosted web port image, published only from upstream.
   publish-emscripten:
     name: Publish web port
+    if: ${{ github.repository == 'isledecomp/isle-portable' }}
     env:
         IMAGE_NAME: ${{ github.repository }}-emscripten
     runs-on: ubuntu-latest
