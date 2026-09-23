@@ -59,6 +59,22 @@ android-avd:
 android-emulator gpu="host":
     {{ emulator_shell }} emulator -avd {{ avd_name }} -no-snapshot -no-boot-anim -gpu {{ gpu }}
 
+tv_emulator_shell := "nix develop '" + justfile_directory() + "#android-tv-emulator' --command"
+tv_avd_name := "isle-tv-api34"
+tv_avd_image := "system-images;android-34;android-tv;arm64-v8a"
+
+# No hw.keyboard override here: with a hardware keyboard the emulator's remote keys arrive
+# as a keyboard, and a TV is exactly where they should not.
+[doc('Create the Android TV AVD. Re-running replaces it, which wipes its userdata.')]
+android-tv-avd:
+    {{ tv_emulator_shell }} sh -c 'echo no | avdmanager create avd --name {{ tv_avd_name }} --package "{{ tv_avd_image }}" --device tv_1080p --force'
+
+# Boots on the next free port, so after the phone AVD this is emulator-5556. With both
+# running, the adb recipes above and below need ANDROID_SERIAL naming the one to use.
+[doc('Boot the Android TV AVD (pass swiftshader_indirect if the host GPU fails)')]
+android-tv-emulator gpu="host":
+    {{ tv_emulator_shell }} emulator -avd {{ tv_avd_name }} -no-snapshot -no-boot-anim -gpu {{ gpu }}
+
 # The default ABI matches the AVD above; pass `universal` for the one holding all four.
 [doc('Wait for the booted device, then install the debug APK for that ABI over any existing one')]
 android-install abi="arm64-v8a":
@@ -66,11 +82,14 @@ android-install abi="arm64-v8a":
     # otherwise be refused as a downgrade.
     {{ emulator_shell }} sh -c 'adb wait-for-device && while [ -z "$(adb shell getprop sys.boot_completed | tr -d "\r")" ]; do sleep 1; done && adb install -r -d android-project/app/build/outputs/apk/debug/app-{{ abi }}-debug.apk'
 
-# adb push leaves the tree owned by `shell` mode 0770, which the app's own uid cannot
-# read: startup fails with "Error enumerating files ... Permission denied". Hence chmod.
+# A user build, as on the TV image, refuses adb push into another app's Android/data
+# ("secure_mkdirs failed"), but not a copy made from adb shell, hence the detour through
+# /data/local/tmp. A tree adb pushed straight in used to be owned by `shell` mode 0770, which
+# the app's own uid could not read ("Error enumerating files ... Permission denied"); the game
+# has read a shell copy without it, but the chmod stays in case a device differs.
 [doc('Push a game data tree (a dir holding LEGO/Scripts and LEGO/data) to the device')]
 android-push-data dir:
-    {{ emulator_shell }} sh -c 'adb shell mkdir -p /sdcard/Android/data/org.legoisland.isle/files && adb push "{{ dir }}/LEGO" /sdcard/Android/data/org.legoisland.isle/files/ && adb shell chmod -R 777 /sdcard/Android/data/org.legoisland.isle/files/LEGO'
+    {{ emulator_shell }} sh -c 'adb shell mkdir -p /sdcard/Android/data/org.legoisland.isle/files && adb push "{{ dir }}/LEGO" /data/local/tmp/ && adb shell cp -r /data/local/tmp/LEGO /sdcard/Android/data/org.legoisland.isle/files/ && adb shell rm -r /data/local/tmp/LEGO && adb shell chmod -R 777 /sdcard/Android/data/org.legoisland.isle/files/LEGO'
 
 # Follow the game's own SDL log lines.
 android-logcat:

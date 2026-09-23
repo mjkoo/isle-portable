@@ -63,8 +63,32 @@
           abiVersions = [ "arm64-v8a" ];
         };
 
+        # An Android TV image, for the leanback launcher and a device with no touchscreen and
+        # no folder picker. Its own set because the pinned repo.json has android-tv images for
+        # API 34 and 36 but not 35, and every image type is fetched for every platform version.
+        androidTvEmulator = pkgs.androidenv.composeAndroidPackages {
+          platformVersions = [ "34" ];
+          includeEmulator = true;
+          emulatorVersion = "37.2.4";
+          includeSystemImages = true;
+          systemImageTypes = [ "android-tv" ];
+          abiVersions = [ "arm64-v8a" ];
+        };
+
         androidSdkRoot = "${android.androidsdk}/libexec/android-sdk";
         androidEmulatorSdkRoot = "${androidEmulator.androidsdk}/libexec/android-sdk";
+        androidTvEmulatorSdkRoot = "${androidTvEmulator.androidsdk}/libexec/android-sdk";
+
+        # The SDK itself lives read-only in the store, but AVDs, the adb key and the
+        # emulator's scratch state all need somewhere writable. ANDROID_HOME stays on
+        # the store path so an AVD's image.sysdir.1 still resolves.
+        emulatorShellHook = ''
+          repoRoot="$(git rev-parse --show-toplevel 2>/dev/null || echo "$PWD")"
+          export ANDROID_USER_HOME="''${ANDROID_USER_HOME:-$repoRoot/.android}"
+          export ANDROID_AVD_HOME="''${ANDROID_AVD_HOME:-$ANDROID_USER_HOME/avd}"
+          export ANDROID_EMULATOR_HOME="$ANDROID_USER_HOME"
+          mkdir -p "$ANDROID_AVD_HOME"
+        '';
       in
       {
         devShells.android = pkgs.mkShell {
@@ -101,16 +125,23 @@
           ANDROID_SDK_ROOT = androidEmulatorSdkRoot;
           JAVA_HOME = pkgs.temurin-bin-17.home;
 
-          shellHook = ''
-            # The SDK itself lives read-only in the store, but AVDs, the adb key and the
-            # emulator's scratch state all need somewhere writable. ANDROID_HOME stays on
-            # the store path so an AVD's image.sysdir.1 still resolves.
-            repoRoot="$(git rev-parse --show-toplevel 2>/dev/null || echo "$PWD")"
-            export ANDROID_USER_HOME="''${ANDROID_USER_HOME:-$repoRoot/.android}"
-            export ANDROID_AVD_HOME="''${ANDROID_AVD_HOME:-$ANDROID_USER_HOME/avd}"
-            export ANDROID_EMULATOR_HOME="$ANDROID_USER_HOME"
-            mkdir -p "$ANDROID_AVD_HOME"
-          '';
+          shellHook = emulatorShellHook;
+        };
+
+        # The same tools against the Android TV image. An AVD only boots from the shell whose
+        # SDK holds its image, so the TV AVD is run from here rather than from android-emulator.
+        devShells.android-tv-emulator = pkgs.mkShell {
+          packages = [
+            pkgs.temurin-bin-17
+            androidTvEmulator.androidsdk
+            pkgs.git
+          ];
+
+          ANDROID_HOME = androidTvEmulatorSdkRoot;
+          ANDROID_SDK_ROOT = androidTvEmulatorSdkRoot;
+          JAVA_HOME = pkgs.temurin-bin-17.home;
+
+          shellHook = emulatorShellHook;
         };
 
         devShells.default = pkgs.mkShell {
