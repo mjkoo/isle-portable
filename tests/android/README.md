@@ -608,3 +608,24 @@ it afterwards.
    touch rows are there, Export and Restore are enabled, and Replace opens the system picker.
 
 Neither procedure covers TV hardware, a real remote, or a TV that ships a folder picker.
+
+## About
+
+```sh
+ctest --test-dir build/host-tests -R '^android_about_text$' --output-on-failure
+```
+
+This pins Settings > About: the rows in order, the upstream, decompilation, license and
+disclosure links, and the wording that credits the isledecomp contributors and says the fork is
+not affiliated with them. It also pins the source link, which follows the commit
+`build.gradle` appends to the version name and falls back to the repository when a build does
+not know its commit. The URLs are spelled out in the test rather than read from `AboutText`, so a
+wrong constant cannot pass.
+
+On device, the About group is the last in Settings, after Save settings. Version matches
+`adb shell dumpsys package dev.mjkoo.isle | grep versionName`. Each row with a link opens it in a
+browser, Source code at the build's commit, and shows its address under the summary; the
+Version and Not affiliated rows cannot be chosen. The TV AVD has no browser, only the framework's
+stand-in, which answers a link with "You don't have an app that can do this" while Settings stays
+open; the address on the row is what tells the viewer where it goes. A device with no handler at
+all gets "No app can open" and the address instead.

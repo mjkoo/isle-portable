@@ -1,6 +1,9 @@
 package org.legoisland.isle;
 
 import android.app.Dialog;
+import android.content.ActivityNotFoundException;
+import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
@@ -869,7 +872,43 @@ public final class SettingsActivity extends AppCompatActivity {
             save.setIconSpaceReserved(false);
             save.setOnPreferenceClickListener(p -> { model.save(); return true; });
             screen.addPreference(save);
+            PreferenceCategory about = new PreferenceCategory(requireContext());
+            about.setTitle("About");
+            about.setIconSpaceReserved(false);
+            screen.addPreference(about);
+            for (AboutText.Row row : AboutText.rows(versionName())) {
+                Preference item = new Preference(requireContext());
+                item.setTitle(row.title);
+                // The address is shown as well, since a TV's stand-in browser only says it cannot open it.
+                item.setSummary(row.url == null ? row.summary : row.summary + "\n" + row.url);
+                item.setIconSpaceReserved(false);
+                if (row.url == null) {
+                    item.setSelectable(false);
+                } else {
+                    item.setOnPreferenceClickListener(p -> { openLink(row.url); return true; });
+                }
+                about.addPreference(item);
+            }
             refresh();
+        }
+
+        // The flags overload replacing this arrived in API 33, and a zero flag means the same on all.
+        @SuppressWarnings("deprecation")
+        private String versionName() {
+            try {
+                return requireContext().getPackageManager().getPackageInfo(requireContext().getPackageName(), 0).versionName;
+            } catch (PackageManager.NameNotFoundException e) {
+                return null;
+            }
+        }
+
+        // A device can have no browser at all, so say where the link goes rather than failing.
+        private void openLink(String url) {
+            try {
+                startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url)));
+            } catch (ActivityNotFoundException e) {
+                Toast.makeText(requireContext(), "No app can open " + url, Toast.LENGTH_LONG).show();
+            }
         }
 
         private void refresh() {

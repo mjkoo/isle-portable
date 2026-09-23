@@ -190,6 +190,10 @@ select in Replace game files. Multiplayer connects to the relay server and room 
 turns the third person camera on. **Reset extensions** turns them all off, and Reset these
 settings leaves them alone. See [Android extensions](docs/android-extensions.md).
 
+**About**, at the end of Settings, shows the version, credits isle-portable and the
+decompilation this build is based on, and links to the license, the source of this build and the
+AI disclosure above.
+
 Configuration (`isle.ini`) and default saves (`saves/`) live in private internal storage.
 Imported game assets remain in app-scoped external storage. Settings preserves custom paths
 and other INI keys. Android backup eligibility does not guarantee that a backup or restore
