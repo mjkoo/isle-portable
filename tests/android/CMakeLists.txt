@@ -1,8 +1,8 @@
 cmake_minimum_required(VERSION 3.20)
-project(android_config_tests LANGUAGES CXX)
+project(android_host_tests LANGUAGES CXX)
 
-# Off, a test whose dependency is missing is skipped with a status line. CI turns it on so that a
-# runner losing Java or the built SDL3 fails the job instead of quietly running fewer tests.
+# When off, a test whose dependency is missing is skipped with a status line. CI turns it on so
+# that a runner losing Java or the built SDL3 fails the job instead of quietly running fewer tests.
 option(ISLE_HOST_TESTS_REQUIRE_ALL "Fail to configure rather than skip tests whose dependencies are missing" OFF)
 
 # glibc declares closedir nonnull, and GCC warns that the decltype(&closedir) deleters in
