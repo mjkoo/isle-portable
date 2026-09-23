@@ -1,47 +1,85 @@
-# LEGO Island, portable
+# LEGO Island, portable - Android-focused fork
 
-[Development Vlog](https://www.youtube.com/playlist?list=PLbpl-gZkNl2Db4xcAsT_xOfOwRk-2DPHL) | [Contributing](/CONTRIBUTING.md) | [Matrix](https://matrix.to/#/#isledecomp:matrix.org) | [Forums](https://forum.mattkc.com/viewforum.php?f=1) | [Patreon](https://www.patreon.com/mattkc)
-  
+This repository is a modified version of [isle-portable](https://github.com/isledecomp/isle-portable),
+the portable version of LEGO Island (Version 1.1, English) by the
+[isledecomp contributors](https://github.com/isledecomp/isle-portable/graphs/contributors), which is
+itself built on the [LEGO Island decompilation](https://github.com/isledecomp/isle). It was forked
+from upstream commit [`fdf918e0`](https://github.com/isledecomp/isle-portable/commit/fdf918e0)
+(2026-08-31) and has been changed since, mainly in its Android port. The git history keeps
+upstream's commits and authorship as they are; everything after the fork point is this fork's.
+
+This fork is not affiliated with or endorsed by the isledecomp project. Please report problems
+with this fork here, not upstream. LEGO® is a trademark of the LEGO Group, which does not sponsor,
+authorize or endorse this project. **An existing copy of LEGO Island is required.**
+
+## What this fork changes
+
+The Android build gains an in-app settings screen, visible touch controls with an editable
+layout, controller remapping, save export and restore, audio focus, Android TV support, a Vulkan
+renderer option and per-architecture APKs, and it installs as its own application,
+`dev.mjkoo.isle`, beside upstream's. A few changes reach every platform, such as the game going
+quiet while paused and the desktop settings tool keeping `isle.ini` keys it does not own. The
+Android sections below describe the result. Download the APKs from this repository's
+[Releases page](https://github.com/mjkoo/isle-portable/releases); see
+[installing the Android build](docs/android-install.md).
+
+## AI disclosure
+
+Most of this fork's changes since the fork point were written with
+[Claude Code](https://claude.com/claude-code), Anthropic's AI coding assistant, directed and
+reviewed by the maintainer. Commits written with it carry a `Co-Authored-By: Claude` trailer. They
+have been tested mainly on Android emulators rather than on a range of physical devices. The
+upstream project and the decompilation it builds on are the work of their own contributors, and
+this disclosure does not describe them.
+
+## License and credits
+
+Licensed under the [GNU LGPL-3.0](LICENSE), unchanged from upstream. The complete source for each
+release is the tag it was built from. Third-party components keep their own licenses: see
+`3rdparty/`, and SDL3 and iniparser, which the build fetches.
+
+Credit for the game port belongs to the isle-portable and decompilation contributors. Upstream's
+community: [Development Vlog](https://www.youtube.com/playlist?list=PLbpl-gZkNl2Db4xcAsT_xOfOwRk-2DPHL) | [Contributing](https://github.com/isledecomp/isle-portable/blob/master/CONTRIBUTING.md) | [Matrix](https://matrix.to/#/#isledecomp:matrix.org) | [Forums](https://forum.mattkc.com/viewforum.php?f=1) | [Patreon](https://www.patreon.com/mattkc)
+
+## Upstream's description
+
+The rest of this section is upstream's own description of isle-portable, lightly adjusted for
+this repository; "we" and "our" refer to the isledecomp project.
+
 This initiative is a portable version of LEGO Island (Version 1.1, English) based on the [decompilation project](https://github.com/isledecomp/isle). Our primary goal is to transform the codebase to achieve platform independence, thereby enhancing compatibility across various systems while preserving the original game's experience as faithfully as possible.
 
 Please note: this project is primarily dedicated to achieving platform independence without altering the core gameplay or rewriting code for improvement's sake. While those are worthwhile objectives, they are not within the scope of this project. `isle-portable` offers support for light modding using [`extensions`](/extensions). 
 
-## Status
+### Status
+
+The badges show this repository's CI, which builds every platform upstream does.
 
 | Platform | Status |
 | - | - | 
-| Windows (x86, x64, arm64) | [![CI](https://github.com/isledecomp/isle-portable/actions/workflows/ci.yml/badge.svg)](https://github.com/isledecomp/isle-portable/actions/workflows/ci.yml) | 
-| MacOS (arm64, x64) | [![CI](https://github.com/isledecomp/isle-portable/actions/workflows/ci.yml/badge.svg)](https://github.com/isledecomp/isle-portable/actions/workflows/ci.yml) |
-| Linux (x64, arm64) | [![CI](https://github.com/isledecomp/isle-portable/actions/workflows/ci.yml/badge.svg)](https://github.com/isledecomp/isle-portable/actions/workflows/ci.yml) |
-| FreeBSD (x64) | [![CI](https://github.com/isledecomp/isle-portable/actions/workflows/ci.yml/badge.svg)](https://github.com/isledecomp/isle-portable/actions/workflows/ci.yml) |
-| DOS (x86) | [![CI](https://github.com/isledecomp/isle-portable/actions/workflows/ci.yml/badge.svg)](https://github.com/isledecomp/isle-portable/actions/workflows/ci.yml) |
-| [Web](https://isle.pizza) | [![CI](https://github.com/isledecomp/isle-portable/actions/workflows/ci.yml/badge.svg)](https://github.com/isledecomp/isle-portable/actions/workflows/ci.yml) |
-| iOS | [![CI](https://github.com/isledecomp/isle-portable/actions/workflows/ci.yml/badge.svg)](https://github.com/isledecomp/isle-portable/actions/workflows/ci.yml) |
-| Android | [![CI](https://github.com/isledecomp/isle-portable/actions/workflows/ci.yml/badge.svg)](https://github.com/isledecomp/isle-portable/actions/workflows/ci.yml) |
-| Xbox One | [![CI](https://github.com/isledecomp/isle-portable/actions/workflows/ci.yml/badge.svg)](https://github.com/isledecomp/isle-portable/actions/workflows/ci.yml) |
-| Playstation Vita | [![CI](https://github.com/isledecomp/isle-portable/actions/workflows/ci.yml/badge.svg)](https://github.com/isledecomp/isle-portable/actions/workflows/ci.yml) |
-| Nintendo Switch | [![CI](https://github.com/isledecomp/isle-portable/actions/workflows/ci.yml/badge.svg)](https://github.com/isledecomp/isle-portable/actions/workflows/ci.yml) |
-| Nintendo 3DS | [![CI](https://github.com/isledecomp/isle-portable/actions/workflows/ci.yml/badge.svg)](https://github.com/isledecomp/isle-portable/actions/workflows/ci.yml) |
+| Windows (x86, x64, arm64) | [![CI](https://github.com/mjkoo/isle-portable/actions/workflows/ci.yml/badge.svg)](https://github.com/mjkoo/isle-portable/actions/workflows/ci.yml) | 
+| MacOS (arm64, x64) | [![CI](https://github.com/mjkoo/isle-portable/actions/workflows/ci.yml/badge.svg)](https://github.com/mjkoo/isle-portable/actions/workflows/ci.yml) |
+| Linux (x64, arm64) | [![CI](https://github.com/mjkoo/isle-portable/actions/workflows/ci.yml/badge.svg)](https://github.com/mjkoo/isle-portable/actions/workflows/ci.yml) |
+| FreeBSD (x64) | [![CI](https://github.com/mjkoo/isle-portable/actions/workflows/ci.yml/badge.svg)](https://github.com/mjkoo/isle-portable/actions/workflows/ci.yml) |
+| DOS (x86) | [![CI](https://github.com/mjkoo/isle-portable/actions/workflows/ci.yml/badge.svg)](https://github.com/mjkoo/isle-portable/actions/workflows/ci.yml) |
+| [Web](https://isle.pizza) | [![CI](https://github.com/mjkoo/isle-portable/actions/workflows/ci.yml/badge.svg)](https://github.com/mjkoo/isle-portable/actions/workflows/ci.yml) |
+| iOS | [![CI](https://github.com/mjkoo/isle-portable/actions/workflows/ci.yml/badge.svg)](https://github.com/mjkoo/isle-portable/actions/workflows/ci.yml) |
+| Android | [![CI](https://github.com/mjkoo/isle-portable/actions/workflows/ci.yml/badge.svg)](https://github.com/mjkoo/isle-portable/actions/workflows/ci.yml) |
+| Xbox One | [![CI](https://github.com/mjkoo/isle-portable/actions/workflows/ci.yml/badge.svg)](https://github.com/mjkoo/isle-portable/actions/workflows/ci.yml) |
+| Playstation Vita | [![CI](https://github.com/mjkoo/isle-portable/actions/workflows/ci.yml/badge.svg)](https://github.com/mjkoo/isle-portable/actions/workflows/ci.yml) |
+| Nintendo Switch | [![CI](https://github.com/mjkoo/isle-portable/actions/workflows/ci.yml/badge.svg)](https://github.com/mjkoo/isle-portable/actions/workflows/ci.yml) |
+| Nintendo 3DS | [![CI](https://github.com/mjkoo/isle-portable/actions/workflows/ci.yml/badge.svg)](https://github.com/mjkoo/isle-portable/actions/workflows/ci.yml) |
 
 We are actively working to support more platforms. If you have experience with a particular platform, we encourage you to contribute to `isle-portable`. You can find a [list of ongoing efforts](https://github.com/isledecomp/isle-portable/wiki/Work%E2%80%90in%E2%80%90progress-ports) in our Wiki.
 
-## Usage
+### Usage
 
 **An existing copy of LEGO Island is required to use this project.**
 
-As it stands, builds provided in the [Releases tab](https://github.com/isledecomp/isle-portable/releases/tag/continuous) are mainly for developers; as such, they may not work properly for all end-users. Work is currently ongoing to create workable release builds ready for gameplay and general use by end-users. If you are technically inclined, you may find it easiest to compile the project yourself to get it running at this current point in time.
+This repository releases the Android build only. For other platforms, upstream's builds in its [Releases tab](https://github.com/isledecomp/isle-portable/releases/tag/continuous) are mainly for developers; as such, they may not work properly for all end-users. If you are technically inclined, you may find it easiest to compile the project yourself to get it running at this current point in time.
 
 [Installation instructions](https://github.com/isledecomp/isle-portable/wiki/Installation) for some ports can be found in our Wiki.
 
-On Android, `isle.ini` and the default `saves/` directory live in the app's private internal
-files directory. Imported game data lives in the app-scoped external files directory under
-`Android/data/dev.mjkoo.isle/files/`. Removing imported data in the app leaves saves and
-settings intact. Android backup rules include the internal saves and config, but exclude game
-data; backup and restore depend on the device's backup settings and service. An explicit
-`savepath` override is honored, but saves outside the default directory are not covered by
-these rules. Uninstalling removes both app-specific storage directories.
-
-## Library substitutions
+### Library substitutions
 
 To achieve our goal of platform independence, we need to replace any Windows-only libraries with platform-independent alternatives. This ensures that our codebase remains versatile and compatible across various systems. The following table serves as an overview of major libraries / subsystems and their chosen replacements. For any significant changes or additions, it's recommended to discuss them with the team on the Matrix chat first to ensure consistency and alignment with our project's objectives.
 
@@ -61,6 +99,14 @@ To achieve our goal of platform independence, we need to replace any Windows-onl
 | [SmartHeap](https://github.com/isledecomp/isle/tree/master/3rdparty/smartheap) | Default memory allocator | - | - |
 
 ## Android settings
+
+On Android, `isle.ini` and the default `saves/` directory live in the app's private internal
+files directory. Imported game data lives in the app-scoped external files directory under
+`Android/data/dev.mjkoo.isle/files/`. Removing imported data in the app leaves saves and
+settings intact. Android backup rules include the internal saves and config, but exclude game
+data; backup and restore depend on the device's backup settings and service. An explicit
+`savepath` override is honored, but saves outside the default directory are not covered by
+these rules. Uninstalling removes both app-specific storage directories.
 
 The releases page carries one APK per CPU architecture plus a universal one; see
 [installing the Android build](docs/android-install.md) for which to take.
@@ -155,4 +201,8 @@ This project uses the [CMake](https://cmake.org/) build system, which allows for
 
 ## Contributing
 
-If you're interested in helping or contributing to this project, check out the [CONTRIBUTING](/CONTRIBUTING.md) page.
+Issues and pull requests about this fork's Android work belong here. Work on the game port
+itself, on other platforms or on the decompilation belongs upstream, in
+[isle-portable](https://github.com/isledecomp/isle-portable) or the
+[decompilation project](https://github.com/isledecomp/isle); see their
+[CONTRIBUTING](/CONTRIBUTING.md) page, which is upstream's.

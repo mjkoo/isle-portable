@@ -1,5 +1,10 @@
 # Contributing
 
+> This page is upstream isle-portable's, kept as it was written; "we", the Matrix chatroom and the
+> review process below are [isledecomp's](https://github.com/isledecomp/isle-portable). This
+> repository is an Android-focused fork: issues and pull requests about its Android work belong
+> here, and contributions to the game port itself belong upstream, following this page.
+
 ## General Guidelines
 
 If you feel fit to contribute, feel free to create a pull request! Someone will review and merge it (or provide feedback) as soon as possible.

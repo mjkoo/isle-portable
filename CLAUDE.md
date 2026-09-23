@@ -4,7 +4,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project scope
 
-`isle-portable` is a portable fork of the [LEGO Island decompilation](https://github.com/isledecomp/isle).
+This repository is an Android-focused fork of [isle-portable](https://github.com/isledecomp/isle-portable),
+itself a portable fork of the [LEGO Island decompilation](https://github.com/isledecomp/isle). Upstream
+is the `upstream` remote and is merged from now and then, so keep changes to shared files small. Its
+publishing jobs (the `release` job in `ci.yml`, and `docker.yml`) are guarded to run only in
+`isledecomp/isle-portable`; this repository releases Android APKs through `android-release.yml`, as
+`dev.mjkoo.isle`. The README credits upstream and discloses AI assistance; keep both accurate.
+
 The goal is platform independence, not improvement of the game code. Two rules follow from that and
 shape almost every decision here:
 
