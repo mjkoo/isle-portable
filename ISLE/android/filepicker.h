@@ -9,6 +9,10 @@
 // first-run and the retry wording. On success, *p_hdPath is updated to the directory
 // the files were imported into (freeing the previous value) and the new diskpath is
 // persisted to the config at p_iniPath (or the default location if NULL).
+//
+// Where no folder picker can be shown, as on Android TV, it instead says where to copy the files
+// with adb and checks again on request, pointing diskpath at the app's own directory once they
+// are complete.
 bool Android_TryImportGameFiles(
 	SDL_Window* p_window,
 	const char* p_iniPath,

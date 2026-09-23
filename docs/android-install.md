@@ -51,4 +51,5 @@ holding one, either the folder that contains `LEGO` or the `LEGO` folder itself,
 `Android/data/org.legoisland.isle/files/`. No storage permission is required. See
 [Android game files](android-game-files.md) for replacing or removing it later,
 [Android saves](android-saves.md) for getting saves on and off the device, and
-[Android audio](android-audio.md) for what happens when another app needs the sound.
+[Android audio](android-audio.md) for what happens when another app needs the sound. On a TV
+with no folder picker, see [Android TV](android-tv.md) for copying the files in with adb instead.

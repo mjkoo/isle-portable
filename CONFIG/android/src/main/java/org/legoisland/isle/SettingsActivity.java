@@ -37,6 +37,7 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
@@ -53,6 +54,11 @@ public final class SettingsActivity extends AppCompatActivity {
     static final int RESULT_EDIT_TOUCH_LAYOUT = RESULT_FIRST_USER;
     /** Whether the game can open the editor: only when Settings was opened over a running game. */
     static final String EXTRA_TOUCH_LAYOUT_EDITOR = "touchLayoutEditor";
+    private static final String EXPORT_TYPE = "application/zip";
+    private static final String[] RESTORE_TYPES = {"application/zip", "application/x-zip-compressed", "application/octet-stream"};
+    /** Touch rows, hidden where DeviceSupport says there are no touch controls to configure. */
+    private static final List<String> TOUCH_KEYS = Arrays.asList("isle:touch scheme", "isle:show touch controls",
+        "isle:touch button scale", "isle:touch control opacity");
 
     /** How a row is edited: a choice, or a typed number or word. */
     private enum Kind { LIST, NUMBER, TEXT }
@@ -281,7 +287,7 @@ public final class SettingsActivity extends AppCompatActivity {
     private SaveExportModel export;
     private SaveRestoreModel restore;
     private final ActivityResultLauncher<String> exportDestination = registerForActivityResult(
-        new ActivityResultContracts.CreateDocument("application/zip"), uri -> export.destination(uri));
+        new ActivityResultContracts.CreateDocument(EXPORT_TYPE), uri -> export.destination(uri));
 
     private final ActivityResultLauncher<String[]> restoreSource = registerForActivityResult(
         new ActivityResultContracts.OpenDocument(), uri -> restore.selected(uri));
@@ -298,7 +304,7 @@ public final class SettingsActivity extends AppCompatActivity {
         }
         if (export.isBusy() || model.isBusy() || gameFiles.busy()) return;
         if (restore.start(previous)) {
-            try { restoreSource.launch(new String[] {"application/zip", "application/x-zip-compressed", "application/octet-stream"}); }
+            try { restoreSource.launch(RESTORE_TYPES); }
             catch (RuntimeException e) { restore.error("Could not open the archive picker: " + e.getMessage()); }
         }
     }
@@ -473,8 +479,12 @@ public final class SettingsActivity extends AppCompatActivity {
         }
         if (phase == GameFilesModel.Phase.PICK) {
             gameFiles.picking();
-            try { gameFilesSource.launch(null); }
-            catch (RuntimeException e) { gameFiles.error("Could not open the folder picker: " + e.getMessage()); }
+            if (!DeviceSupport.canPickFolder(this)) {
+                gameFiles.error(TvSupport.NO_FOLDER_PICKER);
+            } else {
+                try { gameFilesSource.launch(null); }
+                catch (RuntimeException e) { gameFiles.error("Could not open the folder picker: " + e.getMessage()); }
+            }
         } else if (phase == GameFilesModel.Phase.CLOSING) {
             Toast.makeText(this, gameFiles.message, Toast.LENGTH_LONG).show();
             finish();
@@ -569,7 +579,10 @@ public final class SettingsActivity extends AppCompatActivity {
             invalidateOptionsMenu();
             if (result == SettingsModel.State.SAVED) {
                 setResult(RESULT_OK);
-                Toast.makeText(this, "Settings saved. Touch scheme, Show touch controls, button size, opacity and controller buttons apply when you resume. Other changes apply on the next game launch.", Toast.LENGTH_LONG).show();
+                Toast.makeText(this, DeviceSupport.hasTouchControls(this)
+                    ? "Settings saved. Touch scheme, Show touch controls, button size, opacity and controller buttons apply when you resume. Other changes apply on the next game launch."
+                    : "Settings saved. Controller buttons apply when you resume. Other changes apply on the next game launch.",
+                    Toast.LENGTH_LONG).show();
                 finish();
             } else if (model.error != null) {
                 String message = model.error;
@@ -630,12 +643,16 @@ public final class SettingsActivity extends AppCompatActivity {
         private SaveRestoreModel restore;
         private GameFilesModel gameFiles;
         private boolean updating;
+        private boolean touch, canExport, canRestore;
 
         @Override public void onCreatePreferences(Bundle savedInstanceState, String rootKey) {
             model = new ViewModelProvider(requireActivity()).get(SettingsModel.class);
             export = new ViewModelProvider(requireActivity()).get(SaveExportModel.class);
             restore = new ViewModelProvider(requireActivity()).get(SaveRestoreModel.class);
             gameFiles = new ViewModelProvider(requireActivity()).get(GameFilesModel.class);
+            touch = DeviceSupport.hasTouchControls(requireContext());
+            canExport = DeviceSupport.canCreate(requireContext(), EXPORT_TYPE);
+            canRestore = DeviceSupport.canOpen(requireContext(), RESTORE_TYPES);
             getPreferenceManager().setPreferenceDataStore(new PreferenceDataStore() {
                 @Override public String getString(String key, String fallback) {
                     if (RESOLUTION.equals(key)) {
@@ -671,7 +688,8 @@ public final class SettingsActivity extends AppCompatActivity {
             setPreferenceScreen(screen);
             Preference notice = new Preference(requireContext());
             notice.setTitle("Save settings, then resume");
-            notice.setSummary("Touch scheme, Show touch controls, Touch button size, Touch control opacity and controller buttons apply when you resume the game. Other changes apply on the next game launch. Cancel leaves your settings unchanged.");
+            notice.setSummary((touch ? "Touch scheme, Show touch controls, Touch button size, Touch control opacity and controller buttons"
+                : "Controller buttons") + " apply when you resume the game. Other changes apply on the next game launch. Cancel leaves your settings unchanged.");
             notice.setSelectable(false);
             notice.setIconSpaceReserved(false);
             screen.addPreference(notice);
@@ -779,6 +797,7 @@ public final class SettingsActivity extends AppCompatActivity {
                 preference.setKey(control.key);
                 preference.setTitle(control.title);
                 preference.setDefaultValue(DEFAULT);
+                preference.setVisible(touch || !TOUCH_KEYS.contains(control.key));
                 updating = true;
                 category.addPreference(preference);
                 updating = false;
@@ -806,7 +825,8 @@ public final class SettingsActivity extends AppCompatActivity {
             Preference menuWarning = new Preference(requireContext());
             menuWarning.setKey("controller-menu-warning");
             menuWarning.setTitle("No controller button opens the menu");
-            menuWarning.setSummary("Android Back and the touch menu button still open it.");
+            menuWarning.setSummary(touch ? "Android Back and the touch menu button still open it."
+                : "Android Back, or a remote's Back, still opens it.");
             menuWarning.setSelectable(false);
             menuWarning.setIconSpaceReserved(false);
             controller.addPreference(menuWarning);
@@ -858,12 +878,13 @@ public final class SettingsActivity extends AppCompatActivity {
             gameFilesRow.setSummary(gameFiles.summary());
             gameFilesRow.setEnabled(idle);
             Preference exportSaves = findPreference("export-saves");
-            exportSaves.setSummary(export.summary());
-            exportSaves.setEnabled(idle);
+            exportSaves.setSummary(canExport ? export.summary() : TvSupport.NO_FILE_PICKER);
+            exportSaves.setEnabled(idle && canExport);
             Preference restoreSaves = findPreference("restore-saves");
-            restoreSaves.setSummary(restore.summary());
-            restoreSaves.setEnabled(idle);
+            restoreSaves.setSummary(canRestore ? restore.summary() : TvSupport.NO_FILE_PICKER);
+            restoreSaves.setEnabled(idle && canRestore);
             Preference previousSaves = findPreference("previous-saves");
+            // The previous set is the app's own backup, so restoring it needs no picker.
             previousSaves.setSummary(restore.previousSummary());
             previousSaves.setVisible(restore.hasPrevious());
             previousSaves.setEnabled(idle);

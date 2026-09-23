@@ -13,6 +13,7 @@
     java.lang.String getImportedRoot();
     boolean hasImportedGameData();
     boolean removeImportedGameData();
+    boolean hasFolderPicker();
     void showQuitPrompt(int);
     void showMenuButton();
     void showStartupSettings(java.lang.String);

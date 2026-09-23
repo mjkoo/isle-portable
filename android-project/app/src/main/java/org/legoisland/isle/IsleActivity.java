@@ -6,6 +6,7 @@ import android.widget.RelativeLayout;
 import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.InputDevice;
 import android.view.KeyEvent;
 import android.view.View;
 
@@ -33,6 +34,8 @@ public class IsleActivity extends SDLActivity {
     private TouchControlsView mTouchControls;
     private TouchLayoutController mTouchLayoutController;
     private boolean mLayoutRequested;
+    /** False on a TV, where the menu button, Esc, Space and the touch hints stay hidden. */
+    private boolean mTouchUi;
     private AudioFocus mAudioFocus;
     /**
      * False when SDLActivity gave up in onCreate over libraries it could not load, which is also
@@ -45,6 +48,7 @@ public class IsleActivity extends SDLActivity {
     @Override protected void onCreate(Bundle state) {
         super.onCreate(state);
         if (mLayout == null) return;
+        mTouchUi = DeviceSupport.hasTouchControls(this);
         mLayout.setMotionEventSplittingEnabled(true);
         mTouchControls = new TouchControlsView(this, mSurface);
         mLayout.addView(mTouchControls, new RelativeLayout.LayoutParams(
@@ -56,11 +60,7 @@ public class IsleActivity extends SDLActivity {
         mTouchControls.setActionButtons(space, escape);
         mMenuButton = TouchControlsLayer.createMenuButton(this);
         mMenuButton.setVisibility(View.GONE);
-        mMenuButton.setOnClickListener(view -> {
-            view.setVisibility(View.GONE);
-            mTouchControls.setRunning(false);
-            SettingsBridge.requestMenu();
-        });
+        mMenuButton.setOnClickListener(view -> requestMenu());
         // SDLActivity creates its layout as a RelativeLayout; the overlay above relies on that too.
         mTouchLayoutController = new TouchLayoutController((RelativeLayout) mLayout, mMenuButton, escape, space,
             this::onTouchLayoutRead);
@@ -79,8 +79,14 @@ public class IsleActivity extends SDLActivity {
         });
     }
 
+    private void requestMenu() {
+        mMenuButton.setVisibility(View.GONE);
+        mTouchControls.setRunning(false);
+        SettingsBridge.requestMenu();
+    }
+
     void restoreMenuButton() {
-        if (mGameReady && touchLayoutLoaded() && mMenuButton != null && !isFinishing()) {
+        if (mTouchUi && mGameReady && touchLayoutLoaded() && mMenuButton != null && !isFinishing()) {
             mMenuButton.setVisibility(View.VISIBLE);
             mTouchLayoutController.requestApplyInsets();
         }
@@ -114,12 +120,20 @@ public class IsleActivity extends SDLActivity {
         // on Back arriving as a key event; an app opted into predictive back would need an
         // OnBackInvokedCallback here instead.
         if (mTouchLayoutController != null && mTouchLayoutController.dispatchBack(event)) return true;
+        // Before the game is ready there is no menu to open, and Back keeps its old meaning.
+        InputDevice device = event.getDevice();
+        if (mGameReady && device != null
+                && TvSupport.isRemoteBack(event.getKeyCode(), device.isVirtual(), device.getSources())) {
+            // The up and any repeats are swallowed too, so SDL never sees half a press.
+            if (event.getAction() == KeyEvent.ACTION_DOWN && event.getRepeatCount() == 0) requestMenu();
+            return true;
+        }
         return super.dispatchKeyEvent(event);
     }
 
     private void updateTouchControls() {
         if (mTouchControls != null) {
-            mTouchControls.setRunning(mGameReady && touchLayoutLoaded() && mResumed && hasWindowFocus() && !isFinishing());
+            mTouchControls.setRunning(mTouchUi && mGameReady && touchLayoutLoaded() && mResumed && hasWindowFocus() && !isFinishing());
         }
     }
 
@@ -169,7 +183,7 @@ public class IsleActivity extends SDLActivity {
             .putExtra("configPath", SettingsBridge.path())
             .putExtra("exportId", SettingsBridge.exportId())
             .putExtra("renderers", SettingsBridge.renderers())
-            .putExtra(SettingsActivity.EXTRA_TOUCH_LAYOUT_EDITOR, layoutEditor && mGameReady && touchLayoutLoaded()),
+            .putExtra(SettingsActivity.EXTRA_TOUCH_LAYOUT_EDITOR, layoutEditor && mTouchUi && mGameReady && touchLayoutLoaded()),
             SETTINGS_REQUEST);
     }
 
@@ -181,6 +195,16 @@ public class IsleActivity extends SDLActivity {
         if (requestCode == SETTINGS_REQUEST && mQuitPrompt != null) {
             mQuitPrompt.returnedFromSettings(resultCode == SettingsActivity.RESULT_EDIT_TOUCH_LAYOUT);
         }
+    }
+
+    /**
+     * Whether the first-run import can show a folder picker. Asked before SDL's, whose failure
+     * on a TV cannot be told from a cancel.
+     *
+     * Called from native code (see ISLE/android/filepicker.cpp); kept by proguard-rules.pro.
+     */
+    public boolean hasFolderPicker() {
+        return DeviceSupport.canPickFolder(this);
     }
 
     public void showStartupSettings(String error) {

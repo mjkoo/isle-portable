@@ -2,8 +2,9 @@
 
 Open the game menu using Back or the on-screen menu button, choose Settings, then
 Data > Export saves. Choose a location in the system save picker. No storage
-permission is required. The same action is available from startup-error Settings
-when the save directory can be resolved and read.
+permission is required. Export saves and Restore saves are unavailable on a device with no
+system file picker, as on many TVs; see [Android TV](android-tv.md). The same action is
+available from startup-error Settings when the save directory can be resolved and read.
 
 The ZIP contains existing `G0.GS` through `G8.GS`, `Players.gsi` and `History.gsi`
 under `saves/`. It excludes game assets and `isle.ini`. An explicit save-directory

@@ -5,6 +5,11 @@ points it at the app's external files directory, `Android/data/org.legoisland.is
 and the first launch asks for a folder holding a LEGO Island installation and copies its
 `LEGO` folder there. No storage permission is required.
 
+A device with no system folder picker, as many TVs are, cannot be asked for a folder. The first
+launch then names the folder and the adb commands that copy `LEGO` into it, and checks again when
+asked; see [Android TV](android-tv.md). Replace game files is refused there for the same reason,
+with Remove game files as the way round it.
+
 ## Settings > Data > Game files
 
 Open the game menu using Back, the on-screen menu button or a controller's Start button, choose

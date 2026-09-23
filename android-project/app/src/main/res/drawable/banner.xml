@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The Android TV launcher's 16:9 tile, 160 x 90 dp: the launcher icon's foreground on its
+     background. The foreground keeps the adaptive icon's safe zone, so its square is drawn at
+     140 dp and allowed to overhang the tile top and bottom, which only its transparent margin
+     does. Offsets rather than a centred gravity, which layer-list items only honour from API 23. -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:drawable="@color/ic_launcher_background" />
+    <item
+        android:drawable="@drawable/ic_launcher_foreground"
+        android:bottom="-25dp"
+        android:left="10dp"
+        android:right="10dp"
+        android:top="-25dp" />
+</layer-list>

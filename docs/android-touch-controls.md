@@ -11,6 +11,10 @@ and full opacity; button positions are kept. Changing schemes cancels held gestu
 touch again after resuming. A failed save leaves the current controls unchanged and
 can be retried.
 
+On a TV none of this is shown: no touch controls or menu button are drawn, and Settings
+leaves out the touch rows, even where the TV reports a touchscreen. The values already in
+`isle.ini` are kept.
+
 With **Arrow-key regions**, the upper three quarters of the game image move forward.
 The bottom quarter is split evenly into left, backward and right. Faint lines show
 these boundaries, and held directions brighten. Multiple fingers can hold different

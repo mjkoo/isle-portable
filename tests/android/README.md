@@ -596,3 +596,59 @@ engine write reached disk: serialization can ignore failures, and shutdown ignor
 the save result. Storage changes after the menu-opening attempt are not detected
 by this feature. Other API levels, physical devices and desktop require separate
 validation.
+
+## Android TV
+
+Run from the repository root with Java 17 (or inside `nix develop .#android`):
+
+```sh
+mkdir -p build/android-tv-java
+javac -d build/android-tv-java \
+  CONFIG/android/src/main/java/org/legoisland/isle/TvSupport.java \
+  tests/android/java/org/legoisland/isle/TvSupportTest.java
+java -ea -cp build/android-tv-java org.legoisland.isle.TvSupportTest
+```
+
+This pins which Back key opens the game menu: one from a non-virtual device with a D-pad that is
+neither a gamepad nor a joystick, which is what a remote reports and what SDL would otherwise take
+for a controller. The sources are multi-bit and share `SOURCE_CLASS_BUTTON` with the keyboard, so
+the test includes a keyboard with a D-pad, which a test of any one bit misclassifies. It also pins
+that the TV's picker stub is not a picker and that a TV has no touch controls. The copied
+framework constants are checked against literal values. The host test cannot reach how SDL
+routes a device, whether a picker intent resolves, or the dialogs.
+
+### Device procedure
+
+Use the Android TV emulator: `just android-tv-avd`, then `just android-tv-emulator`. Its image is
+API 34, a user build, so `adb root` is unavailable; `run-as` works on the debug build. With the
+phone AVD also running it is `emulator-5556` or `emulator-5554`, whichever booted second, so
+check `ro.build.flavor` before every `adb -s`. Back up `isle.ini` with `run-as` first and compare
+it afterwards.
+
+1. `cmd package query-activities -a android.intent.action.OPEN_DOCUMENT_TREE` names
+   `com.android.tv.frameworkpackagestubs`: the intent resolves, to a stub. That is what a plain
+   resolve check would take for a picker.
+2. Install the debug APK. The game is under Installed Games in the Apps tab with its banner. The
+   launcher caches banners: after changing one, force-stop the launcher to see it.
+3. With no `LEGO` folder under `Android/data/org.legoisland.isle/files`, launch. Expect the
+   no-picker message naming that folder and the three adb commands, with **Check again** and
+   **Cancel**. The old build offers Select folder, which toasts "You don't have an app that can do
+   this" and fails to start. Check again with nothing copied names the missing file. Run the
+   three commands as shown, then Check again: the game starts. `adb push` straight into
+   `Android/data` fails with `secure_mkdirs failed`, which is why the message goes through
+   `/data/local/tmp`.
+4. No menu button or touch hints are drawn. Settings shows no touch rows, Export and Restore
+   saves are disabled and say a file picker is needed (Restore previous saves, when a backup
+   exists, stays enabled), and Replace game files explains that there is no folder picker.
+5. Register a remote with `uinput`, a keyboard-class device with only the D-pad, select, Back and
+   Menu keys (`adb shell dumpsys input` reports `Sources: KEYBOARD | DPAD`). Its Back opens the
+   game menu, with `Saving game state (back button)` in the log. On the old build it opened
+   nothing: SDL passed it on as a controller button. Its Menu key opens the menu too, select
+   clicks, and the D-pad moves the cursor.
+6. Register an Xbox-layout pad with `uinput`. Its Back still acts as Esc and does not open the
+   menu. `adb shell input keyevent KEYCODE_BACK` arrives from the virtual keyboard, so it takes
+   the system Back path on either build and cannot tell the two apart.
+7. On the phone AVD, repeat the Back, Settings and Replace game files checks: the menu button and
+   touch rows are there, Export and Restore are enabled, and Replace opens the system picker.
+
+Neither procedure covers TV hardware, a real remote, or a TV that ships a folder picker.

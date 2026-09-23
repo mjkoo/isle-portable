@@ -23,6 +23,11 @@
         android:name="android.hardware.usb.host"
         android:required="false" />
 
+    <!-- Android TV. Not required, so the same APK still installs everywhere else -->
+    <uses-feature
+        android:name="android.software.leanback"
+        android:required="false" />
+
     <!-- External mouse input events -->
     <uses-feature
         android:name="android.hardware.type.pc"
@@ -34,6 +39,24 @@
     <!-- The multiplayer extension connects to a relay over WebSocket when isle.ini enables it -->
     <uses-permission android:name="android.permission.INTERNET" />
 
+    <!-- The document pickers DeviceSupport asks about before launching one; from API 30 an
+         intent resolves only against what is declared here -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.OPEN_DOCUMENT_TREE" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.CREATE_DOCUMENT" />
+            <category android:name="android.intent.category.OPENABLE" />
+            <data android:mimeType="application/zip" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.OPEN_DOCUMENT" />
+            <category android:name="android.intent.category.OPENABLE" />
+            <data android:mimeType="*/*" />
+        </intent>
+    </queries>
+
     <application
         android:allowBackup="true"
         android:fullBackupContent="@xml/backup_rules"
@@ -42,6 +65,7 @@
         android:isGame="true"
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher_round"
+        android:banner="@drawable/banner"
         android:label="@string/app_name"
         android:supportsRtl="true"
         android:hardwareAccelerated="true"
@@ -63,6 +87,7 @@
                 <action android:name="android.intent.action.MAIN" />
 
                 <category android:name="android.intent.category.LAUNCHER" />
+                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
             </intent-filter>
             <intent-filter>
                 <action android:name="android.hardware.usb.action.USB_DEVICE_ATTACHED" />

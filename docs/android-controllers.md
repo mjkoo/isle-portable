@@ -28,7 +28,8 @@ Save settings, then Resume to use the new buttons in the current game; they also
 launches. Cancel leaves them unchanged. With only a controller, **Save settings** at the bottom of
 the list saves, and B leaves Settings without saving. **Reset controller buttons** followed by Save returns
 every row to its default, and Reset these settings leaves controller buttons alone. Settings
-warns when no button would open the menu; Android Back and the touch menu button still open it.
+warns when no button would open the menu; Android Back, a TV remote's Back and the touch menu
+button still open it.
 
 Releasing a button always ends what pressing it started, even if its action or the pad's layout
 changed while it was held. Buttons held while the menu opens do nothing when released after
@@ -55,6 +56,9 @@ the unusable ones. `menu` does nothing outside Android. On Vita, Start has no de
 because it is part of the system screenshot button combination; binding it brings that conflict
 back. The desktop isle-config program keeps this section when it saves, along with every other
 key it does not edit, so configuring on the desktop no longer removes custom buttons.
+
+A TV remote is not a controller, although Android passes it to the game as one: its Back opens
+the game menu rather than acting as Esc. See [Android TV](android-tv.md).
 
 ## Limits
 

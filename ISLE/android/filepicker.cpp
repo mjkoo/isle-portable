@@ -2,6 +2,7 @@
 
 #include "activity.h"
 #include "configstore.h"
+#include "gamefiles.h"
 
 #include <SDL3/SDL.h>
 #include <errno.h>
@@ -9,10 +10,12 @@
 #include <jni.h>
 #include <stdio.h>
 #include <string.h>
+#include <string>
 
 struct FolderDialogResult {
 	SDL_Mutex* m_mutex;
 	bool m_done;
+	bool m_failed;
 	char* m_path;
 };
 
@@ -25,15 +28,17 @@ static void SDLCALL OnFolderSelected(void* p_userdata, const char* const* p_file
 		result->m_path = SDL_strdup(p_filelist[0]);
 	}
 	else if (!p_filelist) {
+		// An empty list is a cancel; no list at all means no picker could be shown.
 		SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Folder dialog error: %s", SDL_GetError());
+		result->m_failed = true;
 	}
 	result->m_done = true;
 	SDL_UnlockMutex(result->m_mutex);
 }
 
-static char* ShowFolderDialog(SDL_Window* p_window)
+static char* ShowFolderDialog(SDL_Window* p_window, bool* p_failed)
 {
-	FolderDialogResult result = {SDL_CreateMutex(), false, NULL};
+	FolderDialogResult result = {SDL_CreateMutex(), false, false, NULL};
 	SDL_ShowOpenFolderDialog(OnFolderSelected, &result, p_window, NULL, false);
 
 	for (;;) {
@@ -48,6 +53,7 @@ static char* ShowFolderDialog(SDL_Window* p_window)
 	}
 
 	SDL_DestroyMutex(result.m_mutex);
+	*p_failed = result.m_failed;
 	return result.m_path;
 }
 
@@ -155,6 +161,13 @@ static bool RemoveImportedGameData()
 	return Android_CallActivityBooleanMethod("removeImportedGameData");
 }
 
+// Android TV answers the picker intent with a stub that shows a toast and cancels, which SDL
+// reports exactly as it reports the player backing out, so this has to be asked beforehand.
+static bool HasFolderPicker()
+{
+	return Android_CallActivityBooleanMethod("hasFolderPicker");
+}
+
 // isle.ini is small, it is the only record of where the game data went, and since it is
 // covered by the backup rules it is also what a restored install starts from. Write a
 // sibling and rename over the original rather than truncating the file we still need: an
@@ -190,6 +203,94 @@ static void UpdateConfigDiskPath(const char* p_iniPath, const char* p_diskPath)
 	SDL_free(iniConfig);
 }
 
+static void SetDiskPath(const char* p_iniPath, char** p_hdPath, const char* p_diskPath)
+{
+	SDL_free(*p_hdPath);
+	*p_hdPath = SDL_strdup(p_diskPath);
+	UpdateConfigDiskPath(p_iniPath, p_diskPath);
+}
+
+// Removes the imported game data, then points diskpath where a fresh install would look: it may
+// name an imported-<timestamp> root that no longer exists, and isle.ini is part of the backup
+// set, so leaving it would follow the user to their next device.
+static void RemoveGameData(const char* p_iniPath, char** p_hdPath)
+{
+	if (RemoveImportedGameData()) {
+		const char* defaultRoot = SDL_GetAndroidExternalStoragePath();
+		if (defaultRoot) {
+			SetDiskPath(p_iniPath, p_hdPath, defaultRoot);
+		}
+	}
+}
+
+// With no picker the files can only be copied in from outside the app, so say exactly where, and
+// check until they are complete or the player gives up. adb cannot push a directory into an
+// app's Android/data on a user build (secure_mkdirs is refused), but a shell cp can, hence the
+// detour through /data/local/tmp.
+static bool AskForCopiedGameFiles(SDL_Window* p_window, const char* p_iniPath, char** p_hdPath, const char* p_missing)
+{
+	const char* root = SDL_GetAndroidExternalStoragePath();
+	if (!root) {
+		SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "External storage unavailable: %s", SDL_GetError());
+		return false;
+	}
+
+	std::string missing = p_missing ? p_missing : "a game file";
+	bool checked = false;
+	for (;;) {
+		std::string problem = checked ? "The game files are still incomplete: " + missing + " was not found."
+									  : "The game files could not be found (" + missing +
+											" is missing), and this device has no folder picker to copy them from.";
+		char message[2048];
+		SDL_snprintf(
+			message,
+			sizeof(message),
+			"%s\n\n"
+			"Copy the LEGO folder from your LEGO® Island installation into this folder:\n%s\n\n"
+			"With adb, from the folder on your computer that holds LEGO:\n"
+			"adb push LEGO /data/local/tmp/\n"
+			"adb shell cp -r /data/local/tmp/LEGO %s/\n"
+			"adb shell rm -r /data/local/tmp/LEGO\n\n"
+			"Then choose Check again.",
+			problem.c_str(),
+			root,
+			root
+		);
+
+		SDL_MessageBoxButtonData buttons[3];
+		int count = 0;
+		buttons[count++] = {SDL_MESSAGEBOX_BUTTON_RETURNKEY_DEFAULT, 1, "Check again"};
+		if (HasImportedGameData()) {
+			buttons[count++] = {0, 2, "Remove data"};
+		}
+		buttons[count++] = {SDL_MESSAGEBOX_BUTTON_ESCAPEKEY_DEFAULT, 0, "Cancel"};
+
+		const SDL_MessageBoxData messageBox =
+			{SDL_MESSAGEBOX_INFORMATION, p_window, "LEGO® Island", message, count, buttons, NULL};
+
+		int button = 0;
+		if (!SDL_ShowMessageBox(&messageBox, &button) || button == 0) {
+			return false;
+		}
+
+		if (button == 2) {
+			RemoveGameData(p_iniPath, p_hdPath);
+			continue;
+		}
+
+		checked = true;
+		const char* stillMissing = Android_FindMissingGameFile(root);
+		if (!stillMissing) {
+			// diskpath may still name an earlier import; the files just copied are the ones to read.
+			if (SDL_strcmp(*p_hdPath, root) != 0) {
+				SetDiskPath(p_iniPath, p_hdPath, root);
+			}
+			return true;
+		}
+		missing = stillMissing;
+	}
+}
+
 bool Android_TryImportGameFiles(
 	SDL_Window* p_window,
 	const char* p_iniPath,
@@ -198,6 +299,10 @@ bool Android_TryImportGameFiles(
 	int p_attempt
 )
 {
+	if (!HasFolderPicker()) {
+		return AskForCopiedGameFiles(p_window, p_iniPath, p_hdPath, p_missingFile);
+	}
+
 	const char* missing = p_missingFile ? p_missingFile : "a game file";
 	char message[1024];
 
@@ -251,17 +356,7 @@ bool Android_TryImportGameFiles(
 		}
 
 		if (button == 2) {
-			if (RemoveImportedGameData()) {
-				// diskpath may name an imported-<timestamp> root that no longer exists, and
-				// isle.ini is part of the backup set, so leaving it would follow the user to
-				// their next device. Put it back where a fresh install would look.
-				const char* defaultRoot = SDL_GetAndroidExternalStoragePath();
-				if (defaultRoot) {
-					SDL_free(*p_hdPath);
-					*p_hdPath = SDL_strdup(defaultRoot);
-					UpdateConfigDiskPath(p_iniPath, defaultRoot);
-				}
-			}
+			RemoveGameData(p_iniPath, p_hdPath);
 			continue;
 		}
 
@@ -276,7 +371,11 @@ bool Android_TryImportGameFiles(
 		return false;
 	}
 
-	char* treeUri = ShowFolderDialog(p_window);
+	bool failed = false;
+	char* treeUri = ShowFolderDialog(p_window, &failed);
+	if (failed) {
+		return AskForCopiedGameFiles(p_window, p_iniPath, p_hdPath, p_missingFile);
+	}
 	if (!treeUri) {
 		return false;
 	}

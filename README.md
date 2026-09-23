@@ -131,6 +131,11 @@ for region boundaries and gesture behavior.
 **Controller** chooses what each gamepad button does; Start opens the game menu by default, so
 a controller alone can reach Settings. See [Android controllers](docs/android-controllers.md).
 
+On Android TV the game is listed in the TV launcher and is best played with a controller; a
+remote's Back opens the game menu, and the touch controls are hidden. Where the TV has no folder
+picker, the first launch says where to copy the game files with adb. See
+[Android TV](docs/android-tv.md).
+
 **Extensions** turns on the parts that are not in the original game: custom textures, extra SI
 files, a third person camera and multiplayer. All are off by default and apply on the next
 launch. The texture folder and the SI folder name a place inside the game files, so Settings
