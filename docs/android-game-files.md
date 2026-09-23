@@ -1,7 +1,7 @@
 # Android game files
 
 The game reads its files from the folder named by `diskpath` in `isle.ini`. A fresh install
-points it at the app's external files directory, `Android/data/org.legoisland.isle/files/`,
+points it at the app's external files directory, `Android/data/dev.mjkoo.isle/files/`,
 and the first launch asks for a folder holding a LEGO Island installation and copies its
 `LEGO` folder there. No storage permission is required.
 

@@ -99,7 +99,7 @@ android-install abi="arm64-v8a":
 # has read a shell copy without it, but the chmod stays in case a device differs.
 [doc('Push a game data tree (a dir holding LEGO/Scripts and LEGO/data) to the device')]
 android-push-data dir:
-    {{ emulator_shell }} sh -c 'adb shell mkdir -p /sdcard/Android/data/org.legoisland.isle/files && adb push "{{ dir }}/LEGO" /data/local/tmp/ && adb shell cp -r /data/local/tmp/LEGO /sdcard/Android/data/org.legoisland.isle/files/ && adb shell rm -r /data/local/tmp/LEGO && adb shell chmod -R 777 /sdcard/Android/data/org.legoisland.isle/files/LEGO'
+    {{ emulator_shell }} sh -c 'adb shell mkdir -p /sdcard/Android/data/dev.mjkoo.isle/files && adb push "{{ dir }}/LEGO" /data/local/tmp/ && adb shell cp -r /data/local/tmp/LEGO /sdcard/Android/data/dev.mjkoo.isle/files/ && adb shell rm -r /data/local/tmp/LEGO && adb shell chmod -R 777 /sdcard/Android/data/dev.mjkoo.isle/files/LEGO'
 
 # Follow the game's own SDL log lines.
 android-logcat:

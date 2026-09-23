@@ -37,7 +37,7 @@ and the commit itself:
 ```
 
 Android shows it under Settings > Apps > Lego Island, and `adb shell dumpsys package
-org.legoisland.isle` prints both it and the version code. The version code is the commit count on
+dev.mjkoo.isle` prints both it and the version code. The version code is the commit count on
 its own, so a later build always sorts above an earlier one and Android treats it as an upgrade.
 
 A build made outside a full git clone cannot know any of this, and says `+unknown` rather than
@@ -48,7 +48,7 @@ and names itself `0.1.<n>` with no commit on the end.
 
 The game needs an existing copy of LEGO Island 1.1 (English). The first launch asks for a folder
 holding one, either the folder that contains `LEGO` or the `LEGO` folder itself, and copies it into
-`Android/data/org.legoisland.isle/files/`. No storage permission is required. See
+`Android/data/dev.mjkoo.isle/files/`. No storage permission is required. See
 [Android game files](android-game-files.md) for replacing or removing it later,
 [Android saves](android-saves.md) for getting saves on and off the device, and
 [Android audio](android-audio.md) for what happens when another app needs the sound. On a TV

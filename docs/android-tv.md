@@ -30,13 +30,13 @@ TV.
 
 Many TVs have no system folder picker; Android TV answers the request with "You don't have an app
 that can do this". When there is none, the first launch says so, names the folder the game reads
-from, `/storage/emulated/0/Android/data/org.legoisland.isle/files`, and waits. Copy the `LEGO`
+from, `/storage/emulated/0/Android/data/dev.mjkoo.isle/files`, and waits. Copy the `LEGO`
 folder from a LEGO Island 1.1 (English) installation there with adb, from the folder on your
 computer that holds `LEGO`:
 
 ```sh
 adb push LEGO /data/local/tmp/
-adb shell cp -r /data/local/tmp/LEGO /storage/emulated/0/Android/data/org.legoisland.isle/files/
+adb shell cp -r /data/local/tmp/LEGO /storage/emulated/0/Android/data/dev.mjkoo.isle/files/
 adb shell rm -r /data/local/tmp/LEGO
 ```
 

@@ -176,7 +176,7 @@ Preserve original device config and saves before testing, and restore them after
 
 Connect an Android device or start the existing emulator with
 `just android-emulator`, then run `just android-test`. The dedicated `touchTest`
-build uses `org.legoisland.isle.touchtest`, so Gradle's test installation and
+build uses `dev.mjkoo.isle.touchtest`, so Gradle's test installation and
 uninstallation do not affect the normal app or its data. AndroidJUnit4 tests exercise
 the production button with real `MotionEvent` objects on the UI thread. They do not
 launch the game, load game assets, or modify config and saves.
@@ -465,7 +465,7 @@ ctest --test-dir build/host-tests -R '^android_audio_focus$' --output-on-failure
 ```
 
 On device, preserve the config and saves first. Play audio in another app and launch the game: the
-other app must stop, and `adb shell dumpsys audio` must show `org.legoisland.isle` holding focus
+other app must stop, and `adb shell dumpsys audio` must show `dev.mjkoo.isle` holding focus
 with `GAIN`. Focus follows onStart and onStop, not onResume and onPause, because that is where SDL
 stops and starts mixing - so the game must still hold focus while its own quit prompt is up, which
 does not stop the activity (it does pause the game, and so silences it: see Output gain above), and
@@ -532,7 +532,7 @@ Restore all of them even if a step aborts, then compare the restored bytes.
    **Quit | Settings | Resume**. The engine can return success without writing for
    an unregistered player; that must not produce Save and quit.
 3. Restore the registered player. On the debug build, run
-   `adb shell run-as org.legoisland.isle chmod 000 <savedir>` against the effective
+   `adb shell run-as dev.mjkoo.isle chmod 000 <savedir>` against the effective
    save directory. This blocks traversal even when slot files already exist.
    Open the menu. Expect **Your game could not be saved.** and
    **Quit anyway | Settings | Resume**. Require the real
@@ -586,7 +586,7 @@ it afterwards.
    resolve check would take for a picker.
 2. Install the debug APK. The game is under Installed Games in the Apps tab with its banner. The
    launcher caches banners: after changing one, force-stop the launcher to see it.
-3. With no `LEGO` folder under `Android/data/org.legoisland.isle/files`, launch. Expect the
+3. With no `LEGO` folder under `Android/data/dev.mjkoo.isle/files`, launch. Expect the
    no-picker message naming that folder and the three adb commands, with **Check again** and
    **Cancel**. The old build offers Select folder, which toasts "You don't have an app that can do
    this" and fails to start. Check again with nothing copied names the missing file. Run the

@@ -80,7 +80,7 @@ android {
     }
 
     defaultConfig {
-        applicationId 'org.legoisland.isle'
+        applicationId 'dev.mjkoo.isle'
         minSdk 21
         targetSdk 35
         versionCode isleVersion.code

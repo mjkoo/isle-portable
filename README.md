@@ -35,7 +35,7 @@ As it stands, builds provided in the [Releases tab](https://github.com/isledecom
 
 On Android, `isle.ini` and the default `saves/` directory live in the app's private internal
 files directory. Imported game data lives in the app-scoped external files directory under
-`Android/data/org.legoisland.isle/files/`. Removing imported data in the app leaves saves and
+`Android/data/dev.mjkoo.isle/files/`. Removing imported data in the app leaves saves and
 settings intact. Android backup rules include the internal saves and config, but exclude game
 data; backup and restore depend on the device's backup settings and service. An explicit
 `savepath` override is honored, but saves outside the default directory are not covered by
