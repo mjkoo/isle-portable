@@ -5,6 +5,10 @@ project(android_config_tests LANGUAGES CXX)
 # runner losing Java or the built SDL3 fails the job instead of quietly running fewer tests.
 option(ISLE_HOST_TESTS_REQUIRE_ALL "Fail to configure rather than skip tests whose dependencies are missing" OFF)
 
+# glibc declares closedir nonnull, and GCC warns that the decltype(&closedir) deleters in
+# ISLE/android drop the attribute. Clang, which builds them for Android, does not.
+add_compile_options($<$<CXX_COMPILER_ID:GNU>:-Wno-ignored-attributes>)
+
 find_package(Threads REQUIRED)
 find_path(SDL3_INCLUDE_DIR SDL3/SDL_video.h HINTS ../../build/_deps/sdl3-src/include REQUIRED)
 find_path(INIPARSER_INCLUDE_DIR iniparser.h REQUIRED)
@@ -125,6 +129,8 @@ else()
 endif()
 if(Java_FOUND)
   include(UseJava)
+  # Java 17 reads sources in the locale's encoding, which is ASCII on a bare runner.
+  set(CMAKE_JAVA_COMPILE_FLAGS -encoding UTF-8)
   set(ISLE_JAVA_CONFIG ../../CONFIG/android/src/main/java/org/legoisland/isle)
   set(ISLE_JAVA_APP ../../android-project/app/src/main/java/org/legoisland/isle)
   set(ISLE_JAVA_TESTS java/org/legoisland/isle)

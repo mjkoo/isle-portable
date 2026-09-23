@@ -29,6 +29,11 @@ void operator delete(void* p_memory) noexcept
 	free(p_memory);
 }
 
+void operator delete(void* p_memory, size_t) noexcept
+{
+	free(p_memory);
+}
+
 int main()
 {
 	std::string directoryTemplate = (std::filesystem::temp_directory_path() / "isle-snapshot-XXXXXX").string();
