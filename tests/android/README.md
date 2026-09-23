@@ -1,4 +1,29 @@
-# Android configuration tests
+# Android host tests
+
+## Running
+
+Every test here, native and Java, is a ctest test. After building the desktop project with its
+fetched SDL3 and iniparser, `just host-test` runs them all inside `nix develop`, which provides
+JDK 17. Without `just`:
+
+```sh
+cmake -S tests/android -B build/host-tests -G Ninja \
+  -DINIPARSER_INCLUDE_DIR="$PWD/build/_deps/iniparser-src/src" \
+  -DINIPARSER_LIBRARY="$PWD/build/_deps/iniparser-build/libiniparser.a"
+cmake --build build/host-tests
+ctest --test-dir build/host-tests --output-on-failure
+```
+
+Pass `-R` to run one suite; each section below names its own. Alternatively, provide an installed
+iniparser through CMake's search paths. Without Java 17, the Java tests are skipped, and without
+a built SDL3, `gamepad_labels` is; `-DISLE_HOST_TESTS_REQUIRE_ALL=ON` makes either a configure
+error instead. The Java tests run from the repository root, since several read the C++ they
+mirror by relative path.
+
+CI runs the whole set on its Linux row with that option on, and `ini_file` alone on the msys2
+row, the other suites using POSIX calls.
+
+## Saves, configuration and Settings
 
 Save snapshot tests cover recognized filenames, immutable bytes, incomplete sets,
 case collisions on case-sensitive volumes, symlinks, nonregular files, read failures
@@ -10,11 +35,10 @@ The archive/stream tests run on Java 17 without an Android device:
 ctest --test-dir build/host-tests -R '^(android_save_archive|android_save_export_journal)$' --output-on-failure
 ```
 
-They cover
-archive contents and CRC validation, invalid names, limits, cancellation, failed
-destination writes and failed stream closure. Journal tests cover failed completion
-persistence followed by process restart, repeated recovery, preservation of completed
-and partial output, and failed writes before export starts.
+They cover archive contents and CRC validation, invalid names, limits, cancellation,
+failed destination writes and failed stream closure. Journal tests cover failed
+completion persistence followed by process restart, repeated recovery, preservation of
+completed and partial output, and failed writes before export starts.
 
 For export runtime validation, exercise Settings > Data > Export saves on both a
 debug and minified release APK. Check empty/partial sets, registered-player progress,
@@ -60,29 +84,6 @@ every key the tool does not own - the `[gamepad]` section, the touch layout keys
 `si loader:si path` and `si loader:directives`, `mediapath`, `Cursor Sensitivity`, `Active in
 Background`, `Show Touch Controls` and anything hand-added. Compare the files parsed, not as text:
 the dumper normalizes case, order and quoting, so a textual diff is all noise.
-
-## Running
-
-Every test here, native and Java, is a ctest test. After building the desktop project with its
-fetched SDL3 and iniparser, `just host-test` runs them all inside `nix develop`, which provides
-JDK 17. Without `just`:
-
-```sh
-cmake -S tests/android -B build/host-tests -G Ninja \
-  -DINIPARSER_INCLUDE_DIR="$PWD/build/_deps/iniparser-src/src" \
-  -DINIPARSER_LIBRARY="$PWD/build/_deps/iniparser-build/libiniparser.a"
-cmake --build build/host-tests
-ctest --test-dir build/host-tests --output-on-failure
-```
-
-Pass `-R` to run one suite; each section below names its own. Alternatively, provide an installed
-iniparser through CMake's search paths. Without Java 17, the Java tests are skipped, and without
-a built SDL3, `gamepad_labels` is; `-DISLE_HOST_TESTS_REQUIRE_ALL=ON` makes either a configure
-error instead. The Java tests run from the repository root, since several read the C++ they
-mirror by relative path.
-
-CI runs the whole set on its Linux row with that option on, and `ini_file` alone on the msys2
-row, the other suites using POSIX calls.
 
 The controls and lifecycle integration also need Android verification: menu-button and Back
 access, Save/Cancel, next-launch application, renderer switching, startup-error recovery,
@@ -418,7 +419,7 @@ iniparser, though the test project requires both to configure, and builds with t
 tests above:
 
 ```sh
-ctest --test-dir build/host-tests -R output_gain --output-on-failure
+ctest --test-dir build/host-tests -R '^output_gain$' --output-on-failure
 ```
 
 Note that writing the composition as a product rather than as a pause that wins outright is
@@ -460,7 +461,7 @@ collapsing to the last, and the two silent cases applying nothing between them. 
 SDL nor iniparser, and builds with the configuration tests above:
 
 ```sh
-ctest --test-dir build/host-tests -R android_audio_focus --output-on-failure
+ctest --test-dir build/host-tests -R '^android_audio_focus$' --output-on-failure
 ```
 
 On device, preserve the config and saves first. Play audio in another app and launch the game: the

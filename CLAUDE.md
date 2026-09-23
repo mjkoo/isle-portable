@@ -67,8 +67,8 @@ Running the game requires an existing copy of LEGO Island 1.1 (English); paths a
 
 ## Test
 
-`tests/android` is its own CMake project of host tests: C++ tests of `ISLE/android`, `util` and
-miniwin helpers, plus plain-Java tests of the Android app's policy classes, all run by ctest.
+`tests/android` is its own CMake project of host tests: C++ tests of `ISLE`, `util` and
+`miniwin` helpers, plus plain-Java tests of the Android app's policy classes, all run by ctest.
 They build against the SDL3 and iniparser a desktop build fetched, so build `build/` first, then
 `just host-test` (which uses `nix develop` for JDK 17). CI runs them all on the Linux row with
 `-DISLE_HOST_TESTS_REQUIRE_ALL=ON`, and `ini_file` alone on msys2. A new test is appended to
