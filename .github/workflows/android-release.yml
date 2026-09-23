@@ -1,0 +1,105 @@
+name: Android release
+
+# Publishes the signed per-ABI and universal APKs to this repository's releases. The signing
+# key is held as secrets on the `release` environment, which only this job names, so the CI
+# workflow never sees it; docs/android-releasing.md covers setting that up. Third-party actions
+# are pinned to commits for the same reason.
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing tag to build and release'
+        required: true
+
+concurrency:
+  group: ${{ github.workflow }}-${{ inputs.tag || github.ref_name }}
+
+jobs:
+  release:
+    name: 'Release'
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      contents: write
+    env:
+      TAG: ${{ inputs.tag || github.ref_name }}
+
+    steps:
+      # Full history: the version code is the commit count, and a shallow clone reports 1.
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          ref: refs/tags/${{ env.TAG }}
+          fetch-depth: 0
+
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - uses: lukka/get-cmake@fffaaafeea488556c2c12dad60690008bc1caacb # v4.4.2
+        with:
+          cmakeVersion: 3.30.5
+
+      # Without every secret the release build type comes out unsigned rather than failing.
+      - name: Write the keystore
+        env:
+          SIGNING_STORE_BASE64: ${{ secrets.SIGNING_STORE_BASE64 }}
+          SIGNING_KEY_ALIAS: ${{ secrets.SIGNING_KEY_ALIAS }}
+          SIGNING_KEY_PASSWORD: ${{ secrets.SIGNING_KEY_PASSWORD }}
+          SIGNING_STORE_PASSWORD: ${{ secrets.SIGNING_STORE_PASSWORD }}
+        run: |
+          for name in SIGNING_STORE_BASE64 SIGNING_KEY_ALIAS SIGNING_KEY_PASSWORD SIGNING_STORE_PASSWORD; do
+            if [ -z "$(printenv "$name")" ]; then
+              echo "::error::The release environment has no $name secret"
+              exit 1
+            fi
+          done
+          printf '%s' "$SIGNING_STORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.keystore"
+
+      - name: Build
+        working-directory: android-project
+        env:
+          SIGNING_KEY_ALIAS: ${{ secrets.SIGNING_KEY_ALIAS }}
+          SIGNING_KEY_PASSWORD: ${{ secrets.SIGNING_KEY_PASSWORD }}
+          SIGNING_STORE_PASSWORD: ${{ secrets.SIGNING_STORE_PASSWORD }}
+          SIGNING_STORE_FILE: ${{ runner.temp }}/release.keystore
+        run: |
+          ./gradlew packageRelease \
+            -PcmakeArgs="-DCMAKE_BUILD_TYPE=Release \
+              -DISLE_USE_DX5=false \
+              -DISLE_BUILD_CONFIG=false \
+              -DENABLE_CLANG_TIDY=false \
+              -DISLE_WERROR=true \
+              -Werror=dev"
+
+      - name: Check the APKs
+        run: |
+          # -L because an SDK can hold each build-tools version as a symlink, as nix's does.
+          apksigner="$(find -L "$ANDROID_HOME/build-tools" -mindepth 2 -maxdepth 2 -name apksigner | sort -V | tail -n 1)"
+          if [ -z "$apksigner" ]; then
+            echo "::error::No apksigner under $ANDROID_HOME/build-tools"
+            exit 1
+          fi
+          count=0
+          for apk in android-project/app/build/outputs/apk/release/*.apk; do
+            "$apksigner" verify "$apk"
+            count=$((count + 1))
+          done
+          if [ "$count" -ne 5 ]; then
+            echo "::error::Expected 5 release APKs (four ABIs and universal), found $count"
+            exit 1
+          fi
+
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          notes="$(sed -e "s|{tag}|$TAG|g" -e "s|{repository}|$GITHUB_REPOSITORY|g" .github/release-notes.md)"
+          gh release create "$TAG" android-project/app/build/outputs/apk/release/*.apk \
+            --verify-tag \
+            --title "$TAG" \
+            --notes "$notes" \
+            --generate-notes

@@ -1,8 +1,8 @@
 # Installing the Android build
 
-The [Releases tab](https://github.com/isledecomp/isle-portable/releases/tag/continuous) carries
-several Android APKs per build. They are the same application; they differ only in which CPU
-architectures they contain.
+Each release on the [Releases page](https://github.com/mjkoo/isle-portable/releases) carries
+several Android APKs. They are the same application; they differ only in which CPU architectures
+they contain.
 
 ## Which one to take
 
@@ -20,12 +20,16 @@ the size of a single-architecture one, because the other three architectures are
 If you do not know what your device is, the universal APK always works. To check, run
 `adb shell getprop ro.product.cpu.abi`, or read the CPU line in an app like Device Info HW.
 
-`debug` builds log more and are not minified; `release` builds are what you want for playing.
+Releases carry `release` builds only, minified and signed with this repository's release key. A
+`debug` build, from a local build or a CI run's artifacts, logs more and is not minified.
 
-Within one of those, all five APKs are the same version and carry the same signature, so you can
-install a different one over what you already have without uninstalling first. Swapping between a
-`debug` and a `release` APK is not the same thing: they are signed with different keys, and Android
-refuses the install until the old one is removed.
+All five APKs in a release are the same version and carry the same signature, so you can install a
+different one over what you already have without uninstalling first. Swapping between a `debug`
+and a `release` APK is not the same thing: they are signed with different keys, and Android refuses
+the install until the old one is removed. Upstream isle-portable's APKs are a different
+application altogether: they are `org.legoisland.isle` and this build is `dev.mjkoo.isle`, so the
+two install side by side and do not share saves or game files. How releases are built and signed
+is in [releasing the Android build](android-releasing.md).
 
 ## Which build you are running
 
