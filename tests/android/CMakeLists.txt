@@ -1,6 +1,10 @@
 cmake_minimum_required(VERSION 3.20)
 project(android_config_tests LANGUAGES CXX)
 
+# Off, a test whose dependency is missing is skipped with a status line. CI turns it on so that a
+# runner losing Java or the built SDL3 fails the job instead of quietly running fewer tests.
+option(ISLE_HOST_TESTS_REQUIRE_ALL "Fail to configure rather than skip tests whose dependencies are missing" OFF)
+
 find_package(Threads REQUIRED)
 find_path(SDL3_INCLUDE_DIR SDL3/SDL_video.h HINTS ../../build/_deps/sdl3-src/include REQUIRED)
 find_path(INIPARSER_INCLUDE_DIR iniparser.h REQUIRED)
@@ -107,4 +111,47 @@ if(SDL3_LIBRARY)
   target_include_directories(gamepadlabels PRIVATE ../../ISLE "${SDL3_INCLUDE_DIR}")
   target_link_libraries(gamepadlabels PRIVATE "${SDL3_LIBRARY}")
   add_test(NAME gamepad_labels COMMAND gamepadlabels)
+elseif(ISLE_HOST_TESTS_REQUIRE_ALL)
+  message(FATAL_ERROR "gamepad_labels needs a built SDL3 in build/_deps/sdl3-build")
+endif()
+
+# The plain-Java tests: the Android app's policy classes, which import nothing from Android, built
+# with only the sources each test needs. They run from the repository root because several read
+# the C++ side they mirror, such as ISLE/android/configstore.cpp, by relative path.
+if(ISLE_HOST_TESTS_REQUIRE_ALL)
+  find_package(Java 17 REQUIRED COMPONENTS Development Runtime)
+else()
+  find_package(Java 17 COMPONENTS Development Runtime)
+endif()
+if(Java_FOUND)
+  include(UseJava)
+  set(ISLE_JAVA_CONFIG ../../CONFIG/android/src/main/java/org/legoisland/isle)
+  set(ISLE_JAVA_APP ../../android-project/app/src/main/java/org/legoisland/isle)
+  set(ISLE_JAVA_TESTS java/org/legoisland/isle)
+  function(add_java_test name class)
+    add_jar(${class} SOURCES ${ISLE_JAVA_TESTS}/${class}.java ${ARGN})
+    get_target_property(jar ${class} JAR_FILE)
+    add_test(NAME ${name} COMMAND "${Java_JAVA_EXECUTABLE}" -ea -cp "${jar}" org.legoisland.isle.${class}
+      WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/../..")
+  endfunction()
+
+  add_java_test(android_save_archive SaveArchiveTest ${ISLE_JAVA_CONFIG}/SaveArchive.java)
+  add_java_test(android_save_export_journal SaveExportJournalTest ${ISLE_JAVA_CONFIG}/SaveArchive.java
+    ${ISLE_JAVA_CONFIG}/SaveExportJournal.java ${ISLE_JAVA_TESTS}/SaveArchiveTest.java)
+  add_java_test(android_save_validation SaveValidationTest ${ISLE_JAVA_CONFIG}/SaveValidation.java
+    ${ISLE_JAVA_CONFIG}/SaveRestoreArchive.java)
+  add_java_test(android_save_restore_gate SaveRestoreGateTest ${ISLE_JAVA_APP}/SaveRestoreGate.java)
+  add_java_test(android_touch_layout TouchLayoutTest ${ISLE_JAVA_APP}/TouchLayout.java)
+  add_java_test(android_controller_bindings ControllerBindingsTest ${ISLE_JAVA_CONFIG}/ControllerBindings.java)
+  add_java_test(android_graphics_settings GraphicsSettingsTest ${ISLE_JAVA_CONFIG}/GraphicsSettings.java
+    ${ISLE_JAVA_CONFIG}/ControllerBindings.java)
+  add_java_test(android_extension_settings ExtensionSettingsTest ${ISLE_JAVA_CONFIG}/ExtensionSettings.java
+    ${ISLE_JAVA_CONFIG}/ControllerBindings.java ${ISLE_JAVA_CONFIG}/GameFileCopier.java)
+  add_java_test(android_game_file_copier GameFileCopierTest ${ISLE_JAVA_CONFIG}/GameFileCopier.java)
+  add_java_test(android_game_files_policy GameFilesPolicyTest ${ISLE_JAVA_CONFIG}/GameFilesPolicy.java
+    ${ISLE_JAVA_CONFIG}/GameFileCopier.java)
+  add_java_test(android_quit_prompt_text QuitPromptTextTest ${ISLE_JAVA_APP}/QuitPromptText.java)
+  add_java_test(android_tv_support TvSupportTest ${ISLE_JAVA_CONFIG}/TvSupport.java)
+else()
+  message(STATUS "Java 17 not found; skipping the Java tests")
 endif()

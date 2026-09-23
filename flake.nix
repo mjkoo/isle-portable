@@ -149,6 +149,7 @@
             pkgs.cmake
             pkgs.ninja
             pkgs.pkg-config
+            pkgs.temurin-bin-17 # the plain-Java host tests under tests/android
           ];
         };
       }
