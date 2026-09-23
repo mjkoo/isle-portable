@@ -38,6 +38,16 @@ android-apk-release:
 android-stop:
     {{ android_shell }} ./gradlew --stop
 
+# --- Host tests --------------------------------------------------------------
+
+default_shell := "nix develop '" + justfile_directory() + "' --command"
+
+# The same configure, build and ctest as CI's Linux row. The tests build against the SDL3
+# and iniparser a desktop build fetched, so configure and build `build/` first.
+[doc('Run the tests under tests/android, native and Java, against the desktop build')]
+host-test:
+    {{ default_shell }} sh -c 'cmake -S tests/android -B build/host-tests -G Ninja -DISLE_HOST_TESTS_REQUIRE_ALL=ON -DINIPARSER_INCLUDE_DIR="$PWD/build/_deps/iniparser-src/src" -DINIPARSER_LIBRARY="$PWD/build/_deps/iniparser-build/libiniparser.a" && cmake --build build/host-tests && ctest --test-dir build/host-tests --output-on-failure'
+
 # --- Local Android device (arm64 AVD on Apple Silicon) ---------------------
 
 emulator_shell := "nix develop '" + justfile_directory() + "#android-emulator' --command"

@@ -142,8 +142,9 @@ jobs:
         run: |
           git lfs pull
 
-      - name: Setup Java (Android)
-        if: ${{ matrix.android }}
+      # Android builds with it; the Linux row runs the plain-Java host tests with it.
+      - name: Setup Java
+        if: ${{ matrix.android || matrix.linux }}
         uses: actions/setup-java@v5
         with:
           distribution: 'temurin'
@@ -198,6 +199,29 @@ jobs:
       - name: Build (CMake)
         if: ${{ !matrix.android }}
         run: cmake --build build --verbose --config Release
+
+      # The tests under tests/android build against the SDL3 and iniparser this build fetched.
+      # REQUIRE_ALL turns a missing JDK or SDL3 into a failure rather than a skipped test.
+      - name: Host tests
+        if: ${{ matrix.linux }}
+        run: |
+          cmake -S tests/android -B build/host-tests -G Ninja \
+            -DISLE_HOST_TESTS_REQUIRE_ALL=ON \
+            -DINIPARSER_INCLUDE_DIR="$PWD/build/_deps/iniparser-src/src" \
+            -DINIPARSER_LIBRARY="$PWD/build/_deps/iniparser-build/libiniparser.a"
+          cmake --build build/host-tests
+          ctest --test-dir build/host-tests --output-on-failure
+
+      # Only ini_file is written to run on Windows; the other suites use POSIX calls. It is the
+      # one place the Windows branch of util/inifile.h's replacing rename is executed.
+      - name: Host tests (ini_file)
+        if: ${{ matrix.mingw }}
+        run: |
+          cmake -S tests/android -B build/host-tests -G Ninja \
+            -DINIPARSER_INCLUDE_DIR="$PWD/build/_deps/iniparser-src/src" \
+            -DINIPARSER_LIBRARY="$PWD/build/_deps/iniparser-build/libiniparser.a"
+          cmake --build build/host-tests --target inifile
+          ctest --test-dir build/host-tests --output-on-failure -R '^ini_file$'
 
       - name: Package (CPack)
         if: ${{ !matrix.n3ds && !matrix.nx && !matrix.android && !matrix.vita }}
