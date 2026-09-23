@@ -7,17 +7,10 @@ and size limits. Recovery-path tests cover defaults, overrides and invalid confi
 The archive/stream tests run on Java 17 without an Android device:
 
 ```sh
-mkdir -p build/save-export-java-tests
-javac -d build/save-export-java-tests \
-  CONFIG/android/src/main/java/org/legoisland/isle/SaveArchive.java \
-  CONFIG/android/src/main/java/org/legoisland/isle/SaveExportJournal.java \
-  tests/android/java/org/legoisland/isle/SaveArchiveTest.java \
-  tests/android/java/org/legoisland/isle/SaveExportJournalTest.java
-java -cp build/save-export-java-tests org.legoisland.isle.SaveArchiveTest
-java -cp build/save-export-java-tests org.legoisland.isle.SaveExportJournalTest
+ctest --test-dir build/host-tests -R '^(android_save_archive|android_save_export_journal)$' --output-on-failure
 ```
 
-Run these commands inside `nix develop .#android` if Java is unavailable. They cover
+They cover
 archive contents and CRC validation, invalid names, limits, cancellation, failed
 destination writes and failed stream closure. Journal tests cover failed completion
 persistence followed by process restart, repeated recovery, preservation of completed
@@ -57,8 +50,8 @@ Qt: that iniparser lowercases entries on the way in and on the way out, so a dia
 that a load-modify-save leaves `[gamepad]` and `[multiplayer]` untouched. A last case covers
 finding a value that loaded but is too long to write back. It is written against
 `std::filesystem` rather than `mkdtemp` so the same binary runs on msys2 and MSVC; the Windows
-branch of the replacement is compiled by CI through `isle-config`, and its behavior needs one
-`ctest -R ini_file` on msys2.
+branch of the replacement is compiled by CI through `isle-config` and run by the msys2 row's
+`ini_file` step.
 
 The desktop tool's own merge has no host test, because reaching `CConfigApp::WriteRegisterSettings`
 drags in Qt, the device enumerator and miniwin. Verify it by hand instead: build `isle-config` with
@@ -68,18 +61,28 @@ every key the tool does not own - the `[gamepad]` section, the touch layout keys
 Background`, `Show Touch Controls` and anything hand-added. Compare the files parsed, not as text:
 the dumper normalizes case, order and quoting, so a textual diff is all noise.
 
-After building the desktop project with its fetched iniparser dependency:
+## Running
+
+Every test here, native and Java, is a ctest test. After building the desktop project with its
+fetched SDL3 and iniparser, `just host-test` runs them all inside `nix develop`, which provides
+JDK 17. Without `just`:
 
 ```sh
-cmake -S tests/android -B build/android-config-tests \
+cmake -S tests/android -B build/host-tests -G Ninja \
   -DINIPARSER_INCLUDE_DIR="$PWD/build/_deps/iniparser-src/src" \
   -DINIPARSER_LIBRARY="$PWD/build/_deps/iniparser-build/libiniparser.a"
-cmake --build build/android-config-tests
-ctest --test-dir build/android-config-tests --output-on-failure
+cmake --build build/host-tests
+ctest --test-dir build/host-tests --output-on-failure
 ```
 
-Alternatively, provide an installed iniparser through CMake's search paths. On this project's
-Nix setup, run the commands inside `nix develop`.
+Pass `-R` to run one suite; each section below names its own. Alternatively, provide an installed
+iniparser through CMake's search paths. Without Java 17, the Java tests are skipped, and without
+a built SDL3, `gamepad_labels` is; `-DISLE_HOST_TESTS_REQUIRE_ALL=ON` makes either a configure
+error instead. The Java tests run from the repository root, since several read the C++ they
+mirror by relative path.
+
+CI runs the whole set on its Linux row with that option on, and `ini_file` alone on the msys2
+row, the other suites using POSIX calls.
 
 The controls and lifecycle integration also need Android verification: menu-button and Back
 access, Save/Cancel, next-launch application, renderer switching, startup-error recovery,
@@ -121,15 +124,10 @@ count and the first invalid count to preserve valid progress while rejecting uns
 array indexes. Missing-directory recovery tests also verify that an unavailable
 previous backup does not prevent selecting a new ZIP.
 
-Standalone Java validation tests use the same JDK as the Android build:
+Standalone Java validation tests:
 
 ```sh
-mkdir -p build/android-restore-java
-javac -d build/android-restore-java \
-  CONFIG/android/src/main/java/org/legoisland/isle/SaveValidation.java \
-  CONFIG/android/src/main/java/org/legoisland/isle/SaveRestoreArchive.java \
-  tests/android/java/org/legoisland/isle/SaveValidationTest.java
-java -ea -cp build/android-restore-java org.legoisland.isle.SaveValidationTest
+ctest --test-dir build/host-tests -R '^android_save_validation$' --output-on-failure
 ```
 
 Startup-gate tests exercise destruction before work starts, during native recovery,
@@ -138,10 +136,7 @@ must remain pending while native work runs, then close without draining the UI
 queue. Normal startup still waits for the UI to handle the result or retry.
 
 ```sh
-javac -d build/android-restore-java \
-  android-project/app/src/main/java/org/legoisland/isle/SaveRestoreGate.java \
-  tests/android/java/org/legoisland/isle/SaveRestoreGateTest.java
-java -ea -cp build/android-restore-java org.legoisland.isle.SaveRestoreGateTest
+ctest --test-dir build/host-tests -R '^android_save_restore_gate$' --output-on-failure
 ```
 
 Native tests also cover abandoned journal writes with and without a previous backup,
@@ -218,11 +213,7 @@ per-field fallback for unusable values, locale-independent formatting and writin
 changed positions.
 
 ```sh
-mkdir -p build/android-touch-java
-javac -d build/android-touch-java \
-  android-project/app/src/main/java/org/legoisland/isle/TouchLayout.java \
-  tests/android/java/org/legoisland/isle/TouchLayoutTest.java
-java -ea -cp build/android-touch-java org.legoisland.isle.TouchLayoutTest
+ctest --test-dir build/host-tests -R '^android_touch_layout$' --output-on-failure
 ```
 
 The instrumented tests (`just android-test`) lay out the production button layer
@@ -272,11 +263,7 @@ Standalone Java tests cover the Settings rows: their order, the default shown fo
 choice, lowercase handling of hand-edited values and the warning when no button opens the menu.
 
 ```sh
-mkdir -p build/android-controller-java
-javac -d build/android-controller-java \
-  CONFIG/android/src/main/java/org/legoisland/isle/ControllerBindings.java \
-  tests/android/java/org/legoisland/isle/ControllerBindingsTest.java
-java -ea -cp build/android-controller-java org.legoisland.isle.ControllerBindingsTest
+ctest --test-dir build/host-tests -R '^android_controller_bindings$' --output-on-failure
 ```
 
 A real pad is best on device. Without one, Android's `uinput` shell command registers a kernel
@@ -298,16 +285,10 @@ saving them publishes no live touch or controller update. Standalone Java tests 
 native validator's range table and check that every row is listed there, that every value
 Settings offers is within its range, that both sides agree on which rows are whole numbers,
 and that Reset these settings clears every row. They also check that values the game writes
-as `%f` show as their listed entry and that whole-number values are shown as written. Run
-them from the repository root:
+as `%f` show as their listed entry and that whole-number values are shown as written:
 
 ```sh
-mkdir -p build/android-graphics-java
-javac -d build/android-graphics-java \
-  CONFIG/android/src/main/java/org/legoisland/isle/GraphicsSettings.java \
-  CONFIG/android/src/main/java/org/legoisland/isle/ControllerBindings.java \
-  tests/android/java/org/legoisland/isle/GraphicsSettingsTest.java
-java -ea -cp build/android-graphics-java org.legoisland.isle.GraphicsSettingsTest
+ctest --test-dir build/host-tests -R '^android_graphics_settings$' --output-on-failure
 ```
 
 On device, a fresh configuration must show each row's value as a listed entry rather than
@@ -344,17 +325,10 @@ which the native side measures in bytes. It also checks the folder enumeration: 
 defaults are always offered, a name the native validator would refuse is skipped along with
 everything below it, so are what a game file import leaves behind and the hidden work
 directories a game files swap leaves in flight, every path that is offered passes the same
-rule, and the cap holds inside a single directory rather than only on the way down. Run it
-from the repository root:
+rule, and the cap holds inside a single directory rather than only on the way down:
 
 ```sh
-mkdir -p build/android-extensions-java
-javac -d build/android-extensions-java \
-  CONFIG/android/src/main/java/org/legoisland/isle/ExtensionSettings.java \
-  CONFIG/android/src/main/java/org/legoisland/isle/ControllerBindings.java \
-  CONFIG/android/src/main/java/org/legoisland/isle/GameFileCopier.java \
-  tests/android/java/org/legoisland/isle/ExtensionSettingsTest.java
-java -ea -cp build/android-extensions-java org.legoisland.isle.ExtensionSettingsTest
+ctest --test-dir build/host-tests -R '^android_extension_settings$' --output-on-failure
 ```
 
 On device, a fresh configuration must show every row as Game default, with both folder rows
@@ -389,14 +363,7 @@ unusable names, cancellation and every failure the player is told about) and the
 check, location and wording:
 
 ```sh
-mkdir -p build/android-game-files-java
-javac -d build/android-game-files-java \
-  CONFIG/android/src/main/java/org/legoisland/isle/GameFileCopier.java \
-  CONFIG/android/src/main/java/org/legoisland/isle/GameFilesPolicy.java \
-  tests/android/java/org/legoisland/isle/GameFileCopierTest.java \
-  tests/android/java/org/legoisland/isle/GameFilesPolicyTest.java
-java -ea -cp build/android-game-files-java org.legoisland.isle.GameFileCopierTest
-java -ea -cp build/android-game-files-java org.legoisland.isle.GameFilesPolicyTest
+ctest --test-dir build/host-tests -R '^(android_game_file_copier|android_game_files_policy)$' --output-on-failure
 ```
 
 On device, preserve the config, saves and game assets first, and keep a source copy of the game
@@ -451,7 +418,7 @@ iniparser, though the test project requires both to configure, and builds with t
 tests above:
 
 ```sh
-ctest --test-dir build/android-config-tests -R output_gain --output-on-failure
+ctest --test-dir build/host-tests -R output_gain --output-on-failure
 ```
 
 Note that writing the composition as a product rather than as a pause that wins outright is
@@ -493,7 +460,7 @@ collapsing to the last, and the two silent cases applying nothing between them. 
 SDL nor iniparser, and builds with the configuration tests above:
 
 ```sh
-ctest --test-dir build/android-config-tests -R android_audio_focus --output-on-failure
+ctest --test-dir build/host-tests -R android_audio_focus --output-on-failure
 ```
 
 On device, preserve the config and saves first. Play audio in another app and launch the game: the
@@ -539,14 +506,8 @@ R8-processed Java.
 
 ## Pause prompt
 
-Run from the repository root with Java 17 (or inside `nix develop .#android`):
-
 ```sh
-mkdir -p build/android-pause-java
-javac -d build/android-pause-java \
-  android-project/app/src/main/java/org/legoisland/isle/QuitPromptText.java \
-  tests/android/java/org/legoisland/isle/QuitPromptTextTest.java
-java -ea -cp build/android-pause-java org.legoisland.isle.QuitPromptTextTest
+ctest --test-dir build/host-tests -R '^android_quit_prompt_text$' --output-on-failure
 ```
 
 This pins the title, message and button labels for each save result and startup
@@ -599,14 +560,8 @@ validation.
 
 ## Android TV
 
-Run from the repository root with Java 17 (or inside `nix develop .#android`):
-
 ```sh
-mkdir -p build/android-tv-java
-javac -d build/android-tv-java \
-  CONFIG/android/src/main/java/org/legoisland/isle/TvSupport.java \
-  tests/android/java/org/legoisland/isle/TvSupportTest.java
-java -ea -cp build/android-tv-java org.legoisland.isle.TvSupportTest
+ctest --test-dir build/host-tests -R '^android_tv_support$' --output-on-failure
 ```
 
 This pins which Back key opens the game menu: one from a non-virtual device with a D-pad that is

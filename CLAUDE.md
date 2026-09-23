@@ -19,8 +19,9 @@ shape almost every decision here:
 
 ## Build
 
-CMake, C++17, no test suite. The [CI workflow](.github/workflows/ci.yml) is the authoritative
-reference for every platform's configure line.
+CMake, C++17. The only tests are host tests under `tests/android` (see Test below). The
+[CI workflow](.github/workflows/ci.yml) is the authoritative reference for every platform's
+configure line.
 
 ```sh
 # Desktop build (downloads SDL3 + iniparser via FetchContent by default)
@@ -63,6 +64,15 @@ runs through CPack.
 
 Running the game requires an existing copy of LEGO Island 1.1 (English); paths are configured in
 `isle.ini` next to the executable or under `SDL_GetPrefPath("isledecomp", "isle")`.
+
+## Test
+
+`tests/android` is its own CMake project of host tests: C++ tests of `ISLE/android`, `util` and
+miniwin helpers, plus plain-Java tests of the Android app's policy classes, all run by ctest.
+They build against the SDL3 and iniparser a desktop build fetched, so build `build/` first, then
+`just host-test` (which uses `nix develop` for JDK 17). CI runs them all on the Linux row with
+`-DISLE_HOST_TESTS_REQUIRE_ALL=ON`, and `ini_file` alone on msys2. A new test is appended to
+`tests/android/CMakeLists.txt`, which is kept in append order.
 
 ## Lint
 
