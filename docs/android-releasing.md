@@ -39,9 +39,13 @@ rather than failing.
 ## Cutting a release
 
 ```sh
-git tag v0.1.0
-git push origin v0.1.0
+git tag -a v0.1.0 -m v0.1.0
+git push origin refs/tags/v0.1.0
 ```
+
+A tag with a pre-release suffix, such as `v0.1.0-alpha.1`, is published as a pre-release, which
+GitHub never shows as the latest release. Each paragraph of `.github/release-notes.md` is one
+line, because GitHub keeps every line break in release notes.
 
 The APKs' version code is the commit count and the version name is the project version, the
 commit count and the commit, as described in [installing the Android build](android-install.md);
