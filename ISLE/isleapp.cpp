@@ -161,6 +161,10 @@ MxS32 g_reqEnableRMDevice = FALSE;
 MxFloat g_lastJoystickMouseX = 0;
 MxFloat g_lastJoystickMouseY = 0;
 static CursorIdle g_cursorIdle;
+// Fully transparent, for an idle cursor. The video manager still has a cursor to draw, so the game,
+// which reads that to choose its own cursors, never sees one go missing.
+static const unsigned char g_blankCursorBits[1] = {0};
+static const CursorBitmap g_blankCursor = {1, 1, g_blankCursorBits, g_blankCursorBits};
 MxFloat g_lastMouseX = 320;
 MxFloat g_lastMouseY = 240;
 MxBool g_mouseWarped = FALSE;
@@ -924,7 +928,7 @@ static void HandleGamepadAction(GamepadBindings::Result p_result)
 {
 	switch (p_result.m_action) {
 	case GamepadBindings::e_click:
-		g_isle->RevealIdleCursor();
+		g_isle->RevealIdleCursor(TRUE);
 		g_mousedown = p_result.m_pressed ? TRUE : FALSE;
 		if (InputManager()) {
 			InputManager()->QueueEvent(
@@ -1258,7 +1262,7 @@ SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event)
 		g_lastMouseY = event->motion.y;
 
 #ifdef __DJGPP__
-		g_isle->RevealIdleCursor();
+		g_isle->RevealIdleCursor(FALSE);
 		if (VideoManager()) {
 			VideoManager()->MoveCursor(Min((MxS32) g_lastMouseX, 639), Min((MxS32) g_lastMouseY, 479));
 		}
@@ -2393,7 +2397,7 @@ void IsleApp::MoveVirtualMouseViaJoystick()
 
 	if (moveX != 0 || moveY != 0) {
 		g_mousemoved = TRUE;
-		g_cursorIdle.Reveal(now);
+		g_cursorIdle.Reveal(now, true);
 
 		g_lastMouseX = SDL_clamp(g_lastMouseX + moveX, 0, g_targetWidth);
 		g_lastMouseY = SDL_clamp(g_lastMouseY + moveY, 0, g_targetHeight);
@@ -2424,13 +2428,13 @@ void IsleApp::MoveVirtualMouseViaJoystick()
 	}
 	else if (m_drawCursor && g_cursorIdle.Tick(now, g_mousedown) && VideoManager()) {
 		// Only out of sight: the position is kept for the next nudge to bring it back at.
-		VideoManager()->SetCursorBitmap(NULL);
+		VideoManager()->SetCursorBitmap(&g_blankCursor);
 	}
 }
 
-void IsleApp::RevealIdleCursor()
+void IsleApp::RevealIdleCursor(MxBool p_stickDriven)
 {
-	if (g_cursorIdle.Reveal(SDL_GetTicksNS()) && m_drawCursor && VideoManager()) {
+	if (g_cursorIdle.Reveal(SDL_GetTicksNS(), p_stickDriven) && m_drawCursor && VideoManager()) {
 		VideoManager()->SetCursorBitmap(m_cursorCurrentBitmap);
 	}
 }
