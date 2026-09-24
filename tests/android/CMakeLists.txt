@@ -85,6 +85,8 @@ target_include_directories(renderers PRIVATE ../../ISLE/android ../../miniwin/in
 # Miniwin's own headers, for the real device GUID and the parse that reads it back. SYSTEM
 # because the renderer headers they drag in are not written to this test's warning settings.
 target_include_directories(renderers SYSTEM PRIVATE ../../miniwin/src/internal)
+# What linking the miniwin target would define; miniwin headers choose the shim by it.
+target_compile_definitions(renderers PRIVATE MINIWIN)
 add_test(NAME android_renderers COMMAND renderers)
 
 add_executable(gamepadbindings gamepadbindings.cpp)
