@@ -5,9 +5,11 @@ import android.widget.ImageButton;
 import android.widget.RelativeLayout;
 import android.content.Intent;
 import android.os.Bundle;
+import android.os.SystemClock;
 import android.util.Log;
 import android.view.InputDevice;
 import android.view.KeyEvent;
+import android.view.MotionEvent;
 import android.view.View;
 
 import org.libsdl.app.SDLActivity;
@@ -29,6 +31,14 @@ public class IsleActivity extends SDLActivity {
 
     private static final int SETTINGS_REQUEST = 4801;
     private ImageButton mMenuButton;
+    /** Whether the menu button may be up at all; the policy then decides how much of it shows. */
+    private boolean mMenuButtonAllowed;
+    private final MenuButtonPolicy mMenuButtonPolicy = new MenuButtonPolicy(SystemClock.uptimeMillis());
+    private final Runnable mMenuButtonTick = this::applyMenuButton;
+    private static final float MENU_BUTTON_DIMMED_ALPHA = 0.3f;
+    private static final long MENU_BUTTON_FADE_MS = 250;
+    // The share of an axis's travel that counts as deliberate, as native input counts it.
+    private static final float CONTROLLER_AXIS_THRESHOLD = 8000f / 32767f;
     private boolean mGameReady;
     private boolean mResumed;
     private TouchControlsView mTouchControls;
@@ -80,17 +90,86 @@ public class IsleActivity extends SDLActivity {
     }
 
     private void requestMenu() {
-        mMenuButton.setVisibility(View.GONE);
+        hideMenuButton();
         mTouchControls.setRunning(false);
         SettingsBridge.requestMenu();
     }
 
     void restoreMenuButton() {
         if (mTouchUi && mGameReady && touchLayoutLoaded() && mMenuButton != null && !isFinishing()) {
-            mMenuButton.setVisibility(View.VISIBLE);
+            if (!mMenuButtonAllowed) mMenuButtonPolicy.onShown(SystemClock.uptimeMillis());
+            mMenuButtonAllowed = true;
+            applyMenuButton();
             mTouchLayoutController.requestApplyInsets();
         }
         updateTouchControls();
+    }
+
+    private void hideMenuButton() {
+        mMenuButtonAllowed = false;
+        applyMenuButton();
+    }
+
+    /** Brings the menu button in line with the policy, and schedules the next change it expects. */
+    private void applyMenuButton() {
+        if (mMenuButton == null) return;
+        mMenuButton.removeCallbacks(mMenuButtonTick);
+        long now = SystemClock.uptimeMillis();
+        int state = mMenuButtonAllowed ? mMenuButtonPolicy.state(now) : MenuButtonPolicy.HIDDEN;
+        if (state == MenuButtonPolicy.HIDDEN) {
+            mMenuButton.animate().cancel();
+            mMenuButton.setVisibility(View.GONE);
+            return;
+        }
+        float alpha = state == MenuButtonPolicy.FULL ? 1f : MENU_BUTTON_DIMMED_ALPHA;
+        if (mMenuButton.getVisibility() != View.VISIBLE) {
+            mMenuButton.animate().cancel();
+            mMenuButton.setAlpha(alpha);
+            mMenuButton.setVisibility(View.VISIBLE);
+        }
+        else if (mMenuButton.getAlpha() != alpha) {
+            mMenuButton.animate().alpha(alpha).setDuration(MENU_BUTTON_FADE_MS);
+        }
+        long next = mMenuButtonPolicy.nextChange(now);
+        if (next > 0) mMenuButton.postDelayed(mMenuButtonTick, next);
+    }
+
+    private void onControllerInput() {
+        mMenuButtonPolicy.onController();
+        applyMenuButton();
+    }
+
+    private static boolean isController(InputDevice device) {
+        if (device == null || device.isVirtual()) return false;
+        int sources = device.getSources();
+        return (sources & InputDevice.SOURCE_GAMEPAD) == InputDevice.SOURCE_GAMEPAD
+            || (sources & InputDevice.SOURCE_JOYSTICK) == InputDevice.SOURCE_JOYSTICK
+            || (sources & InputDevice.SOURCE_DPAD) == InputDevice.SOURCE_DPAD
+            || device.getKeyboardType() == InputDevice.KEYBOARD_TYPE_ALPHABETIC;
+    }
+
+    // Both observe input on its way to SDL and never consume it.
+    @Override public boolean dispatchTouchEvent(MotionEvent event) {
+        if (event.getActionMasked() == MotionEvent.ACTION_DOWN
+                && (event.getSource() & InputDevice.SOURCE_TOUCHSCREEN) == InputDevice.SOURCE_TOUCHSCREEN) {
+            mMenuButtonPolicy.onTouch(event.getEventTime());
+            applyMenuButton();
+        }
+        return super.dispatchTouchEvent(event);
+    }
+
+    @Override public boolean dispatchGenericMotionEvent(MotionEvent event) {
+        if (event.getActionMasked() == MotionEvent.ACTION_MOVE
+                && (event.getSource() & InputDevice.SOURCE_JOYSTICK) == InputDevice.SOURCE_JOYSTICK) {
+            for (int axis : new int[] { MotionEvent.AXIS_X, MotionEvent.AXIS_Y, MotionEvent.AXIS_Z,
+                    MotionEvent.AXIS_RZ, MotionEvent.AXIS_HAT_X, MotionEvent.AXIS_HAT_Y }) {
+                if (Math.abs(event.getAxisValue(axis)) > CONTROLLER_AXIS_THRESHOLD) {
+                    onControllerInput();
+                    break;
+                }
+            }
+        }
+        return super.dispatchGenericMotionEvent(event);
     }
 
     private boolean touchLayoutLoaded() {
@@ -120,6 +199,8 @@ public class IsleActivity extends SDLActivity {
         // on Back arriving as a key event; an app opted into predictive back would need an
         // OnBackInvokedCallback here instead.
         if (mTouchLayoutController != null && mTouchLayoutController.dispatchBack(event)) return true;
+        // Volume keys and the navigation bar's Back come from devices that are not controllers.
+        if (event.getAction() == KeyEvent.ACTION_DOWN && isController(event.getDevice())) onControllerInput();
         // Before the game is ready there is no menu to open, and Back keeps its old meaning.
         InputDevice device = event.getDevice();
         if (mGameReady && device != null
@@ -305,7 +386,7 @@ public class IsleActivity extends SDLActivity {
         // Published before hiding the button, so a layout read finishing in between sees the
         // pending prompt and does not bring the button back under it.
         mQuitPrompt = prompt;
-        runOnUiThread(() -> { if (mMenuButton != null) mMenuButton.setVisibility(View.GONE); });
+        runOnUiThread(this::hideMenuButton);
         prompt.show();
     }
 
