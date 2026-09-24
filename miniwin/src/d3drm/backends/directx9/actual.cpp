@@ -3,7 +3,6 @@
 #include "structs.h"
 
 #include <SDL3/SDL.h>
-#include <cmath>
 #include <d3d9.h>
 #include <vector>
 #include <windows.h>
@@ -205,36 +204,54 @@ void Actual_Clear(float r, float g, float b)
 	);
 }
 
-// An untextured Draw2DImage: a solid fill of a virtual-space rectangle, which lands in the
-// letterboxed content area like every other 2D draw.
+// An untextured Draw2DImage: a solid quad over a virtual-space rectangle, blended by its alpha
+// like the other backends' fills, landing in the letterboxed content area like every 2D draw.
 void Actual_FillRect(const SDL_Rect& dstRect, FColor color)
 {
 	StartScene();
 
-	auto toScreenX = [](int x) {
-		return static_cast<LONG>(std::round(x * g_viewportTransform.scale + g_viewportTransform.offsetX));
+	float x1 = dstRect.x * g_viewportTransform.scale + g_viewportTransform.offsetX;
+	float y1 = dstRect.y * g_viewportTransform.scale + g_viewportTransform.offsetY;
+	float x2 = (dstRect.x + dstRect.w) * g_viewportTransform.scale + g_viewportTransform.offsetX;
+	float y2 = (dstRect.y + dstRect.h) * g_viewportTransform.scale + g_viewportTransform.offsetY;
+
+	g_device->SetRenderState(D3DRS_ZENABLE, FALSE);
+	g_device->SetRenderState(D3DRS_ZWRITEENABLE, FALSE);
+	g_device->SetRenderState(D3DRS_LIGHTING, FALSE);
+	g_device->SetRenderState(D3DRS_ALPHABLENDENABLE, TRUE);
+	g_device->SetRenderState(D3DRS_SRCBLEND, D3DBLEND_SRCALPHA);
+	g_device->SetRenderState(D3DRS_DESTBLEND, D3DBLEND_INVSRCALPHA);
+
+	// The 3D pass sets these only for textured meshes, so leave them as they were found.
+	DWORD colorOp, colorArg1, alphaOp, alphaArg1;
+	g_device->GetTextureStageState(0, D3DTSS_COLOROP, &colorOp);
+	g_device->GetTextureStageState(0, D3DTSS_COLORARG1, &colorArg1);
+	g_device->GetTextureStageState(0, D3DTSS_ALPHAOP, &alphaOp);
+	g_device->GetTextureStageState(0, D3DTSS_ALPHAARG1, &alphaArg1);
+	g_device->SetTexture(0, nullptr);
+	g_device->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_SELECTARG1);
+	g_device->SetTextureStageState(0, D3DTSS_COLORARG1, D3DTA_DIFFUSE);
+	g_device->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_SELECTARG1);
+	g_device->SetTextureStageState(0, D3DTSS_ALPHAARG1, D3DTA_DIFFUSE);
+
+	struct Vertex {
+		float x, y, z, rhw;
+		D3DCOLOR diffuse;
 	};
-	auto toScreenY = [](int y) {
-		return static_cast<LONG>(std::round(y * g_viewportTransform.scale + g_viewportTransform.offsetY));
+	D3DCOLOR diffuse = D3DCOLOR_COLORVALUE(color.r, color.g, color.b, color.a);
+	Vertex quad[4] = {
+		{x1, y1, 0.0f, 1.0f, diffuse},
+		{x2, y1, 0.0f, 1.0f, diffuse},
+		{x2, y2, 0.0f, 1.0f, diffuse},
+		{x1, y2, 0.0f, 1.0f, diffuse},
 	};
-	D3DRECT rect;
-	rect.x1 = toScreenX(dstRect.x);
-	rect.y1 = toScreenY(dstRect.y);
-	rect.x2 = toScreenX(dstRect.x + dstRect.w);
-	rect.y2 = toScreenY(dstRect.y + dstRect.h);
-	g_device->Clear(
-		1,
-		&rect,
-		D3DCLEAR_TARGET,
-		D3DCOLOR_ARGB(
-			static_cast<int>(color.a * 255),
-			static_cast<int>(color.r * 255),
-			static_cast<int>(color.g * 255),
-			static_cast<int>(color.b * 255)
-		),
-		1.0f,
-		0
-	);
+	g_device->SetFVF(D3DFVF_XYZRHW | D3DFVF_DIFFUSE);
+	g_device->DrawPrimitiveUP(D3DPT_TRIANGLEFAN, 2, quad, sizeof(Vertex));
+
+	g_device->SetTextureStageState(0, D3DTSS_COLOROP, colorOp);
+	g_device->SetTextureStageState(0, D3DTSS_COLORARG1, colorArg1);
+	g_device->SetTextureStageState(0, D3DTSS_ALPHAOP, alphaOp);
+	g_device->SetTextureStageState(0, D3DTSS_ALPHAARG1, alphaArg1);
 }
 
 #ifndef M_PI

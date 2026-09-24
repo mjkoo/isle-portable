@@ -84,10 +84,10 @@ private:
 	};
 
 	SDL_Surface* m_renderedImage = nullptr;
-	SDL_Palette* m_palette;
+	SDL_Palette* m_palette = nullptr;
 	SDL_Texture* m_uploadBuffer = nullptr;
 	SDL_Renderer* m_renderer;
-	const SDL_PixelFormatDetails* m_format;
+	const SDL_PixelFormatDetails* m_format = nullptr;
 	std::vector<PreparedLight> m_preparedLights;
 	float m_ambientR = 0.0f;
 	float m_ambientG = 0.0f;
