@@ -30,15 +30,19 @@ public class IsleActivity extends SDLActivity {
     }
 
     private static final int SETTINGS_REQUEST = 4801;
+    private static final long MENU_BUTTON_FADE_MS = 250;
+    // The share of an axis's travel that counts as deliberate, as native input counts it.
+    private static final float CONTROLLER_AXIS_THRESHOLD = 8000f / 32767f;
+    private static final int[] CONTROLLER_AXES = {
+        MotionEvent.AXIS_X, MotionEvent.AXIS_Y, MotionEvent.AXIS_Z, MotionEvent.AXIS_RZ,
+        MotionEvent.AXIS_HAT_X, MotionEvent.AXIS_HAT_Y, MotionEvent.AXIS_LTRIGGER, MotionEvent.AXIS_RTRIGGER,
+        MotionEvent.AXIS_BRAKE, MotionEvent.AXIS_GAS,
+    };
     private ImageButton mMenuButton;
     /** Whether the menu button may be up at all; the policy then decides how much of it shows. */
     private boolean mMenuButtonAllowed;
     private final MenuButtonPolicy mMenuButtonPolicy = new MenuButtonPolicy(SystemClock.uptimeMillis());
     private final Runnable mMenuButtonTick = this::applyMenuButton;
-    private static final float MENU_BUTTON_DIMMED_ALPHA = 0.3f;
-    private static final long MENU_BUTTON_FADE_MS = 250;
-    // The share of an axis's travel that counts as deliberate, as native input counts it.
-    private static final float CONTROLLER_AXIS_THRESHOLD = 8000f / 32767f;
     private boolean mGameReady;
     private boolean mResumed;
     private TouchControlsView mTouchControls;
@@ -112,16 +116,19 @@ public class IsleActivity extends SDLActivity {
 
     /** Brings the menu button in line with the policy, and schedules the next change it expects. */
     private void applyMenuButton() {
-        if (mMenuButton == null) return;
+        if (mMenuButton == null || mTouchLayoutController == null) return;
         mMenuButton.removeCallbacks(mMenuButtonTick);
         long now = SystemClock.uptimeMillis();
         int state = mMenuButtonAllowed ? mMenuButtonPolicy.state(now) : MenuButtonPolicy.HIDDEN;
         if (state == MenuButtonPolicy.HIDDEN) {
+            if (mMenuButton.getVisibility() == View.GONE) return;
             mMenuButton.animate().cancel();
             mMenuButton.setVisibility(View.GONE);
             return;
         }
-        float alpha = state == MenuButtonPolicy.FULL ? 1f : MENU_BUTTON_DIMMED_ALPHA;
+        // Within the player's own touch control opacity, which the layout applies to every control.
+        float opacity = mTouchLayoutController.layout().opacity;
+        float alpha = state == MenuButtonPolicy.FULL ? opacity : opacity * MenuButtonPolicy.DIMMED_SHARE;
         if (mMenuButton.getVisibility() != View.VISIBLE) {
             mMenuButton.animate().cancel();
             mMenuButton.setAlpha(alpha);
@@ -140,29 +147,26 @@ public class IsleActivity extends SDLActivity {
     }
 
     private static boolean isController(InputDevice device) {
-        if (device == null || device.isVirtual()) return false;
-        int sources = device.getSources();
-        return (sources & InputDevice.SOURCE_GAMEPAD) == InputDevice.SOURCE_GAMEPAD
-            || (sources & InputDevice.SOURCE_JOYSTICK) == InputDevice.SOURCE_JOYSTICK
-            || (sources & InputDevice.SOURCE_DPAD) == InputDevice.SOURCE_DPAD
-            || device.getKeyboardType() == InputDevice.KEYBOARD_TYPE_ALPHABETIC;
+        return device != null && MenuButtonPolicy.isController(device.isVirtual(), device.getSources(),
+            device.getKeyboardType() == InputDevice.KEYBOARD_TYPE_ALPHABETIC);
     }
 
     // Both observe input on its way to SDL and never consume it.
     @Override public boolean dispatchTouchEvent(MotionEvent event) {
+        // Dispatched first, so the touch that brings a hidden button back is not also a press of it.
+        boolean handled = super.dispatchTouchEvent(event);
         if (event.getActionMasked() == MotionEvent.ACTION_DOWN
                 && (event.getSource() & InputDevice.SOURCE_TOUCHSCREEN) == InputDevice.SOURCE_TOUCHSCREEN) {
             mMenuButtonPolicy.onTouch(event.getEventTime());
             applyMenuButton();
         }
-        return super.dispatchTouchEvent(event);
+        return handled;
     }
 
     @Override public boolean dispatchGenericMotionEvent(MotionEvent event) {
         if (event.getActionMasked() == MotionEvent.ACTION_MOVE
                 && (event.getSource() & InputDevice.SOURCE_JOYSTICK) == InputDevice.SOURCE_JOYSTICK) {
-            for (int axis : new int[] { MotionEvent.AXIS_X, MotionEvent.AXIS_Y, MotionEvent.AXIS_Z,
-                    MotionEvent.AXIS_RZ, MotionEvent.AXIS_HAT_X, MotionEvent.AXIS_HAT_Y }) {
+            for (int axis : CONTROLLER_AXES) {
                 if (Math.abs(event.getAxisValue(axis)) > CONTROLLER_AXIS_THRESHOLD) {
                     onControllerInput();
                     break;
