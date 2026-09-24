@@ -275,6 +275,10 @@ void DirectX9Renderer::Flip()
 
 void DirectX9Renderer::Draw2DImage(Uint32 textureId, const SDL_Rect& srcRect, const SDL_Rect& dstRect, FColor color)
 {
+	if (textureId == NO_TEXTURE_ID) {
+		Actual_FillRect(dstRect, color);
+		return;
+	}
 	Actual_Draw2DImage(m_textures[textureId].dxTexture, srcRect, dstRect, color);
 }
 
