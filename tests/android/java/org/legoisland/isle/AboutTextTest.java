@@ -45,7 +45,7 @@ public final class AboutTextTest {
         assert rows[2].summary.contains("decompilation") && rows[2].url.equals("https://github.com/isledecomp/isle");
         assert rows[3].url.equals("https://github.com/mjkoo/isle-portable/tree/437b5956");
         assert rows[4].summary.contains("Lesser General Public License, version 3");
-        assert rows[4].url.equals("https://github.com/mjkoo/isle-portable/blob/master/LICENSE");
+        assert rows[4].url.equals("https://github.com/mjkoo/isle-portable/blob/main/LICENSE");
         assert rows[5].summary.contains("Claude Code") && rows[5].summary.contains("AI");
         assert rows[5].url.equals("https://github.com/mjkoo/isle-portable#ai-disclosure");
         assert rows[6].summary.contains("not affiliated with or endorsed by the isledecomp project");

@@ -12,7 +12,7 @@ final class AboutText {
     static final String UPSTREAM_URL = "https://github.com/isledecomp/isle-portable";
     static final String DECOMPILATION_URL = "https://github.com/isledecomp/isle";
     static final String REPOSITORY_URL = "https://github.com/mjkoo/isle-portable";
-    static final String LICENSE_URL = REPOSITORY_URL + "/blob/master/LICENSE";
+    static final String LICENSE_URL = REPOSITORY_URL + "/blob/main/LICENSE";
     static final String AI_DISCLOSURE_URL = REPOSITORY_URL + "#ai-disclosure";
 
     /** The commit a version name ends with, as build.gradle writes it: 0.1.2729+g437b5956. */
