@@ -98,8 +98,13 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           notes="$(sed -e "s|{tag}|$TAG|g" -e "s|{repository}|$GITHUB_REPOSITORY|g" .github/release-notes.md)"
+          # A semver pre-release tag, such as v0.1.0-alpha.1, publishes as a pre-release, which
+          # GitHub never marks as the latest release.
+          prerelease=false
+          case "$TAG" in *-*) prerelease=true ;; esac
           gh release create "$TAG" android-project/app/build/outputs/apk/release/*.apk \
             --verify-tag \
             --title "$TAG" \
+            --prerelease="$prerelease" \
             --notes "$notes" \
             --generate-notes
