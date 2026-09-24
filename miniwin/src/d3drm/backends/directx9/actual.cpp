@@ -3,6 +3,7 @@
 #include "structs.h"
 
 #include <SDL3/SDL.h>
+#include <cmath>
 #include <d3d9.h>
 #include <vector>
 #include <windows.h>
@@ -199,6 +200,38 @@ void Actual_Clear(float r, float g, float b)
 		nullptr,
 		D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER,
 		D3DCOLOR_ARGB(255, static_cast<int>(r * 255), static_cast<int>(g * 255), static_cast<int>(b * 255)),
+		1.0f,
+		0
+	);
+}
+
+// An untextured Draw2DImage: a solid fill of a virtual-space rectangle, which lands in the
+// letterboxed content area like every other 2D draw.
+void Actual_FillRect(const SDL_Rect& dstRect, FColor color)
+{
+	StartScene();
+
+	auto toScreenX = [](int x) {
+		return static_cast<LONG>(std::round(x * g_viewportTransform.scale + g_viewportTransform.offsetX));
+	};
+	auto toScreenY = [](int y) {
+		return static_cast<LONG>(std::round(y * g_viewportTransform.scale + g_viewportTransform.offsetY));
+	};
+	D3DRECT rect;
+	rect.x1 = toScreenX(dstRect.x);
+	rect.y1 = toScreenY(dstRect.y);
+	rect.x2 = toScreenX(dstRect.x + dstRect.w);
+	rect.y2 = toScreenY(dstRect.y + dstRect.h);
+	g_device->Clear(
+		1,
+		&rect,
+		D3DCLEAR_TARGET,
+		D3DCOLOR_ARGB(
+			static_cast<int>(color.a * 255),
+			static_cast<int>(color.r * 255),
+			static_cast<int>(color.g * 255),
+			static_cast<int>(color.b * 255)
+		),
 		1.0f,
 		0
 	);
