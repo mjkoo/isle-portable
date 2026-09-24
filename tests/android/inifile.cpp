@@ -34,6 +34,13 @@ static std::string Read(const std::filesystem::path& p_path)
 	return {std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>()};
 }
 
+// Binary, like Read, so a file compares byte for byte on Windows too, where text mode would
+// write CRLF.
+static void Write(const std::filesystem::path& p_path, const std::string& p_contents)
+{
+	std::ofstream(p_path, std::ios::binary) << p_contents;
+}
+
 using Dictionary = std::unique_ptr<dictionary, decltype(&iniparser_freedict)>;
 
 static Dictionary MakeDictionary(const char* p_key, const std::string& p_value)
@@ -138,7 +145,7 @@ int main()
 	{
 		std::filesystem::path directory = MakeDirectory("replace");
 		std::string path = (directory / "isle.ini").string();
-		std::ofstream(path) << "[isle]\nmusic = \"false\"\ncustom = \"keep\"\n";
+		Write(path, "[isle]\nmusic = \"false\"\ncustom = \"keep\"\n");
 		assert(IniFile::Save(path, MakeDictionary("isle:music", "true").get()).empty());
 		Dictionary loaded(iniparser_load(path.c_str()), iniparser_freedict);
 		assert(loaded);
@@ -154,7 +161,7 @@ int main()
 		std::filesystem::path directory = MakeDirectory("blocked-temp");
 		std::string path = (directory / "isle.ini").string();
 		const std::string original = "[isle]\nmusic = \"false\"\n";
-		std::ofstream(path) << original;
+		Write(path, original);
 		std::filesystem::create_directory(path + ".new");
 		std::string error = IniFile::Save(path, MakeDictionary("isle:music", "true").get());
 		assert(!error.empty());
@@ -192,7 +199,7 @@ int main()
 	{
 		std::filesystem::path directory = MakeDirectory("mixed-case");
 		std::string path = (directory / "isle.ini").string();
-		std::ofstream(path) << "[isle]\nmusic = \"false\"\n";
+		Write(path, "[isle]\nmusic = \"false\"\n");
 		Dictionary dict(iniparser_load(path.c_str()), iniparser_freedict);
 		assert(dict);
 		assert(iniparser_set(dict.get(), "isle:Music", "true") == 0);
@@ -208,9 +215,12 @@ int main()
 	{
 		std::filesystem::path directory = MakeDirectory("merge");
 		std::string path = (directory / "isle.ini").string();
-		std::ofstream(path) << "[isle]\nmusic = \"false\"\ncustom = \"keep\"\n"
-							<< "[gamepad]\nsouth = \"click\"\n"
-							<< "[multiplayer]\nroom = \"islanders\"\n";
+		Write(
+			path,
+			"[isle]\nmusic = \"false\"\ncustom = \"keep\"\n"
+			"[gamepad]\nsouth = \"click\"\n"
+			"[multiplayer]\nroom = \"islanders\"\n"
+		);
 		Dictionary dict(iniparser_load(path.c_str()), iniparser_freedict);
 		assert(dict);
 		assert(iniparser_set(dict.get(), "isle:Music", "true") == 0);
