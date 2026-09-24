@@ -60,7 +60,13 @@
 typedef uint8_t BYTE, byte;
 typedef int32_t LONG;
 typedef uint32_t ULONG, DWORD;
+#ifdef _WIN32
+// Declared as Windows headers, Qt's among them, declare it; long is 32 bits there.
+typedef long HRESULT;
+#else
+// 32 bits, like the real one, where long is 64 and a failure code would test as success.
 typedef int32_t HRESULT;
+#endif
 typedef DWORD* LPDWORD;
 typedef int BOOL, WINBOOL, INT;
 typedef unsigned int UINT;
