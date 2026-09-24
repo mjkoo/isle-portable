@@ -942,9 +942,10 @@ void Direct3DRMSoftwareRenderer::Draw2DImage(
 	};
 
 	if (textureId == NO_TEXTURE_ID) {
+		// The format is only cached by BeginFrame, and a viewport clear can come before the first one.
 		Uint32 sdlColor = SDL_MapRGBA(
-			m_format,
-			m_palette,
+			SDL_GetPixelFormatDetails(m_renderedImage->format),
+			SDL_GetSurfacePalette(m_renderedImage),
 			static_cast<Uint8>(color.r * 255),
 			static_cast<Uint8>(color.g * 255),
 			static_cast<Uint8>(color.b * 255),
