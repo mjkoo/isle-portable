@@ -70,6 +70,7 @@ public:
 	MxResult VerifyFilesystem();
 	void DetectGameVersion();
 	void MoveVirtualMouseViaJoystick();
+	void RevealIdleCursor();
 	void DetectDoubleTap(const SDL_TouchFingerEvent& p_event);
 
 private:

@@ -3,6 +3,7 @@
 #include "isleapp.h"
 
 #include "3dmanager/lego3dmanager.h"
+#include "cursoridle.h"
 #include "decomp.h"
 #include "gamepadbindings.h"
 #include "infocenter.h"
@@ -159,6 +160,7 @@ MxS32 g_reqEnableRMDevice = FALSE;
 
 MxFloat g_lastJoystickMouseX = 0;
 MxFloat g_lastJoystickMouseY = 0;
+static CursorIdle g_cursorIdle;
 MxFloat g_lastMouseX = 320;
 MxFloat g_lastMouseY = 240;
 MxBool g_mouseWarped = FALSE;
@@ -922,6 +924,7 @@ static void HandleGamepadAction(GamepadBindings::Result p_result)
 {
 	switch (p_result.m_action) {
 	case GamepadBindings::e_click:
+		g_isle->RevealIdleCursor();
 		g_mousedown = p_result.m_pressed ? TRUE : FALSE;
 		if (InputManager()) {
 			InputManager()->QueueEvent(
@@ -1255,6 +1258,7 @@ SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event)
 		g_lastMouseY = event->motion.y;
 
 #ifdef __DJGPP__
+		g_isle->RevealIdleCursor();
 		if (VideoManager()) {
 			VideoManager()->MoveCursor(Min((MxS32) g_lastMouseX, 639), Min((MxS32) g_lastMouseY, 479));
 		}
@@ -2137,7 +2141,10 @@ void IsleApp::SetupCursor(Cursor p_cursor)
 	}
 
 	if (g_isle->GetDrawCursor()) {
-		VideoManager()->SetCursorBitmap(m_cursorCurrentBitmap);
+		// A cursor hidden for being idle picks up the new shape when it is next revealed.
+		if (!g_cursorIdle.IsHidden()) {
+			VideoManager()->SetCursorBitmap(m_cursorCurrentBitmap);
+		}
 	}
 	else {
 		if (m_cursorCurrent != NULL) {
@@ -2386,6 +2393,7 @@ void IsleApp::MoveVirtualMouseViaJoystick()
 
 	if (moveX != 0 || moveY != 0) {
 		g_mousemoved = TRUE;
+		g_cursorIdle.Reveal(now);
 
 		g_lastMouseX = SDL_clamp(g_lastMouseX + moveX, 0, g_targetWidth);
 		g_lastMouseY = SDL_clamp(g_lastMouseY + moveY, 0, g_targetHeight);
@@ -2413,6 +2421,17 @@ void IsleApp::MoveVirtualMouseViaJoystick()
 			g_mouseWarped = TRUE;
 			SDL_WarpMouseInWindow(window, x, y);
 		}
+	}
+	else if (m_drawCursor && g_cursorIdle.Tick(now, g_mousedown) && VideoManager()) {
+		// Only out of sight: the position is kept for the next nudge to bring it back at.
+		VideoManager()->SetCursorBitmap(NULL);
+	}
+}
+
+void IsleApp::RevealIdleCursor()
+{
+	if (g_cursorIdle.Reveal(SDL_GetTicksNS()) && m_drawCursor && VideoManager()) {
+		VideoManager()->SetCursorBitmap(m_cursorCurrentBitmap);
 	}
 }
 

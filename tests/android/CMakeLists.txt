@@ -107,6 +107,12 @@ target_compile_options(outputgain PRIVATE -Wall -Wextra -Werror -UNDEBUG)
 target_include_directories(outputgain PRIVATE ../../ISLE)
 add_test(NAME output_gain COMMAND outputgain)
 
+add_executable(cursoridle cursoridle.cpp)
+target_compile_features(cursoridle PRIVATE cxx_std_17)
+target_compile_options(cursoridle PRIVATE -Wall -Wextra -Werror -UNDEBUG)
+target_include_directories(cursoridle PRIVATE ../../ISLE)
+add_test(NAME cursor_idle COMMAND cursoridle)
+
 # Checks the face-button labels the default Click relies on against SDL itself. It needs a built
 # SDL3, such as the desktop build's, and is skipped without one.
 find_library(SDL3_LIBRARY NAMES SDL3 HINTS ../../build/_deps/sdl3-build NO_DEFAULT_PATH)
