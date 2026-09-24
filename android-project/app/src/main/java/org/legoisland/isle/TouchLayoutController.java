@@ -79,6 +79,9 @@ final class TouchLayoutController {
 
     boolean isLoaded() { return loaded; }
 
+    /** The layout in effect: the default until the first read. */
+    TouchLayout layout() { return layout; }
+
     void requestApplyInsets() { layer.requestApplyInsets(); }
 
     /** Reads the saved layout and applies it, then tells the listener. */
