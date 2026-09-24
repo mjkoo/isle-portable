@@ -3,6 +3,7 @@
 #include "extensions/common/pathutils.h"
 #include "legovideomanager.h"
 #include "misc.h"
+#include "misc/legoimage.h"
 #include "misc/legotexture.h"
 #include "mxdirectx/mxdirect3d.h"
 #include "mxmain.h"
