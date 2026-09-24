@@ -40,7 +40,10 @@ inline Uint32 Region(float p_x, float p_y)
 	return p_x < 1.0 / 3.0 ? Left : (p_x > 2.0 / 3.0 ? Right : Down);
 }
 
-inline void UpdateArrows(const SDL_TouchFingerEvent& p_event, std::map<SDL_FingerID, Uint32>& p_fingers)
+// Generic over the flag type because Uint32 is unsigned long on some toolchains, while the
+// input manager stores its flags as MxU32, which is always unsigned int.
+template <typename Flags>
+inline void UpdateArrows(const SDL_TouchFingerEvent& p_event, std::map<SDL_FingerID, Flags>& p_fingers)
 {
 	if (p_event.type == SDL_EVENT_FINGER_UP || p_event.type == SDL_EVENT_FINGER_CANCELED) {
 		p_fingers.erase(p_event.fingerID);
