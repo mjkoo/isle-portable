@@ -489,18 +489,21 @@ static void ApplyOutputGain()
 	// The take above has to stay above this guard. It only moves the system's gain into the
 	// arbiter, which holds it; the arbiter's own take, below, is what records a value as applied,
 	// so a focus change arriving before the game has an engine is kept rather than consumed.
-	if (!Lego() || !SoundManager()) {
+	// Not SoundManager(), which lego1 does not export.
+	LegoOmni* lego = Lego();
+	LegoSoundManager* soundManager = lego ? lego->GetSoundManager() : NULL;
+	if (!soundManager) {
 		return;
 	}
 
-	g_outputGain.SetPaused(Lego()->IsPaused());
+	g_outputGain.SetPaused(lego->IsPaused());
 
 	float gain;
 	if (g_outputGain.Take(&gain)) {
 		// What the game plays at, as against what the system asked for: a pause is not reported
 		// anywhere else, and the two part company whenever one outlives the other.
 		SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Playing at gain %.2f", gain);
-		SoundManager()->SetOutputGain(gain);
+		soundManager->SetOutputGain(gain);
 	}
 }
 
