@@ -39,7 +39,7 @@ public final class QuitPromptTextTest {
         if (!assertions) throw new AssertionError("Run with java -ea");
 
         String notSignedIn = "Game paused. Nothing is saved until you sign in at the Information Center.";
-        check(QuitPromptText.SAVE_ATTEMPTED, "PEPPER", null, "Game paused. Progress for PEPPER is saved.", "Quit");
+        check(QuitPromptText.SAVE_ATTEMPTED, "PEPPER", null, "Game paused. Signed in as PEPPER.", "Quit");
         // Native always names a player once a save was attempted, but a missing name must not
         // read as a sentence with a hole in it.
         check(QuitPromptText.SAVE_ATTEMPTED, null, null, "Game paused.", "Quit");
