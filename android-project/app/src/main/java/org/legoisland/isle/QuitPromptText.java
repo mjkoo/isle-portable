@@ -9,9 +9,10 @@ final class QuitPromptText {
 
     final String title;
     final String message;
-    final String negative;
-    final String neutral = "Settings";
-    final String positive;
+    /** Null for a startup error, where there is no game to go back to. */
+    final String resume;
+    final String settings = "Settings";
+    final String quit;
 
     /**
      * playerName is whose progress the save was for, or null when no one has signed in. The game
@@ -20,10 +21,10 @@ final class QuitPromptText {
      */
     QuitPromptText(int saveResult, String playerName, String startupError) {
         title = startupError == null ? "LEGO Island" : "LEGO Island could not start";
-        negative = startupError == null ? "Resume" : null;
+        resume = startupError == null ? "Resume" : null;
         if (startupError != null) {
             message = startupError;
-            positive = "Close";
+            quit = "Close";
             return;
         }
 
@@ -34,15 +35,15 @@ final class QuitPromptText {
             message = playerName == null || playerName.isEmpty()
                 ? "Game paused."
                 : "Game paused. Signed in as " + playerName + ".";
-            positive = "Quit";
+            quit = "Quit";
             break;
         case SAVE_FAILED:
             message = "Your game could not be saved.";
-            positive = "Quit anyway";
+            quit = "Quit anyway";
             break;
         default:
             message = "Game paused. Nothing is saved until you sign in at the Information Center.";
-            positive = "Quit";
+            quit = "Quit";
             break;
         }
     }

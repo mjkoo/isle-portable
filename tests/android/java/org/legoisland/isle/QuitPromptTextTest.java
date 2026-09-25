@@ -17,19 +17,19 @@ public final class QuitPromptTextTest {
         return Integer.parseInt(match.group(1));
     }
 
-    private static void check(int result, String name, String error, String message, String positive) {
+    private static void check(int result, String name, String error, String message, String quit) {
         QuitPromptText text = new QuitPromptText(result, name, error);
         assert text.title.equals(error == null ? "LEGO Island" : "LEGO Island could not start");
         assert text.message.equals(message);
-        assert text.positive.equals(positive);
-        assert text.neutral.equals("Settings");
+        assert text.quit.equals(quit);
+        assert text.settings.equals("Settings");
         // Quitting does not save; the save already happened before the menu came up.
-        assert !text.positive.toLowerCase().contains("save");
+        assert !text.quit.toLowerCase().contains("save");
         if (error == null) {
-            assert "Resume".equals(text.negative);
+            assert "Resume".equals(text.resume);
         } else {
-            assert text.negative == null;
-            assert text.positive.equals("Close");
+            assert text.resume == null;
+            assert text.quit.equals("Close");
         }
     }
 

@@ -606,8 +606,6 @@ static SDL_AppResult HandleBackButton()
 	// happened. Android can reclaim the process at any point while a prompt is up, and the save
 	// is cheap and idempotent, so paying it on a cancelled press is the better trade.
 	QuitPromptSaveResult saveResult;
-	// Signing in or picking a name in the registration book always moves that player to the first
-	// slot, so while anyone is signed in the first slot is who the save was for.
 	char playerName[sizeOfArray(LegoGameState::Username::m_letters) + 1];
 	const char* savedFor = nullptr;
 	if (!GameStateIsSaveable()) {
@@ -619,6 +617,8 @@ static SDL_AppResult HandleBackButton()
 		// Save does not propagate every serialization or close failure, so success only
 		// establishes that a save was attempted, not that the entire file was written.
 		saveResult = SaveGameStateForLifecycleEvent("back button") ? e_quitPromptSaveAttempted : e_quitPromptSaveFailed;
+		// Signing in or picking a name in the registration book always moves that player to the
+		// first slot, so while anyone is signed in the first slot is who the save was for.
 		const LegoGameState::Username& player = GameState()->m_players[0];
 		FormatPlayerName(player.m_letters, sizeOfArray(player.m_letters), playerName);
 		savedFor = playerName;
