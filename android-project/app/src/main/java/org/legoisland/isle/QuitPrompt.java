@@ -6,7 +6,6 @@ import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
-import android.view.KeyEvent;
 import android.view.View;
 import android.view.Window;
 import android.view.WindowInsets;
@@ -100,8 +99,7 @@ final class QuitPrompt {
         QuitPromptText text = new QuitPromptText(mSaveResult, mPlayerName, mStartupError);
         // A dialog rather than a view over the game: its own window takes the key focus, so the
         // D-pad and a controller's buttons reach the menu instead of the SDL surface.
-        Dialog dialog = new Dialog(mActivity, android.R.style.Theme_Translucent_NoTitleBar_Fullscreen);
-        PauseMenuView menu = new PauseMenuView(mActivity, text,
+        Dialog dialog = new PauseMenuDialog(mActivity, text,
             () -> finish(STATUS_QUIT),
             () -> finish(STATUS_RESUME),
             () -> {
@@ -115,38 +113,7 @@ final class QuitPrompt {
                     showDialog();
                 }
             });
-        dialog.setContentView(menu);
-
-        // A second back press, or B or Start on a controller, answers "keep playing" without
-        // stacking another prompt. A is taken here too, where the framework would otherwise
-        // leave it to a fallback that not every controller layout provides. Each acts on a
-        // release whose press also came here: Start opens this menu, and the release of that same
-        // press must not close it again.
         dialog.setOnCancelListener(ignored -> finish(STATUS_RESUME));
-        int[] pressed = {KeyEvent.KEYCODE_UNKNOWN};
-        dialog.setOnKeyListener((ignored, keyCode, event) -> {
-            boolean pad = keyCode == KeyEvent.KEYCODE_BUTTON_A || keyCode == KeyEvent.KEYCODE_BUTTON_B
-                || keyCode == KeyEvent.KEYCODE_BUTTON_START;
-            if (!pad) return false;
-            if (event.getAction() == KeyEvent.ACTION_DOWN) {
-                if (event.getRepeatCount() == 0) pressed[0] = keyCode;
-                return true;
-            }
-            boolean released = event.getAction() == KeyEvent.ACTION_UP && !event.isCanceled()
-                && pressed[0] == keyCode;
-            pressed[0] = KeyEvent.KEYCODE_UNKNOWN;
-            if (!released) return true;
-            if (keyCode != KeyEvent.KEYCODE_BUTTON_A) {
-                dialog.cancel();
-                return true;
-            }
-            // Nothing has focus yet after a touch opened the menu: show where A would land
-            // before letting it act.
-            View focused = menu.findFocus();
-            if (focused != null) focused.performClick();
-            else menu.focusFirst();
-            return true;
-        });
         dialog.setCanceledOnTouchOutside(false);
         keepFullscreen(dialog.getWindow());
         mDialog = dialog;

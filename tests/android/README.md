@@ -519,6 +519,12 @@ the mirrored save constants against `quitprompt.h` and status constants against
 out for the message. The host tests cannot reach the menu's views or establish save
 durability.
 
+`PauseMenuDialogTest`, run by `just android-test`, exercises the production dialog in
+an isolated activity. It covers controller takeover from touch, overlapping keys and
+controllers, canceled and unmatched releases, focus loss, dismissal, button roles,
+D-pad/Enter/touch activation, and scrolling with large text in a short window. It
+uses the separate test APK and does not load the game or modify player saves.
+
 ### Device procedure
 
 Use an API 35 arm64 emulator with game data. Record the actual API level and device.
