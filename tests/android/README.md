@@ -508,14 +508,16 @@ R8-processed Java.
 ## Pause prompt
 
 ```sh
-ctest --test-dir build/host-tests -R '^android_quit_prompt_text$' --output-on-failure
+ctest --test-dir build/host-tests -R '^(android_quit_prompt_text|player_name)$' --output-on-failure
 ```
 
 This pins the title, message and button labels for each save result and startup
-errors, including unknown save results and empty error text. Settings is always
-available; Resume appears only for a running game. It also checks the mirrored
-save constants against `quitprompt.h` and status constants against `quitprompt.cpp`.
-The host test cannot reach AlertDialog wiring or establish save durability.
+errors, including unknown save results, a missing player name and empty error text.
+Settings is always available; Resume appears only for a running game. It also checks
+the mirrored save constants against `quitprompt.h` and status constants against
+`quitprompt.cpp`. `player_name` checks how the signed-in player's letters are spelled
+out for the message. The host tests cannot reach the menu's views or establish save
+durability.
 
 ### Device procedure
 
@@ -525,35 +527,40 @@ the default. Back up config and saves and record directory mode bits before test
 Restore all of them even if a step aborts, then compare the restored bytes.
 
 1. Register a player and change some progress. Open the menu with Back. Expect
-   **Game paused.** and **Save and quit | Settings | Resume** in positive, neutral,
-   negative order on the API 35 emulator with the app's current theme. The old build
-   says Quit, so this distinguishes the change.
-2. Use a fresh, unregistered player set. Expect **There is no saved game yet.** and
-   **Quit | Settings | Resume**. The engine can return success without writing for
-   an unregistered player; that must not produce Save and quit.
+   **Game paused. Signed in as NAME.**, with the name as registered, and
+   **Resume | Settings | Quit** from top to bottom over the dimmed game, with the
+   system bars still hidden.
+2. Use a fresh, unregistered player set. Expect **Game paused. Nothing is saved until
+   you sign in at the Information Center.** and the same three choices. The engine can
+   return success without writing for an unregistered player; that must not name
+   anyone.
 3. Restore the registered player. On the debug build, run
    `adb shell run-as dev.mjkoo.isle chmod 000 <savedir>` against the effective
    save directory. This blocks traversal even when slot files already exist.
    Open the menu. Expect **Your game could not be saved.** and
-   **Quit anyway | Settings | Resume**. Require the real
+   **Resume | Settings | Quit anyway**. Require the real
    `Failed to save game state (back button)` message in `adb logcat -s SDL`;
    successful chmod alone does not establish a save failure. Confirm Resume remains
    available, then Quit anyway exits without a second prompt.
 4. Restore the recorded mode bits. Relaunch and verify the earlier player and
-   progress load. Back must again show **Game paused.** / **Save and quit**.
+   progress load. Back must again name the player, with **Quit**.
 5. With game data unavailable, relaunch and exercise startup failure. Expect
-   **LEGO Island could not start**, the error text, **Close | Settings**, and no Resume.
+   **LEGO Island could not start**, the error text, **Settings | Close**, and no Resume.
+   Settings takes the initial controller focus.
 6. Check a Settings round trip reapplies touch scheme and controller buttons on
    Resume. Scheduled Replace game files or Restore saves must close the game.
    A second Back over the prompt resumes. Menu and touch controls return on Resume.
+   With a controller, Resume starts focused and highlighted, the D-pad moves the
+   highlight, A chooses, and B or Start resumes. Opening the menu with Start must
+   leave it open when Start is released.
    Island ambient sound goes quiet while paused and returns on Resume.
 7. Build with `just android-apk` and `just android-apk-release`. Repeat the first
    three cases on the minified release, with a suitable failure-injection setup
    (release builds do not permit `run-as`). The wording class deliberately has no
    proguard keep rule.
 
-Only the device procedure checks actual AlertDialog wiring. Host assertions cannot
-catch labels passed to the wrong builder buttons. Neither procedure proves every
+Only the device procedure checks the menu's actual wiring. Host assertions cannot
+catch a label attached to the wrong button. Neither procedure proves every
 engine write reached disk: serialization can ignore failures, and shutdown ignores
 the save result. Storage changes after the menu-opening attempt are not detected
 by this feature. Other API levels, physical devices and desktop require separate
