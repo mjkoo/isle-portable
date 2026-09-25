@@ -17,7 +17,9 @@ layouts the right one is. Start opens the same menu as Android Back and the touc
 so a controller alone can reach Settings. Start does nothing until the game has started.
 
 In the menu the D-pad moves between the choices, starting at Resume. A chooses the highlighted
-one, and B or Start resumes. Releasing the button that opened the menu does nothing.
+one, and B or Start resumes. After touch input clears the highlight, the first A press
+highlights Resume without choosing it; the next press chooses it. Releasing the button
+that opened the menu does nothing.
 
 ## Changing buttons
 

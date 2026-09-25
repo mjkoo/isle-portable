@@ -90,6 +90,11 @@ final class PauseMenuView extends FrameLayout {
         first.requestFocus();
     }
 
+    /** A controller can take over after touch without activating the newly focused choice. */
+    void focusFirstFromController() {
+        first.requestFocusFromTouch();
+    }
+
     @Override
     protected void onAttachedToWindow() {
         super.onAttachedToWindow();
