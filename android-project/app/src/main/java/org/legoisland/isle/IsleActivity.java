@@ -182,7 +182,12 @@ public class IsleActivity extends SDLActivity {
 
     private void onTouchLayoutRead(TouchLayout layout, boolean first) {
         mTouchControls.setOpacity(layout.opacity);
-        if (!first) return;
+        // The layout just set every control's alpha, the menu button's included, to the full
+        // opacity; put the button back at the strength the policy wants.
+        if (!first) {
+            applyMenuButton();
+            return;
+        }
         // Back can open the menu before the first read finishes; the button stays down then.
         QuitPrompt prompt = mQuitPrompt;
         if (prompt == null || prompt.getStatus() != QuitPrompt.STATUS_PENDING) restoreMenuButton();
@@ -330,6 +335,7 @@ public class IsleActivity extends SDLActivity {
     @Override
     protected void onDestroy() {
         if (mTouchControls != null) mTouchControls.setRunning(false);
+        if (mMenuButton != null) mMenuButton.removeCallbacks(mMenuButtonTick);
         if (mTouchLayoutController != null) mTouchLayoutController.destroy();
         if (mRestoreStartup != null) mRestoreStartup.abandon();
         QuitPrompt prompt = mQuitPrompt;
