@@ -29,11 +29,11 @@ final class QuitPromptText {
 
         switch (saveResult) {
         case SAVE_ATTEMPTED:
-            // The save API does not report every write failure, but it did not report one here,
-            // which is as much as any save the game makes can say.
+            // The save API does not report every write failure, so do not promise persistence;
+            // say who is signed in, which is what the save was made for.
             message = playerName == null || playerName.isEmpty()
                 ? "Game paused."
-                : "Game paused. Progress for " + playerName + " is saved.";
+                : "Game paused. Signed in as " + playerName + ".";
             positive = "Quit";
             break;
         case SAVE_FAILED:
