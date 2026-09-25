@@ -30,6 +30,7 @@ final class QuitPrompt {
     private final IsleActivity mActivity;
     private final String mStartupError;
     private final int mSaveResult;
+    private final String mPlayerName;
     private final Handler mHandler = new Handler(Looper.getMainLooper());
 
     // Written on the UI thread, read on the SDL thread.
@@ -40,14 +41,19 @@ final class QuitPrompt {
     private AlertDialog mDialog;
     private boolean mAbandoned;
 
-    QuitPrompt(IsleActivity activity, int saveResult) {
-        this(activity, saveResult, null);
+    QuitPrompt(IsleActivity activity, int saveResult, String playerName) {
+        this(activity, saveResult, playerName, null);
     }
 
-    QuitPrompt(IsleActivity activity, int saveResult, String startupError) {
+    static QuitPrompt forStartupError(IsleActivity activity, String startupError) {
+        return new QuitPrompt(activity, QuitPromptText.SAVE_NOTHING_TO_SAVE, null, startupError);
+    }
+
+    private QuitPrompt(IsleActivity activity, int saveResult, String playerName, String startupError) {
         mStartupError = startupError;
         mActivity = activity;
         mSaveResult = saveResult;
+        mPlayerName = playerName;
     }
 
     /** STATUS_PENDING until the user has answered. */
@@ -83,7 +89,7 @@ final class QuitPrompt {
             return;
         }
 
-        QuitPromptText text = new QuitPromptText(mSaveResult, mStartupError);
+        QuitPromptText text = new QuitPromptText(mSaveResult, mPlayerName, mStartupError);
         AlertDialog.Builder builder = new AlertDialog.Builder(mActivity);
         builder.setTitle(text.title);
         builder.setMessage(text.message);

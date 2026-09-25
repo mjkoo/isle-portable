@@ -17,14 +17,14 @@ public final class QuitPromptTextTest {
         return Integer.parseInt(match.group(1));
     }
 
-    private static void check(int result, String error, String message, String positive) {
-        QuitPromptText text = new QuitPromptText(result, error);
+    private static void check(int result, String name, String error, String message, String positive) {
+        QuitPromptText text = new QuitPromptText(result, name, error);
         assert text.title.equals(error == null ? "LEGO Island" : "LEGO Island could not start");
         assert text.message.equals(message);
         assert text.positive.equals(positive);
         assert text.neutral.equals("Settings");
-        assert !text.positive.equals("Save and quit")
-            || (error == null && result == QuitPromptText.SAVE_ATTEMPTED);
+        // Quitting does not save; the save already happened before the menu came up.
+        assert !text.positive.toLowerCase().contains("save");
         if (error == null) {
             assert "Resume".equals(text.negative);
         } else {
@@ -38,14 +38,19 @@ public final class QuitPromptTextTest {
         assert assertions = true;
         if (!assertions) throw new AssertionError("Run with java -ea");
 
-        check(QuitPromptText.SAVE_ATTEMPTED, null, "Game paused.", "Save and quit");
-        check(QuitPromptText.SAVE_NOTHING_TO_SAVE, null, "There is no saved game yet.", "Quit");
-        check(QuitPromptText.SAVE_FAILED, null, "Your game could not be saved.", "Quit anyway");
-        check(-1, null, "There is no saved game yet.", "Quit");
-        check(99, null, "There is no saved game yet.", "Quit");
+        String notSignedIn = "Game paused. Nothing is saved until you sign in at the Information Center.";
+        check(QuitPromptText.SAVE_ATTEMPTED, "PEPPER", null, "Game paused. Progress for PEPPER is saved.", "Quit");
+        // Native always names a player once a save was attempted, but a missing name must not
+        // read as a sentence with a hole in it.
+        check(QuitPromptText.SAVE_ATTEMPTED, null, null, "Game paused.", "Quit");
+        check(QuitPromptText.SAVE_ATTEMPTED, "", null, "Game paused.", "Quit");
+        check(QuitPromptText.SAVE_NOTHING_TO_SAVE, null, null, notSignedIn, "Quit");
+        check(QuitPromptText.SAVE_FAILED, "PEPPER", null, "Your game could not be saved.", "Quit anyway");
+        check(-1, null, null, notSignedIn, "Quit");
+        check(99, null, null, notSignedIn, "Quit");
         for (int result : new int[] {0, 1, 2, -1, 99}) {
-            check(result, "Missing game data.", "Missing game data.", "Close");
-            check(result, "", "", "Close");
+            check(result, "PEPPER", "Missing game data.", "Missing game data.", "Close");
+            check(result, null, "", "", "Close");
         }
 
         String nativeSave = read("ISLE/android/quitprompt.h");

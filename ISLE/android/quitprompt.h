@@ -14,10 +14,12 @@ enum QuitPromptSaveResult {
 // The caller must therefore treat everything the game owns as having moved on when this
 // returns.
 //
+// p_playerName names whose progress the save was for, and is null when no one has signed in.
+//
 // p_abandoned is polled alongside the dialog, and answers false when it reports true. The
 // dialog cannot always answer for itself: destroying the activity takes its window down
 // without running either button callback, and pumping is exactly what lets that happen here,
 // so a loop waiting only on the user is a loop that can wait forever.
-bool Android_ConfirmQuit(bool (*p_abandoned)(), QuitPromptSaveResult p_saveResult);
+bool Android_ConfirmQuit(bool (*p_abandoned)(), QuitPromptSaveResult p_saveResult, const char* p_playerName);
 
 #endif // ANDROID_QUITPROMPT_H

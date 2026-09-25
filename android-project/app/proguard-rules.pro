@@ -14,7 +14,7 @@
     boolean hasImportedGameData();
     boolean removeImportedGameData();
     boolean hasFolderPicker();
-    void showQuitPrompt(int);
+    void showQuitPrompt(int, java.lang.String);
     void showMenuButton();
     void showStartupSettings(java.lang.String);
     boolean isStartupSettingsOpen();

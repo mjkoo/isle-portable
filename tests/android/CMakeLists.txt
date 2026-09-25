@@ -113,6 +113,12 @@ target_compile_options(cursoridle PRIVATE -Wall -Wextra -Werror -UNDEBUG)
 target_include_directories(cursoridle PRIVATE ../../ISLE)
 add_test(NAME cursor_idle COMMAND cursoridle)
 
+add_executable(playername playername.cpp)
+target_compile_features(playername PRIVATE cxx_std_17)
+target_compile_options(playername PRIVATE -Wall -Wextra -Werror -UNDEBUG)
+target_include_directories(playername PRIVATE ../../ISLE)
+add_test(NAME player_name COMMAND playername)
+
 # Checks the face-button labels the default Click relies on against SDL itself. It needs a built
 # SDL3, such as the desktop build's, and is skipped without one.
 find_library(SDL3_LIBRARY NAMES SDL3 HINTS ../../build/_deps/sdl3-build NO_DEFAULT_PATH)
