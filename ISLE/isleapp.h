@@ -70,7 +70,12 @@ public:
 	MxResult VerifyFilesystem();
 	void DetectGameVersion();
 	void MoveVirtualMouseViaJoystick();
-	void RevealIdleCursor(MxBool p_stickDriven);
+	// Who is bringing an idle-hidden cursor back: a press leaves it with whatever last moved it.
+	enum CursorMover {
+		e_cursorPressed,
+		e_cursorMovedByMouse,
+	};
+	void RevealIdleCursor(CursorMover p_mover = e_cursorPressed);
 	void DetectDoubleTap(const SDL_TouchFingerEvent& p_event);
 
 private:
