@@ -11,6 +11,7 @@ import android.os.Build;
 import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.View;
+import android.widget.Button;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
@@ -36,8 +37,8 @@ final class PauseMenuView extends FrameLayout {
     private final float density;
     private final View first;
 
-    /** onNegative is unused when the text has no negative choice. */
-    PauseMenuView(Context context, QuitPromptText text, Runnable onPositive, Runnable onNegative, Runnable onNeutral) {
+    /** onResume is unused when the text offers no Resume. */
+    PauseMenuView(Context context, QuitPromptText text, Runnable onQuit, Runnable onResume, Runnable onSettings) {
         super(context);
         density = context.getResources().getDisplayMetrics().density;
         setBackgroundColor(SCRIM);
@@ -68,9 +69,9 @@ final class PauseMenuView extends FrameLayout {
         messageParams.bottomMargin = dp(16);
         panel.addView(message, messageParams);
 
-        View resume = text.negative != null ? addButton(panel, text.negative, onNegative) : null;
-        View settings = addButton(panel, text.neutral, onNeutral);
-        addButton(panel, text.positive, onPositive);
+        View resume = text.resume != null ? addButton(panel, text.resume, onResume) : null;
+        View settings = addButton(panel, text.settings, onSettings);
+        addButton(panel, text.quit, onQuit);
         first = resume != null ? resume : settings;
 
         // Scrolls only on a screen too short for the whole panel, such as a phone held sideways
@@ -97,15 +98,16 @@ final class PauseMenuView extends FrameLayout {
     }
 
     private View addButton(LinearLayout panel, String label, Runnable action) {
-        TextView button = new TextView(getContext());
+        Button button = new Button(getContext());
         button.setText(label);
+        button.setAllCaps(false);
+        // The fill already shows focus and presses; the platform's raised shadow would not match it.
+        button.setStateListAnimator(null);
         button.setGravity(Gravity.CENTER);
         button.setTextSize(TypedValue.COMPLEX_UNIT_SP, 18);
         button.setTypeface(Typeface.DEFAULT_BOLD);
         button.setMinHeight(dp(52));
-        button.setFocusable(true);
         if (Build.VERSION.SDK_INT >= 26) button.setDefaultFocusHighlightEnabled(false);
-        button.setClickable(true);
         button.setOnClickListener(view -> action.run());
 
         StateListDrawable background = new StateListDrawable();
