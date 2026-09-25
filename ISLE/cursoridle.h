@@ -17,13 +17,20 @@ class CursorIdle {
 public:
 	static constexpr uint64_t c_hideDelay = 2000000000ULL;
 
-	// The player moved or pressed the cursor, with a stick or gamepad when p_stickDriven, otherwise
-	// with a mouse. Returns whether it had been hidden; bringing it back is the caller's to do.
-	bool Reveal(uint64_t p_now, bool p_stickDriven)
+	// The player moved the cursor, with a stick or gamepad when p_stickDriven, otherwise with a mouse.
+	// Returns whether it had been hidden; bringing it back is the caller's to do.
+	bool Moved(uint64_t p_now, bool p_stickDriven)
+	{
+		m_stickDriven = p_stickDriven;
+		return Pressed(p_now);
+	}
+
+	// The player pressed a button without moving the cursor, which leaves it with whatever last moved
+	// it. Returns whether it had been hidden, like Moved.
+	bool Pressed(uint64_t p_now)
 	{
 		bool wasHidden = m_hidden;
 		m_hidden = false;
-		m_stickDriven = p_stickDriven;
 		m_lastActive = p_now;
 		return wasHidden;
 	}

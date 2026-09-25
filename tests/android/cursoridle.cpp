@@ -17,7 +17,7 @@ int main()
 	// A cursor the stick just moved stays up until the delay has passed, then hides exactly once.
 	{
 		CursorIdle idle;
-		idle.Reveal(10 * second, true);
+		idle.Moved(10 * second, true);
 		assert(!idle.Tick(10 * second + CursorIdle::c_hideDelay - 1, false));
 		assert(!idle.IsHidden());
 		assert(idle.Tick(10 * second + CursorIdle::c_hideDelay, false));
@@ -29,18 +29,18 @@ int main()
 	// release.
 	{
 		CursorIdle idle;
-		idle.Reveal(0, true);
+		idle.Moved(0, true);
 		assert(!idle.Tick(5 * second, true));
 		assert(!idle.Tick(5 * second + CursorIdle::c_hideDelay - 1, false));
 		assert(idle.Tick(5 * second + CursorIdle::c_hideDelay, false));
 	}
 
-	// Revealing reports whether the cursor had been hidden, and restarts the delay.
+	// Moving reports whether the cursor had been hidden, and restarts the delay.
 	{
 		CursorIdle idle;
-		assert(!idle.Reveal(0, true));
+		assert(!idle.Moved(0, true));
 		assert(idle.Tick(CursorIdle::c_hideDelay, false));
-		assert(idle.Reveal(3 * second, true));
+		assert(idle.Moved(3 * second, true));
 		assert(!idle.IsHidden());
 		assert(!idle.Tick(3 * second + CursorIdle::c_hideDelay - 1, false));
 		assert(idle.Tick(3 * second + CursorIdle::c_hideDelay, false));
@@ -50,12 +50,28 @@ int main()
 	// again.
 	{
 		CursorIdle idle;
-		idle.Reveal(0, true);
+		idle.Moved(0, true);
 		assert(idle.Tick(CursorIdle::c_hideDelay, false));
-		assert(idle.Reveal(5 * second, false));
+		assert(idle.Moved(5 * second, false));
 		assert(!idle.Tick(60 * second, false));
-		idle.Reveal(70 * second, true);
+		idle.Moved(70 * second, true);
 		assert(idle.Tick(70 * second + CursorIdle::c_hideDelay, false));
+	}
+
+	// A press brings a hidden cursor back and restarts the delay, but leaves it with whatever last
+	// moved it: a stick-moved cursor hides again, a mouse-moved one never starts.
+	{
+		CursorIdle idle;
+		idle.Moved(0, true);
+		assert(idle.Tick(CursorIdle::c_hideDelay, false));
+		assert(idle.Pressed(3 * second));
+		assert(!idle.Tick(3 * second + CursorIdle::c_hideDelay - 1, false));
+		assert(idle.Tick(3 * second + CursorIdle::c_hideDelay, false));
+
+		CursorIdle mouse;
+		mouse.Moved(0, false);
+		assert(!mouse.Pressed(second));
+		assert(!mouse.Tick(60 * second, false));
 	}
 
 	return 0;
