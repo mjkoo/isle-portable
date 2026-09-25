@@ -16,6 +16,9 @@ On Xbox and PlayStation layouts the bottom face button is labelled A (Cross); on
 layouts the right one is. Start opens the same menu as Android Back and the touch menu button,
 so a controller alone can reach Settings. Start does nothing until the game has started.
 
+In the menu the D-pad moves between the choices, starting at Resume. A chooses the highlighted
+one, and B or Start resumes. Releasing the button that opened the menu does nothing.
+
 ## Changing buttons
 
 Open the game menu, choose Settings, then the Controller group. Each row is a physical button;

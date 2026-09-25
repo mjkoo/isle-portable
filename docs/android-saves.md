@@ -17,10 +17,12 @@ bytes; it cannot guarantee that the engine serialized every recent change. A
 detected save failure is reported before export. Success means the document was
 written and closed, not that a cloud provider finished uploading it.
 
-The menu message reports the save attempt made when the menu opens. Its action is
-**Save and quit** after an apparently successful save attempt, **Quit** when there
-is nothing to save, or **Quit anyway** after a detected failure. Resume and Settings
-remain available in all three cases. Startup errors instead offer Settings and Close.
+The menu message reports the save attempt made when the menu opens. After an
+apparently successful attempt it names the signed-in player. Before anyone has signed
+in at the Information Center it says that nothing is saved yet, since the game writes
+no save until then. After a detected failure it says the game could not be saved, and
+**Quit** becomes **Quit anyway**. Resume and Settings remain available in all three
+cases. Startup errors instead offer Settings and Close.
 
 Android background events can trigger more save attempts while the prompt is open,
 including when opening Settings. Shutdown attempts another save and does not check
