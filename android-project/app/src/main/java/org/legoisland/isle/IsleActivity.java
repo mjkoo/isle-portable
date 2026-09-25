@@ -298,7 +298,7 @@ public class IsleActivity extends SDLActivity {
     }
 
     public void showStartupSettings(String error) {
-        QuitPrompt prompt = new QuitPrompt(this, QuitPromptText.SAVE_NOTHING_TO_SAVE, error);
+        QuitPrompt prompt = QuitPrompt.forStartupError(this, error);
         mQuitPrompt = prompt;
         prompt.show();
     }
@@ -386,13 +386,13 @@ public class IsleActivity extends SDLActivity {
 
     /**
      * Posts the confirmation the back button raises, told what the save that precedes it did as
-     * one of QuitPromptText's SAVE_ constants. Returns immediately; the caller polls
-     * getQuitPromptStatus().
+     * one of QuitPromptText's SAVE_ constants, and whose progress it was for, null when no one
+     * has signed in. Returns immediately; the caller polls getQuitPromptStatus().
      *
      * Called from native code (see ISLE/android/quitprompt.cpp); kept by proguard-rules.pro.
      */
-    public void showQuitPrompt(int saveResult) {
-        QuitPrompt prompt = new QuitPrompt(this, saveResult);
+    public void showQuitPrompt(int saveResult, String playerName) {
+        QuitPrompt prompt = new QuitPrompt(this, saveResult, playerName);
         // Published before hiding the button, so a layout read finishing in between sees the
         // pending prompt and does not bring the button back under it.
         mQuitPrompt = prompt;

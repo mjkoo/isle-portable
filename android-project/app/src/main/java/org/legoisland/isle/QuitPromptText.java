@@ -13,7 +13,12 @@ final class QuitPromptText {
     final String neutral = "Settings";
     final String positive;
 
-    QuitPromptText(int saveResult, String startupError) {
+    /**
+     * playerName is whose progress the save was for, or null when no one has signed in. The game
+     * writes nothing until someone has, and then loads their progress only when their name is
+     * picked in the registration book, so the menu says which of the two applies.
+     */
+    QuitPromptText(int saveResult, String playerName, String startupError) {
         title = startupError == null ? "LEGO Island" : "LEGO Island could not start";
         negative = startupError == null ? "Resume" : null;
         if (startupError != null) {
@@ -24,16 +29,19 @@ final class QuitPromptText {
 
         switch (saveResult) {
         case SAVE_ATTEMPTED:
-            // The save API does not report every write failure, so do not promise persistence.
-            message = "Game paused.";
-            positive = "Save and quit";
+            // The save API does not report every write failure, but it did not report one here,
+            // which is as much as any save the game makes can say.
+            message = playerName == null || playerName.isEmpty()
+                ? "Game paused."
+                : "Game paused. Progress for " + playerName + " is saved.";
+            positive = "Quit";
             break;
         case SAVE_FAILED:
             message = "Your game could not be saved.";
             positive = "Quit anyway";
             break;
         default:
-            message = "There is no saved game yet.";
+            message = "Game paused. Nothing is saved until you sign in at the Information Center.";
             positive = "Quit";
             break;
         }

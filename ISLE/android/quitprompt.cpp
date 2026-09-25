@@ -12,14 +12,18 @@ enum QuitPromptStatus {
 	e_quitPromptQuit = 1,
 };
 
-static bool ShowQuitPrompt(QuitPromptSaveResult p_saveResult)
+static bool ShowQuitPrompt(QuitPromptSaveResult p_saveResult, const char* p_playerName)
 {
 	Android_ActivityCall call;
-	if (!Android_BeginActivityCall(&call, "showQuitPrompt", "(I)V")) {
+	if (!Android_BeginActivityCall(&call, "showQuitPrompt", "(ILjava/lang/String;)V")) {
 		return false;
 	}
 
-	call.m_env->CallVoidMethod(call.m_activity, call.m_method, static_cast<jint>(p_saveResult));
+	jstring name = p_playerName ? call.m_env->NewStringUTF(p_playerName) : nullptr;
+	call.m_env->CallVoidMethod(call.m_activity, call.m_method, static_cast<jint>(p_saveResult), name);
+	if (name) {
+		call.m_env->DeleteLocalRef(name);
+	}
 	return Android_EndActivityCall(&call);
 }
 
@@ -38,9 +42,9 @@ static QuitPromptStatus GetQuitPromptStatus()
 	return static_cast<QuitPromptStatus>(status);
 }
 
-bool Android_ConfirmQuit(bool (*p_abandoned)(), QuitPromptSaveResult p_saveResult)
+bool Android_ConfirmQuit(bool (*p_abandoned)(), QuitPromptSaveResult p_saveResult, const char* p_playerName)
 {
-	if (!ShowQuitPrompt(p_saveResult)) {
+	if (!ShowQuitPrompt(p_saveResult, p_playerName)) {
 		// No prompt means no answer, and quitting a game the player did not agree to quit is
 		// the worse of the two failures.
 		return false;
