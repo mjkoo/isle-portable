@@ -34,7 +34,7 @@ final class TouchLayoutEditor extends View {
 
     static final int RESET = 0, DONE = 1;
     private static final String[] TOOL_LABELS = {"Reset", "Done"};
-    private static final int ACCENT = 0xFF4FC3F7;
+    static final int ACCENT = 0xFF4FC3F7;
 
     private final Listener listener;
     private final float density;
