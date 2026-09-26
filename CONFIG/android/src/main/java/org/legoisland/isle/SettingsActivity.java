@@ -584,7 +584,7 @@ public final class SettingsActivity extends AppCompatActivity {
             if (result == SettingsModel.State.SAVED) {
                 setResult(RESULT_OK);
                 Toast.makeText(this, DeviceSupport.hasTouchControls(this)
-                    ? "Settings saved. Touch scheme, Show touch controls, button size, opacity and controller buttons apply when you resume. Other changes apply on the next game launch."
+                    ? "Settings saved. Touch scheme, Show touch controls, Show menu button, button size, opacity and controller buttons apply when you resume. Other changes apply on the next game launch."
                     : "Settings saved. Controller buttons apply when you resume. Other changes apply on the next game launch.",
                     Toast.LENGTH_LONG).show();
                 finish();
@@ -692,7 +692,7 @@ public final class SettingsActivity extends AppCompatActivity {
             setPreferenceScreen(screen);
             Preference notice = new Preference(requireContext());
             notice.setTitle("Save settings, then resume");
-            notice.setSummary((touch ? "Touch scheme, Show touch controls, Touch button size, Touch control opacity and controller buttons"
+            notice.setSummary((touch ? "Touch scheme, Show touch controls, Show menu button, Touch button size, Touch control opacity and controller buttons"
                 : "Controller buttons") + " apply when you resume the game. Other changes apply on the next game launch. Cancel leaves your settings unchanged.");
             notice.setSelectable(false);
             notice.setIconSpaceReserved(false);
