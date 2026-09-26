@@ -148,7 +148,7 @@ public final class TouchLayoutEditorTest {
                 InstrumentationRegistry.getInstrumentation().getTargetContext(), R.style.AppTheme);
             // Fractional icon sizes and partial opacities, where a copy of the look would drift.
             for (String[] appearance : new String[][] {{"0.75", "0.25"}, {"1.25", "0.5"}, {"2", "1"}}) {
-                TouchLayout layout = TouchLayout.parse(new String[] {appearance[0], appearance[1], null, null, null});
+                TouchLayout layout = TouchLayout.parse(new String[] {appearance[0], appearance[1], null, null, null, null});
                 TouchActionButton escape = new TouchActionButton(context, TouchControlsLayer.LABELS[TouchLayout.ESCAPE],
                     generation -> { });
                 TouchActionButton space = new TouchActionButton(context, TouchControlsLayer.LABELS[TouchLayout.SPACE],
@@ -392,7 +392,7 @@ public final class TouchLayoutEditorTest {
             Rect menu = editor.controlBounds(TouchLayout.MENU);
             send(MotionEvent.ACTION_DOWN, menu.exactCenterX(), menu.exactCenterY());
             send(MotionEvent.ACTION_MOVE, 500, 800);
-            editor.setAppearance(TouchLayout.parse(new String[] {"1.5", "0.5", null, null, null}));
+            editor.setAppearance(TouchLayout.parse(new String[] {"1.5", "0.5", null, null, null, null}));
             send(MotionEvent.ACTION_UP, 500, 800);
             assertNull(editor.draft().positionValue(TouchLayout.MENU));
             assertEquals("the reloaded size applies", 1.5f, editor.draft().scale, 0);
@@ -415,7 +415,7 @@ public final class TouchLayoutEditorTest {
         onMain(() -> {
             TouchLayoutEditor large = new TouchLayoutEditor(new ContextThemeWrapper(
                 InstrumentationRegistry.getInstrumentation().getTargetContext(), android.R.style.Theme),
-                TouchLayout.parse(new String[] {"2", null, null, null, null}), draft -> { });
+                TouchLayout.parse(new String[] {"2", null, null, null, null, null}), draft -> { });
             for (int[] size : new int[][] {{2400, 1080}, {1920, 1080}, {1440, 1080}, {1280, 720}, {960, 540}}) {
                 large.layout(0, 0, size[0], size[1]);
                 large.setSafeArea(0, 0, size[0], size[1]);

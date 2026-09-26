@@ -169,7 +169,7 @@ public final class TouchControlsLayerTest {
             RelativeLayout host = new RelativeLayout(context);
             View menu = new View(context);
             TouchControlsLayer layer = new TouchControlsLayer(host, menu, new View(context), new View(context));
-            layer.setTouchLayout(TouchLayout.parse(new String[] {"2", null, null, null, null}));
+            layer.setTouchLayout(TouchLayout.parse(new String[] {"2", null, null, null, null, null}));
             place(host, layer, WIDTH - 100, 0, 0, HEIGHT - 100);
             int size = (int) (48 * density * 2 + 0.5f);
             assertEquals("the button keeps its width", size, menu.getWidth());
@@ -186,7 +186,7 @@ public final class TouchControlsLayerTest {
             TouchActionButton escape = new TouchActionButton(context, "Esc", generation -> { });
             TouchActionButton space = new TouchActionButton(context, "Space", generation -> { });
             TouchControlsLayer layer = new TouchControlsLayer(host, menu, escape, space);
-            layer.setTouchLayout(TouchLayout.parse(new String[] {"2", "0.25", null, null, null}));
+            layer.setTouchLayout(TouchLayout.parse(new String[] {"2", "0.25", null, null, null, null}));
             place(host, layer);
             int size = (int) (48 * density * 2 + 0.5f);
             assertEquals("menu width doubles", size, menu.getWidth());
@@ -222,7 +222,7 @@ public final class TouchControlsLayerTest {
             menu.getImageMatrix().getValues(actual);
             assertArrayEquals("the default icon placement is unchanged", expected, actual, 0);
 
-            layer.setTouchLayout(TouchLayout.parse(new String[] {"2", null, null, null, null}));
+            layer.setTouchLayout(TouchLayout.parse(new String[] {"2", null, null, null, null, null}));
             place(host, layer);
             menu.getImageMatrix().getValues(actual);
             assertEquals("the icon doubles with the button", 2, actual[android.graphics.Matrix.MSCALE_X], 0);
