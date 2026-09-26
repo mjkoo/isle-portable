@@ -354,6 +354,12 @@ MxBool LegoInputManager::ProcessOneEvent(LegoEventNotificationParam& p_param)
 				Extension<ThirdPersonCameraExt>::Call(TP::IsThirdPersonCameraActive).value_or(FALSE)) {
 				return FALSE;
 			}
+			// The right button looks around in first person, so it neither clicks nor drives.
+			if ((p_param.GetModifier() & LegoEventNotificationParam::c_rButtonState) &&
+				!(p_param.GetModifier() & LegoEventNotificationParam::c_lButtonState) &&
+				Extension<FirstPersonCameraExt>::Call(FP::IsLookActive).value_or(FALSE)) {
+				return FALSE;
+			}
 
 			processRoi = TRUE;
 
@@ -712,14 +718,15 @@ MxBool LegoInputManager::HandleTouchEvent(SDL_Event* p_event, TouchScheme p_touc
 	if (Extension<ThirdPersonCameraExt>::Call(TP::HandleTouchInput, p_event).value_or(FALSE)) {
 		return FALSE;
 	}
+
+	const SDL_TouchFingerEvent& event = p_event->tfinger;
+	m_touchScheme = p_touchScheme;
+
 	// A finger that looks around is handled here, so it does not also drag the player along.
 	if (Extension<FirstPersonCameraExt>::Call(FP::HandleTouchInput, p_event, p_touchScheme == e_gamepad)
 			.value_or(FALSE)) {
 		return TRUE;
 	}
-
-	const SDL_TouchFingerEvent& event = p_event->tfinger;
-	m_touchScheme = p_touchScheme;
 
 	switch (p_touchScheme) {
 	case e_mouse:

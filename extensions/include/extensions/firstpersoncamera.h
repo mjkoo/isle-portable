@@ -40,6 +40,7 @@ public:
 	static MxBool HandleTouchInput(SDL_Event* p_event, MxBool p_stickScheme);
 	static void CancelPointerInput();
 	static void OnSDLEvent(SDL_Event* p_event);
+	static MxBool IsLookActive();
 
 	// For the app's event loop and gamepad handling, which live outside LEGO1. Each does nothing
 	// while the extension is off.
@@ -66,12 +67,14 @@ constexpr auto HandleNavOverride = &FirstPersonCameraExt::HandleNavOverride;
 constexpr auto HandleTouchInput = &FirstPersonCameraExt::HandleTouchInput;
 constexpr auto CancelPointerInput = &FirstPersonCameraExt::CancelPointerInput;
 constexpr auto HandleSDLEvent = &FirstPersonCameraExt::OnSDLEvent;
+constexpr auto IsLookActive = &FirstPersonCameraExt::IsLookActive;
 #else
 constexpr decltype(&FirstPersonCameraExt::HandleCreate) HandleCreate = nullptr;
 constexpr decltype(&FirstPersonCameraExt::HandleNavOverride) HandleNavOverride = nullptr;
 constexpr decltype(&FirstPersonCameraExt::HandleTouchInput) HandleTouchInput = nullptr;
 constexpr decltype(&FirstPersonCameraExt::CancelPointerInput) CancelPointerInput = nullptr;
 constexpr decltype(&FirstPersonCameraExt::OnSDLEvent) HandleSDLEvent = nullptr;
+constexpr decltype(&FirstPersonCameraExt::IsLookActive) IsLookActive = nullptr;
 #endif
 } // namespace FP
 

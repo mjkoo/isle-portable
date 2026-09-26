@@ -101,6 +101,11 @@ void FirstPersonCameraExt::OnSDLEvent(SDL_Event* p_event)
 	}
 }
 
+MxBool FirstPersonCameraExt::IsLookActive()
+{
+	return s_controller && s_controller->IsActive();
+}
+
 void FirstPersonCameraExt::HandleSDLEvent(SDL_Event* p_event)
 {
 	Extension<FirstPersonCameraExt>::Call(FP::HandleSDLEvent, p_event);

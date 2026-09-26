@@ -32,6 +32,7 @@ public:
 	// Drop every held input without acting on it, as for the pause menu.
 	void CancelInput();
 
+	bool IsActive() const { return m_active; }
 	bool IsLooking() const { return m_active && !m_freeCursor; }
 	void SetFreeCursor(bool p_held);
 	void Recenter() { m_look.Recenter(); }
