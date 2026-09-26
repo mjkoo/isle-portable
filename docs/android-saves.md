@@ -17,10 +17,17 @@ bytes; it cannot guarantee that the engine serialized every recent change. A
 detected save failure is reported before export. Success means the document was
 written and closed, not that a cloud provider finished uploading it.
 
+Every launch starts signed out, as in the original game, whether you quit from the menu
+or Android closed the app in the background. Your progress is loaded when you pick your
+name in the registration book at the Information Center; the most recent player is listed
+first. Your act, character and built vehicles come back, but not your place on the island:
+in Act 1 you carry on from the Information Center.
+
 The menu message reports the save attempt made when the menu opens. After an
 apparently successful attempt it names the signed-in player. Before anyone has signed
-in at the Information Center it says that nothing is saved yet, since the game writes
-no save until then. After a detected failure it says the game could not be saved, and
+in, it names the last player and says to pick that name in the registration book, or, if
+no one has ever signed in, says that nothing is saved yet, since the game writes no save
+until then. After a detected failure it says the game could not be saved, and
 **Quit** becomes **Quit anyway**. Resume and Settings remain available in all three
 cases. Startup errors instead offer Settings and Close.
 

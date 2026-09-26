@@ -607,11 +607,18 @@ static SDL_AppResult HandleBackButton()
 	// is cheap and idempotent, so paying it on a cancelled press is the better trade.
 	QuitPromptSaveResult saveResult;
 	char playerName[sizeOfArray(LegoGameState::Username::m_letters) + 1];
-	const char* savedFor = nullptr;
+	const char* menuPlayer = nullptr;
 	if (!GameStateIsSaveable()) {
 		// Nothing was written, and saying so is not the same as reporting a failure.
 		SaveGameStateForLifecycleEvent("back button");
 		saveResult = e_quitPromptNothingToSave;
+		// A returning player is not signed in until they pick their name again, and the first
+		// slot is whoever played last, the name the registration book lists first.
+		if (GameState() && GameState()->m_playerCount > 0) {
+			const LegoGameState::Username& player = GameState()->m_players[0];
+			FormatPlayerName(player.m_letters, sizeOfArray(player.m_letters), playerName);
+			menuPlayer = playerName;
+		}
 	}
 	else {
 		// Save does not propagate every serialization or close failure, so success only
@@ -621,14 +628,14 @@ static SDL_AppResult HandleBackButton()
 		// first slot, so while anyone is signed in the first slot is who the save was for.
 		const LegoGameState::Username& player = GameState()->m_players[0];
 		FormatPlayerName(player.m_letters, sizeOfArray(player.m_letters), playerName);
-		savedFor = playerName;
+		menuPlayer = playerName;
 	}
 
 	g_confirmingQuit = true;
 	CancelInputForQuitPrompt();
 	// Capture before pumping or opening Settings: lifecycle saves may run after either.
 	Android_CaptureSaveExport(g_isle->GetSavePath(), saveResult);
-	bool quit = Android_ConfirmQuit(GameAbandoned, saveResult, savedFor);
+	bool quit = Android_ConfirmQuit(GameAbandoned, saveResult, menuPlayer);
 	Android_ClearSaveExport();
 	// SDL may already have removed input into a dispatch batch before entering this callback.
 	// Flushing cannot reach that batch; reject its old events when dispatch resumes as well.

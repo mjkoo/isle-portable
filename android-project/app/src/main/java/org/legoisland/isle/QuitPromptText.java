@@ -15,9 +15,10 @@ final class QuitPromptText {
     final String quit;
 
     /**
-     * playerName is whose progress the save was for, or null when no one has signed in. The game
-     * writes nothing until someone has, and then loads their progress only when their name is
-     * picked in the registration book, so the menu says which of the two applies.
+     * playerName is whose progress the save was for. When no one has signed in, it is whoever
+     * played last, or null when no one ever has. The game writes nothing until someone signs in,
+     * and loads a returning player's progress only when their name is picked in the registration
+     * book, so the menu says which applies.
      */
     QuitPromptText(int saveResult, String playerName, String startupError) {
         title = startupError == null ? "LEGO Island" : "LEGO Island could not start";
@@ -42,7 +43,12 @@ final class QuitPromptText {
             quit = "Quit anyway";
             break;
         default:
-            message = "Game paused. Nothing is saved until you sign in at the Information Center.";
+            // Every launch starts signed out, so a returning player sees this too. Their earlier
+            // progress is not lost, and saying nothing is saved would read as if it were.
+            message = playerName == null || playerName.isEmpty()
+                ? "Game paused. Nothing is saved until you sign in at the Information Center."
+                : "Game paused. To continue as " + playerName
+                    + ", pick that name in the registration book at the Information Center.";
             quit = "Quit";
             break;
         }
