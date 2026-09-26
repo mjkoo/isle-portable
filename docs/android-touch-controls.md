@@ -9,13 +9,15 @@ then Resume to apply these options to the current game. They also persist for th
 launch. Other settings still require quitting and relaunching. Cancel leaves the
 settings unchanged. Reset these settings followed by Save restores Direct touch,
 visible controls and menu button, full size and full opacity; button positions are
-kept. Changing schemes cancels held gestures;
-touch again after resuming. A failed save leaves the current controls unchanged and
-can be retried.
+kept. Changing schemes cancels held gestures; touch again after resuming. A failed save
+leaves the current controls unchanged and can be retried.
 
 On a TV none of this is shown: no touch controls or menu button are drawn, and Settings
 leaves out the touch rows, even where the TV reports a touchscreen. The values already in
 `isle.ini` are kept.
+
+With **Direct touch**, the game sees your finger as its mouse: a tap clicks where it
+lands, and dragging steers as dragging the mouse does. No cursor is drawn.
 
 With **Arrow-key regions**, the upper three quarters of the game image move forward.
 The bottom quarter is split evenly into left, backward and right. Faint lines show
@@ -39,9 +41,9 @@ the game. Direct touch and Disabled have no movement hints. Physical mouse,
 keyboard or controller use hides the hints; touchscreen use restores them. Menus,
 Settings and backgrounding hide them as well. The game menu button stays separate.
 
-The **Space** and **Esc** buttons, beside the menu button by default, send the
-corresponding game keys. All three buttons stay clear of the navigation bar and
-display cutouts.
+The **Space** and **Esc** buttons, beside the menu button by default or in its corner
+when the menu button is off, send the corresponding game keys. All three buttons stay
+clear of the navigation bar and display cutouts.
 Space can interrupt animations or end free navigation; Esc can return to the
 infocenter. Their effect depends on the current scene. Esc does not open the Android
 menu. The existing double-tap gesture still sends Space.
