@@ -22,29 +22,34 @@ final class ExtensionSettings {
     static final String SI_LOADER = "extensions:si loader";
     static final String THIRD_PERSON_CAMERA = "extensions:third person camera";
     static final String MULTIPLAYER = "extensions:multiplayer";
+    static final String FIRST_PERSON_CAMERA = "extensions:first person camera";
 
     static final String TEXTURE_PATH = "texture loader:texture path";
     static final String SI_PATH = "si loader:si path";
     static final String RELAY_URL = "multiplayer:relay url";
     static final String ROOM = "multiplayer:room";
     static final String ACTOR = "multiplayer:actor";
+    static final String INVERT_LOOK = "first person camera:invert look";
 
     /** The folders the extensions read when no others are set. */
     static final String DEFAULT_TEXTURE_PATH = "/textures";
     static final String DEFAULT_SI_PATH = "/si";
 
     /** The sections Settings owns. A key in one of them is an extension setting. */
-    private static final String[] SECTIONS = {"extensions:", "texture loader:", "si loader:", "multiplayer:"};
+    private static final String[] SECTIONS = {
+        "extensions:", "texture loader:", "si loader:", "multiplayer:", "first person camera:"
+    };
 
     static final String[] KEYS = {
         TEXTURE_LOADER, TEXTURE_PATH, SI_LOADER, SI_PATH,
-        THIRD_PERSON_CAMERA, MULTIPLAYER, RELAY_URL, ROOM, ACTOR
+        THIRD_PERSON_CAMERA, FIRST_PERSON_CAMERA, INVERT_LOOK, MULTIPLAYER, RELAY_URL, ROOM, ACTOR
     };
 
     static final String INCOMPLETE_MULTIPLAYER = "Multiplayer needs a relay server and a room";
     static final String INCOMPLETE_MULTIPLAYER_DETAIL =
             "Without both, the game starts but never joins anyone.";
     static final String FORCED_THIRD_PERSON = "Multiplayer turns this on whatever it is set to here.";
+    static final String OVERRIDDEN_FIRST_PERSON = "Third person has the camera while it or multiplayer is on.";
 
     /** A sanity limit on the picker, so an unexpected tree cannot fill the list forever. */
     static final int MAX_FOLDERS = 256;
@@ -147,6 +152,12 @@ final class ExtensionSettings {
             return false;
         }
         return isBlank(draft.get(RELAY_URL)) || isBlank(draft.get(ROOM));
+    }
+
+    /** Whether first person is on but will not run, because third person takes the camera. */
+    static boolean firstPersonOverridden(Map<String, String> draft) {
+        return "true".equals(draft.get(FIRST_PERSON_CAMERA))
+            && ("true".equals(draft.get(THIRD_PERSON_CAMERA)) || "true".equals(draft.get(MULTIPLAYER)));
     }
 
     private static boolean isBlank(String value) {

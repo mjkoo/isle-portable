@@ -42,7 +42,7 @@ public final class ControllerBindingsTest {
         assert !ControllerBindings.isControllerKey("isle:touch scheme");
         assert ControllerBindings.ACTION_LABELS.length == ControllerBindings.ACTION_VALUES.length;
         assert Arrays.asList(ControllerBindings.ACTION_VALUES)
-            .containsAll(Arrays.asList("click", "space", "escape", "pause", "menu", "none"));
+            .containsAll(Arrays.asList("click", "space", "escape", "pause", "menu", "free cursor", "recenter", "none"));
         assert ControllerBindings.CONFIRM_LABELS.length == ControllerBindings.CONFIRM_VALUES.length;
 
         // Defaults as the game resolves them on Android.
@@ -58,6 +58,10 @@ public final class ControllerBindingsTest {
         assert ControllerBindings.defaultLabel("gamepad:start", null).equals("Game default (Open menu)");
         assert ControllerBindings.defaultLabel("gamepad:back", null).equals("Game default (Esc)");
         assert ControllerBindings.defaultLabel("gamepad:righttrigger", null).equals("Game default (Click)");
+        assert ControllerBindings.defaultLabel("gamepad:lefttrigger", null)
+            .equals("Game default (Free cursor (first person))");
+        assert ControllerBindings.defaultLabel("gamepad:rightstick", null)
+            .equals("Game default (Level view (first person))");
         assert ControllerBindings.defaultLabel("gamepad:north", null).equals("Game default (Nothing)");
         assert ControllerBindings.defaultLabel(ControllerBindings.CONFIRM, null)
             .equals("Game default (Button labelled A)");

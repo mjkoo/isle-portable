@@ -21,8 +21,13 @@ final class ControllerBindings {
         "Left shoulder", "Right shoulder", "Left trigger", "Right trigger",
         "Left stick click", "Right stick click", "Back / Select", "Start", "Guide / Home"
     };
-    static final String[] ACTION_VALUES = {"click", "space", "escape", "pause", "menu", "none"};
-    static final String[] ACTION_LABELS = {"Click", "Space", "Esc", "Pause", "Open menu", "Nothing"};
+    static final String[] ACTION_VALUES = {
+        "click", "space", "escape", "pause", "menu", "free cursor", "recenter", "none"
+    };
+    static final String[] ACTION_LABELS = {
+        "Click", "Space", "Esc", "Pause", "Open menu", "Free cursor (first person)", "Level view (first person)",
+        "Nothing"
+    };
     static final String[] CONFIRM_VALUES = {"label", "south", "east"};
     static final String[] CONFIRM_LABELS = {"Button labelled A", "Bottom face button", "Right face button"};
 
@@ -55,6 +60,10 @@ final class ControllerBindings {
             }
             case "gamepad:righttrigger":
                 return "Click";
+            case "gamepad:lefttrigger":
+                return "Free cursor (first person)";
+            case "gamepad:rightstick":
+                return "Level view (first person)";
             case "gamepad:back":
                 return "Esc";
             case "gamepad:start":

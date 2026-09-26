@@ -3,6 +3,7 @@
 #include "isleapp.h"
 
 #include "3dmanager/lego3dmanager.h"
+#include "crosshair.h"
 #include "cursoridle.h"
 #include "decomp.h"
 #include "gamepadbindings.h"
@@ -176,6 +177,8 @@ static CursorIdle g_cursorIdle;
 // which reads that to choose its own cursors, never sees one go missing.
 static const unsigned char g_blankCursorBits[1] = {0};
 static const CursorBitmap g_blankCursor = {1, 1, g_blankCursorBits, g_blankCursorBits};
+// While the first-person camera looks, a gamepad's cursor waits at the center as a crosshair.
+static bool g_crosshairShown = false;
 
 // STRING: ISLE 0x4101dc
 #define WINDOW_TITLE "LEGO®"
@@ -971,6 +974,14 @@ static void HandleGamepadAction(GamepadBindings::Result p_result)
 #ifdef ANDROID
 	case GamepadBindings::e_menu:
 		Android_RequestMenu();
+		break;
+#endif
+#ifdef EXTENSIONS
+	case GamepadBindings::e_freeCursor:
+		Extensions::FirstPersonCameraExt::SetFreeCursor(p_result.m_pressed);
+		break;
+	case GamepadBindings::e_recenter:
+		Extensions::FirstPersonCameraExt::Recenter();
 		break;
 #endif
 	default:
@@ -2159,8 +2170,9 @@ void IsleApp::SetupCursor(Cursor p_cursor)
 	}
 
 	if (g_isle->GetDrawCursor()) {
-		// A cursor hidden for being idle picks up the new shape when it is next revealed.
-		if (!g_cursorIdle.IsHidden()) {
+		// A cursor hidden for being idle, or standing in as the crosshair, picks up the new shape
+		// when it is next shown.
+		if (!g_cursorIdle.IsHidden() && !g_crosshairShown) {
 			VideoManager()->SetCursorBitmap(m_cursorCurrentBitmap);
 		}
 	}
@@ -2405,6 +2417,21 @@ void IsleApp::MoveVirtualMouseViaJoystick()
 	}
 #endif
 
+#ifdef EXTENSIONS
+	if (Extensions::FirstPersonCameraExt::IsLooking()) {
+		AimAtCenter(g_lastJoystickMouseX != 0 || g_lastJoystickMouseY != 0 || dpadX != 0 || dpadY != 0);
+		return;
+	}
+	if (g_crosshairShown) {
+		// Looking has stopped or the free cursor is held: the cursor carries on from the center.
+		g_crosshairShown = false;
+		if (m_drawCursor && VideoManager()) {
+			VideoManager()->SetCursorBitmap(m_cursorCurrentBitmap);
+			VideoManager()->MoveCursor(Min((MxS32) g_lastMouseX, 639), Min((MxS32) g_lastMouseY, 479));
+		}
+	}
+#endif
+
 	// Use joystick axis if non-zero, else fall back to dpad
 	float moveX = ((g_lastJoystickMouseX != 0) ? g_lastJoystickMouseX : dpadX) * frames;
 	float moveY = ((g_lastJoystickMouseY != 0) ? g_lastJoystickMouseY : dpadY) * frames;
@@ -2446,11 +2473,49 @@ void IsleApp::MoveVirtualMouseViaJoystick()
 	}
 }
 
+// Clicks from a gamepad land at the center of the view, where the crosshair is. The sticks and
+// D-pad look around instead of moving the cursor, but still mark the gamepad as the pointer. A
+// mouse or a finger keeps pointing wherever it is.
+void IsleApp::AimAtCenter(bool p_padUsed)
+{
+	if (p_padUsed && !m_drawCursor) {
+		SDL_HideCursor();
+		m_drawCursor = TRUE;
+	}
+
+	if (!m_drawCursor) {
+		g_crosshairShown = false;
+		return;
+	}
+
+	float centerX = g_targetWidth / 2.0f;
+	float centerY = g_targetHeight / 2.0f;
+	if (g_lastMouseX != centerX || g_lastMouseY != centerY) {
+		g_lastMouseX = centerX;
+		g_lastMouseY = centerY;
+		if (InputManager()) {
+			InputManager()->QueueEvent(
+				c_notificationMouseMove,
+				g_mousedown ? LegoEventNotificationParam::c_lButtonState : 0,
+				g_lastMouseX,
+				g_lastMouseY,
+				0
+			);
+		}
+	}
+
+	if (!g_crosshairShown && VideoManager()) {
+		g_crosshairShown = true;
+		VideoManager()->SetCursorBitmap(&crosshair_cursor);
+		VideoManager()->MoveCursor((MxS32) centerX - c_crosshairCenter, (MxS32) centerY - c_crosshairCenter);
+	}
+}
+
 void IsleApp::RevealIdleCursor(CursorMover p_mover)
 {
 	Uint64 now = SDL_GetTicksNS();
 	bool wasHidden = p_mover == e_cursorPressed ? g_cursorIdle.Pressed(now) : g_cursorIdle.Moved(now, false);
-	if (wasHidden && m_drawCursor && VideoManager()) {
+	if (wasHidden && m_drawCursor && !g_crosshairShown && VideoManager()) {
 		VideoManager()->SetCursorBitmap(m_cursorCurrentBitmap);
 	}
 }

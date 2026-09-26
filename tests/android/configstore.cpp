@@ -185,6 +185,8 @@ int main()
 		{"extensions:si loader", {"true", "false"}},
 		{"extensions:third person camera", {"true", "false"}},
 		{"extensions:multiplayer", {"true", "false"}},
+		{"extensions:first person camera", {"true", "false"}},
+		{"first person camera:invert look", {"true", "false"}},
 		{"isle:wide view angle", {"true", "false"}},
 		// Bytes above 127 are a folder name's business, not the file's: the path is written quoted
 		// and read back whole.

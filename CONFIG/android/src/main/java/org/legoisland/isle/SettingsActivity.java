@@ -144,6 +144,10 @@ public final class SettingsActivity extends AppCompatActivity {
             new String[0], new String[0]));
         controls.add(new Control("Extensions", ExtensionSettings.THIRD_PERSON_CAMERA, "Third person camera",
             BOOL_LABELS, BOOL_VALUES));
+        controls.add(new Control("Extensions", ExtensionSettings.FIRST_PERSON_CAMERA, "First person free look",
+            BOOL_LABELS, BOOL_VALUES));
+        controls.add(new Control("Extensions", ExtensionSettings.INVERT_LOOK, "Invert look",
+            BOOL_LABELS, BOOL_VALUES));
         controls.add(new Control("Extensions", ExtensionSettings.MULTIPLAYER, "Multiplayer",
             BOOL_LABELS, BOOL_VALUES));
         controls.add(new Control("Extensions", ExtensionSettings.RELAY_URL, "Relay server", null, null,
@@ -825,6 +829,14 @@ public final class SettingsActivity extends AppCompatActivity {
                     forced.setIconSpaceReserved(false);
                     category.addPreference(forced);
                 }
+                if (ExtensionSettings.FIRST_PERSON_CAMERA.equals(control.key)) {
+                    Preference overridden = new Preference(requireContext());
+                    overridden.setKey("first-person-overridden");
+                    overridden.setSummary(ExtensionSettings.OVERRIDDEN_FIRST_PERSON);
+                    overridden.setSelectable(false);
+                    overridden.setIconSpaceReserved(false);
+                    category.addPreference(overridden);
+                }
             }
             Preference menuWarning = new Preference(requireContext());
             menuWarning.setKey("controller-menu-warning");
@@ -967,6 +979,8 @@ public final class SettingsActivity extends AppCompatActivity {
             findPreference("multiplayer-warning").setVisible(ExtensionSettings.multiplayerIncomplete(model.draft));
             findPreference("third-person-forced")
                 .setVisible("true".equals(model.draft.get(ExtensionSettings.MULTIPLAYER)));
+            findPreference("first-person-overridden")
+                .setVisible(ExtensionSettings.firstPersonOverridden(model.draft));
             updating = false;
             getPreferenceScreen().setEnabled(model.loaded && idle);
         }
