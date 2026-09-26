@@ -3,6 +3,7 @@
 #include "extensions/common/arearestriction.h"
 #include "legocameracontroller.h"
 #include "legogamestate.h"
+#include "legomain.h"
 #include "legonavcontroller.h"
 #include "legopathactor.h"
 #include "legoworld.h"
@@ -34,7 +35,9 @@ bool Controller::CanLookNow() const
 	situation.m_userDisabled = (actor->GetActorState() & LegoPathActor::c_maxState) == LegoPathActor::c_disabled;
 	situation.m_restrictedArea = Common::IsRestrictedArea(GameState()->m_currentArea);
 	situation.m_helicopter = actor->IsA("Helicopter");
-	situation.m_race = world->IsA("LegoRace");
+	// The island in the acts where the player walks and drives it. Buildings, races and the other
+	// screens are worlds of their own, and Act 3 is flown in the helicopter.
+	situation.m_freeRoamWorld = world->GetWorldId() == LegoOmni::e_act1 || world->GetWorldId() == LegoOmni::e_act2;
 	return CanLook(situation);
 }
 

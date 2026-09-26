@@ -132,7 +132,7 @@ int main()
 
 	// Look runs only while the user actor carries the camera and nothing else claims it.
 	{
-		LookSituation walking = {true, false, false, false, false};
+		LookSituation walking = {true, false, false, false, true};
 		assert(CanLook(walking));
 
 		LookSituation situation = walking;
@@ -148,7 +148,7 @@ int main()
 		situation.m_helicopter = true;
 		assert(!CanLook(situation));
 		situation = walking;
-		situation.m_race = true;
+		situation.m_freeRoamWorld = false;
 		assert(!CanLook(situation));
 	}
 

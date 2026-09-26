@@ -132,13 +132,13 @@ struct LookSituation {
 	bool m_userDisabled;   // a scripted animation has the actor
 	bool m_restrictedArea; // a fixed-camera spot such as the elevator or the observatory
 	bool m_helicopter;     // aims its shots along the camera
-	bool m_race;           // races run their own camera and controls
+	bool m_freeRoamWorld;  // the island itself, not a building, a race or another screen
 };
 
 inline bool CanLook(const LookSituation& p_situation)
 {
 	return p_situation.m_cameraOnUser && !p_situation.m_userDisabled && !p_situation.m_restrictedArea &&
-		   !p_situation.m_helicopter && !p_situation.m_race;
+		   !p_situation.m_helicopter && p_situation.m_freeRoamWorld;
 }
 
 } // namespace FirstPersonCamera
