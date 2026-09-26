@@ -1,13 +1,15 @@
 # Android touch controls
 
 Choose a touch scheme in Settings > Input. Show touch controls is enabled by default
-and can be switched off without disabling touch input. Touch button size scales the
-menu, Space and Esc buttons from 50% to 200%, and Touch control opacity fades the
-buttons and movement hints down to 10%. Save settings, then Resume to apply these
-options to the current game. They also persist for the next launch. Other settings
-still require quitting and relaunching. Cancel leaves the settings unchanged. Reset
-these settings followed by Save restores Direct touch, visible controls, full size
-and full opacity; button positions are kept. Changing schemes cancels held gestures;
+and can be switched off without disabling touch input. Show menu button turns the
+on-screen menu button off; Back, or a controller's Start button, still opens the game
+menu. Touch button size scales the menu, Space and Esc buttons from 50% to 200%, and
+Touch control opacity fades the buttons and movement hints down to 10%. Save settings,
+then Resume to apply these options to the current game. They also persist for the next
+launch. Other settings still require quitting and relaunching. Cancel leaves the
+settings unchanged. Reset these settings followed by Save restores Direct touch,
+visible controls and menu button, full size and full opacity; button positions are
+kept. Changing schemes cancels held gestures;
 touch again after resuming. A failed save leaves the current controls unchanged and
 can be retried.
 

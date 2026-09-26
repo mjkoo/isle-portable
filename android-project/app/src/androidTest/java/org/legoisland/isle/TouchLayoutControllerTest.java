@@ -100,7 +100,7 @@ public final class TouchLayoutControllerTest {
     }
 
     private static String[] saved(String scale, String menuPosition) {
-        return new String[] {scale, null, menuPosition, null, null};
+        return new String[] {scale, null, menuPosition, null, null, null};
     }
 
     @Before public void setUp() {

@@ -61,7 +61,7 @@ public final class SettingsActivity extends AppCompatActivity {
     private static final String[] RESTORE_TYPES = {"application/zip", "application/x-zip-compressed", "application/octet-stream"};
     /** Touch rows, hidden where DeviceSupport says there are no touch controls to configure. */
     private static final List<String> TOUCH_KEYS = Arrays.asList("isle:touch scheme", "isle:show touch controls",
-        "isle:touch button scale", "isle:touch control opacity");
+        "isle:show menu button", "isle:touch button scale", "isle:touch control opacity");
 
     /** How a row is edited: a choice, or a typed number or word. */
     private enum Kind { LIST, NUMBER, TEXT }
@@ -106,6 +106,7 @@ public final class SettingsActivity extends AppCompatActivity {
             new String[] {"Direct touch", "Arrow-key regions", "Virtual stick", "Disabled"},
             new String[] {"0", "1", "2", "-1"}),
         new Control("Input", "isle:show touch controls", "Show touch controls", BOOL_LABELS, BOOL_VALUES),
+        new Control("Input", "isle:show menu button", "Show menu button", BOOL_LABELS, BOOL_VALUES),
         new Control("Input", "isle:touch button scale", "Touch button size",
             new String[] {"50%", "75%", "100%", "125%", "150%", "200%"},
             new String[] {"0.5", "0.75", "1", "1.25", "1.5", "2"}),

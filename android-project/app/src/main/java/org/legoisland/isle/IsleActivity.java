@@ -119,7 +119,8 @@ public class IsleActivity extends SDLActivity {
         if (mMenuButton == null || mTouchLayoutController == null) return;
         mMenuButton.removeCallbacks(mMenuButtonTick);
         long now = SystemClock.uptimeMillis();
-        int state = mMenuButtonAllowed ? mMenuButtonPolicy.state(now) : MenuButtonPolicy.HIDDEN;
+        boolean shown = mMenuButtonAllowed && mTouchLayoutController.layout().showMenu;
+        int state = shown ? mMenuButtonPolicy.state(now) : MenuButtonPolicy.HIDDEN;
         if (state == MenuButtonPolicy.HIDDEN) {
             if (mMenuButton.getVisibility() == View.GONE) return;
             mMenuButton.animate().cancel();

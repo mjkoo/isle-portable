@@ -120,11 +120,11 @@ save while the menu is open, and shutdown attempts one more without checking its
 Reopen the menu to retry the reported save; no message guarantees that a file was written.
 See [Android saves](docs/android-saves.md) for save timing and transfers.
 
-Settings exposes touch schemes, touch button size and opacity, cursor sensitivity, haptics,
-WASD, audio, render resolution, available renderers, filtering, graphics quality, controller
-buttons and extensions. Choose **Save**: touch scheme, Show touch controls, button size,
-opacity and controller buttons apply when you resume, and other changes apply after quitting
-and launching the game again.
+Settings exposes touch schemes, the menu button, touch button size and opacity, cursor
+sensitivity, haptics, WASD, audio, render resolution, available renderers, filtering,
+graphics quality, controller buttons and extensions. Choose **Save**: touch scheme, Show
+touch controls, Show menu button, button size, opacity and controller buttons apply when you
+resume, and other changes apply after quitting and launching the game again.
 **Cancel** discards edits. **Reset these settings** restores defaults for these controls when
 saved; it keeps game paths, saves, touch button positions, controller buttons and extension
 configuration. **Input > Edit touch layout** moves the menu,

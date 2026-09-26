@@ -12,7 +12,7 @@ public final class TouchLayoutTest {
     }
 
     private static TouchLayout positions(String menu, String escape, String space) {
-        return TouchLayout.parse(new String[] {null, null, menu, escape, space});
+        return TouchLayout.parse(new String[] {null, null, menu, escape, space, null});
     }
 
     public static void main(String[] args) {
@@ -47,7 +47,7 @@ public final class TouchLayoutTest {
         int[] safe = {100, 40, 2300, 1000};
         float density = 2.625f;
         for (String scale : new String[] {"0.5", "1", "2"}) {
-            TouchLayout layout = TouchLayout.parse(new String[] {scale, null, "1,1", "0,0", "0.5,0"});
+            TouchLayout layout = TouchLayout.parse(new String[] {scale, null, "1,1", "0,0", "0.5,0", null});
             for (int control = 0; control < TouchLayout.COUNT; control++) {
                 int[] box = bounds(layout, control, safe, density);
                 assert box[0] >= safe[0] && box[1] >= safe[1] && box[2] <= safe[2] && box[3] <= safe[3];
@@ -56,7 +56,7 @@ public final class TouchLayoutTest {
             assert corner[2] == safe[2] && corner[3] == safe[3];
             int[] origin = bounds(layout, TouchLayout.ESCAPE, safe, density);
             assert origin[0] == safe[0] && origin[1] == safe[1];
-            TouchLayout defaults = TouchLayout.parse(new String[] {scale, null, null, null, null});
+            TouchLayout defaults = TouchLayout.parse(new String[] {scale, null, null, null, null, null});
             for (int control = 0; control < TouchLayout.COUNT; control++) {
                 int[] box = bounds(defaults, control, safe, density);
                 assert box[0] >= safe[0] && box[1] >= safe[1] && box[2] <= safe[2] && box[3] <= safe[3];
@@ -87,18 +87,18 @@ public final class TouchLayoutTest {
         assert TouchLayout.fraction(-50, 0, 100) == 0 && TouchLayout.fraction(150, 0, 100) == 1;
 
         // Each unusable value falls back on its own.
-        TouchLayout mixed = TouchLayout.parse(new String[] {"3", "abc", "0.5", "0.2000,0.3000", "0.5,0.5,0.5"});
+        TouchLayout mixed = TouchLayout.parse(new String[] {"3", "abc", "0.5", "0.2000,0.3000", "0.5,0.5,0.5", null});
         assert mixed.scale == 1 && mixed.opacity == 1;
         assert mixed.isDefault(TouchLayout.MENU) && mixed.isDefault(TouchLayout.SPACE);
         assert "0.2000,0.3000".equals(mixed.positionValue(TouchLayout.ESCAPE));
         for (String invalid : new String[] {"", ",", "NaN,0", "0,Infinity", "-0.1,0.5", "0.5,1.5", "0.5,"}) {
             assert positions(invalid, null, null).isDefault(TouchLayout.MENU) : invalid;
         }
-        TouchLayout edges = TouchLayout.parse(new String[] {"0.5", "0.1", null, null, null});
+        TouchLayout edges = TouchLayout.parse(new String[] {"0.5", "0.1", null, null, null, null});
         assert edges.scale == 0.5f && edges.opacity == 0.1f;
-        edges = TouchLayout.parse(new String[] {"2", "1", null, null, null});
+        edges = TouchLayout.parse(new String[] {"2", "1", null, null, null, null});
         assert edges.scale == 2 && edges.opacity == 1;
-        edges = TouchLayout.parse(new String[] {"0.49", "0.09", null, null, null});
+        edges = TouchLayout.parse(new String[] {"0.49", "0.09", null, null, null, null});
         assert edges.scale == 1 && edges.opacity == 1;
 
         // Stored positions never depend on the device's decimal separator.
@@ -127,10 +127,20 @@ public final class TouchLayoutTest {
         assert values.size() == 2 && values.get(0) == null && values.get(1) == null;
 
         // A reloaded size and opacity apply without discarding positions being edited.
-        TouchLayout appearance = TouchLayout.parse(new String[] {"1.5", "0.25", null, null, null});
+        TouchLayout appearance = TouchLayout.parse(new String[] {"1.5", "0.25", null, null, null, null});
         TouchLayout merged = draft.withAppearanceOf(appearance);
         assert merged.scale == 1.5f && merged.opacity == 0.25f;
         assert "0.5000,0.5000".equals(merged.positionValue(TouchLayout.ESCAPE));
+        // The menu button hides only for an explicit false, so Reset, which removes the key, shows it.
+        assert TouchLayout.DEFAULT.showMenu && positions(null, null, null).showMenu;
+        assert !TouchLayout.parse(new String[] {null, null, null, null, null, "false"}).showMenu;
+        assert TouchLayout.parse(new String[] {null, null, null, null, null, "true"}).showMenu;
+        assert TouchLayout.parse(new String[] {null, null, null, null, null, "garbage"}).showMenu;
+        // It survives position edits and follows a reloaded appearance.
+        TouchLayout hidden = TouchLayout.parse(new String[] {null, null, null, null, null, "false"});
+        assert !hidden.withPosition(TouchLayout.MENU, .5f, .5f).showMenu && !hidden.withDefaultPositions().showMenu;
+        assert !TouchLayout.DEFAULT.withAppearanceOf(hidden).showMenu;
+        assert hidden.withAppearanceOf(TouchLayout.DEFAULT).showMenu;
         System.out.println("Touch layout tests passed");
     }
 }

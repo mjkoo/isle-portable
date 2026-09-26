@@ -332,7 +332,7 @@ bool Android_ValidateSetting(const std::string& p_key, const char* p_value, cons
 	}
 	// The extension enable keys are Extensions::availableExtensions; the game reads each as a boolean.
 	if (p_key == "isle:music" || p_key == "isle:3dsound" || p_key == "isle:haptic" || p_key == "isle:wasd" ||
-		p_key == "isle:show touch controls" || p_key == "isle:wide view angle" ||
+		p_key == "isle:show touch controls" || p_key == "isle:show menu button" || p_key == "isle:wide view angle" ||
 		p_key == "extensions:texture loader" || p_key == "extensions:si loader" ||
 		p_key == "extensions:third person camera" || p_key == "extensions:multiplayer") {
 		return !p_value || std::string(p_value) == "true" || std::string(p_value) == "false";
