@@ -6,7 +6,7 @@ menu, Space and Esc buttons from 50% to 200%, and Touch control opacity fades th
 buttons and movement hints down to 10%. Save settings, then Resume to apply these
 options to the current game. They also persist for the next launch. Other settings
 still require quitting and relaunching. Cancel leaves the settings unchanged. Reset
-these settings followed by Save restores Virtual mouse, visible controls, full size
+these settings followed by Save restores Direct touch, visible controls, full size
 and full opacity; button positions are kept. Changing schemes cancels held gestures;
 touch again after resuming. A failed save leaves the current controls unchanged and
 can be retried.
@@ -33,7 +33,7 @@ Pausing, losing focus or resizing the game cancels held movement; touch again af
 returning to play.
 
 The hints are visual feedback only. Existing game clicks and dragging still reach
-the game. Virtual mouse and Disabled have no movement hints. Physical mouse,
+the game. Direct touch and Disabled have no movement hints. Physical mouse,
 keyboard or controller use hides the hints; touchscreen use restores them. Menus,
 Settings and backgrounding hide them as well. The game menu button stays separate.
 

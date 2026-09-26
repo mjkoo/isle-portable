@@ -103,7 +103,7 @@ public final class SettingsActivity extends AppCompatActivity {
     // The UI's complete INI mapping. Engine defaults remain in native configuration loading.
     private static final Control[] CONTROLS = withExtensions(withController(withGraphics(new Control[] {
         new Control("Input", "isle:touch scheme", "Touch scheme",
-            new String[] {"Virtual mouse", "Arrow-key regions", "Virtual stick", "Disabled"},
+            new String[] {"Direct touch", "Arrow-key regions", "Virtual stick", "Disabled"},
             new String[] {"0", "1", "2", "-1"}),
         new Control("Input", "isle:show touch controls", "Show touch controls", BOOL_LABELS, BOOL_VALUES),
         new Control("Input", "isle:touch button scale", "Touch button size",
