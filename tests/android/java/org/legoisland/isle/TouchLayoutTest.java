@@ -1,6 +1,10 @@
 package org.legoisland.isle;
 
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 
@@ -15,7 +19,7 @@ public final class TouchLayoutTest {
         return TouchLayout.parse(new String[] {null, null, menu, escape, space, null});
     }
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws Exception {
         boolean assertions = false;
         assert assertions = true;
         if (!assertions) throw new AssertionError("Run with java -ea");
@@ -141,6 +145,27 @@ public final class TouchLayoutTest {
         assert !hidden.withPosition(TouchLayout.MENU, .5f, .5f).showMenu && !hidden.withDefaultPositions().showMenu;
         assert !TouchLayout.DEFAULT.withAppearanceOf(hidden).showMenu;
         assert hidden.withAppearanceOf(TouchLayout.DEFAULT).showMenu;
+
+        // A hidden menu leaves no gap: Esc takes its corner and Space follows, while a moved button
+        // keeps its stored place. The editor leaves the hidden menu out.
+        assert !hidden.shows(TouchLayout.MENU) && hidden.shows(TouchLayout.ESCAPE) && hidden.shows(TouchLayout.SPACE);
+        assert TouchLayout.DEFAULT.shows(TouchLayout.MENU);
+        int[] cornerMenu = bounds(TouchLayout.DEFAULT, TouchLayout.MENU, safe, density);
+        int[] cornerEscape = bounds(hidden, TouchLayout.ESCAPE, safe, density);
+        assert cornerEscape[2] == cornerMenu[2] && cornerEscape[1] == cornerMenu[1];
+        int[] hiddenSpace = bounds(hidden, TouchLayout.SPACE, safe, density);
+        assert hiddenSpace[2] == cornerEscape[0] - (int) (8 * density + 0.5f) && hiddenSpace[1] == cornerEscape[1];
+        TouchLayout movedHidden = hidden.withPosition(TouchLayout.ESCAPE, .25f, .75f);
+        int[] moved = bounds(movedHidden, TouchLayout.ESCAPE, safe, density);
+        int[] movedShown = bounds(TouchLayout.DEFAULT.withPosition(TouchLayout.ESCAPE, .25f, .75f),
+            TouchLayout.ESCAPE, safe, density);
+        assert Arrays.equals(moved, movedShown);
+
+        // Settings writes every key through the native allowlist, which refuses any it does not list.
+        String store = new String(Files.readAllBytes(Paths.get("ISLE/android/configstore.cpp")), StandardCharsets.UTF_8);
+        for (String key : TouchLayout.KEYS) {
+            assert store.contains("\"" + key + "\"") : key;
+        }
         System.out.println("Touch layout tests passed");
     }
 }

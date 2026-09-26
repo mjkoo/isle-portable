@@ -204,7 +204,7 @@ final class TouchLayoutEditor extends View {
         // Buttons before the toolbar: a button over Done can always be dragged away, but one hidden
         // under the toolbar could otherwise never be picked up again.
         for (int i = TouchLayout.COUNT - 1; i >= 0; i--) {
-            if (dragPointer[i] < 0 && inside(boxes[i], x, y)) {
+            if (draft.shows(i) && dragPointer[i] < 0 && inside(boxes[i], x, y)) {
                 dragPointer[i] = id;
                 grabX[i] = x - boxes[i].left;
                 grabY[i] = y - boxes[i].top;
@@ -366,6 +366,8 @@ final class TouchLayoutEditor extends View {
             drawLabel(canvas, TOOL_LABELS[tool], tools[tool], sp(16), busy ? 90 : 255);
         }
         for (int i = 0; i < TouchLayout.COUNT; i++) {
+            // A button turned off in Settings has nothing to place.
+            if (!draft.shows(i)) continue;
             drawControl(canvas, i);
             Rect box = boxes[i];
             boolean dragging = dragPointer[i] >= 0;

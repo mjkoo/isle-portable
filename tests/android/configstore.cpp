@@ -87,6 +87,7 @@ int main()
 	assert(Android_ValidateSetting("isle:show touch controls", "false", {}));
 	assert(!Android_ValidateSetting("isle:show touch controls", "1", {}));
 	assert(Android_ValidateSetting("isle:show menu button", nullptr, {}));
+	assert(Android_ValidateSetting("isle:show menu button", "true", {}));
 	assert(Android_ValidateSetting("isle:show menu button", "false", {}));
 	assert(!Android_ValidateSetting("isle:show menu button", "0", {}));
 	assert(Android_UpdateConfig(path, {{"isle:show touch controls", "false"}}).empty());

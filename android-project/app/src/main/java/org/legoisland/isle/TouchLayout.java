@@ -93,6 +93,9 @@ final class TouchLayout {
 
     boolean isDefault(int control) { return Float.isNaN(positions[2 * control]); }
 
+    /** Whether the button is on screen at all: only the menu button can be turned off. */
+    boolean shows(int control) { return control != MENU || showMenu; }
+
     /** The stored form of a button's position, or null for its default place. */
     String positionValue(int control) {
         if (isDefault(control)) return null;
@@ -138,10 +141,13 @@ final class TouchLayout {
         int left, top;
         if (isDefault(control)) {
             // Menu in the top-right corner, then Esc and Space to its left, each a margin apart.
-            // The margins do not scale, so larger buttons stay tucked into the corner.
+            // A hidden menu leaves no gap, so Esc takes the corner. The margins do not scale, so
+            // larger buttons stay tucked into the corner.
             int margin = (int) (MARGIN_DP * density + 0.5f);
             int right = safeRight - margin;
-            for (int i = MENU; i < control; i++) right -= width(i, density, scale) + margin;
+            for (int i = MENU; i < control; i++) {
+                if (shows(i)) right -= width(i, density, scale) + margin;
+            }
             left = right - width;
             top = safeTop + margin;
         } else {
