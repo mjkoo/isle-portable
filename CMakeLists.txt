@@ -720,6 +720,10 @@ if (ISLE_EXTENSIONS)
     extensions/src/thirdpersoncamera/inputhandler.cpp
     extensions/src/thirdpersoncamera/orbitcamera.cpp
 
+    # First person camera extension
+    extensions/src/firstpersoncamera.cpp
+    extensions/src/firstpersoncamera/controller.cpp
+
     # Multiplayer extension
     extensions/src/multiplayer.cpp
     extensions/src/multiplayer/animation/audioplayer.cpp

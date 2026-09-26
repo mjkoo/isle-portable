@@ -1,5 +1,6 @@
 #include "legoinputmanager.h"
 
+#include "extensions/firstpersoncamera.h"
 #include "extensions/multiplayer.h"
 #include "extensions/thirdpersoncamera.h"
 #include "legocameracontroller.h"
@@ -683,6 +684,7 @@ void LegoInputManager::CancelPointerInput()
 	}
 
 	Extension<ThirdPersonCameraExt>::Call(TP::CancelPointerInput);
+	Extension<FirstPersonCameraExt>::Call(FP::CancelPointerInput);
 }
 
 TouchMovement::State LegoInputManager::GetTouchMovementState() const
@@ -709,6 +711,11 @@ MxBool LegoInputManager::HandleTouchEvent(SDL_Event* p_event, TouchScheme p_touc
 {
 	if (Extension<ThirdPersonCameraExt>::Call(TP::HandleTouchInput, p_event).value_or(FALSE)) {
 		return FALSE;
+	}
+	// A finger that looks around is handled here, so it does not also drag the player along.
+	if (Extension<FirstPersonCameraExt>::Call(FP::HandleTouchInput, p_event, p_touchScheme == e_gamepad)
+			.value_or(FALSE)) {
+		return TRUE;
 	}
 
 	const SDL_TouchFingerEvent& event = p_event->tfinger;

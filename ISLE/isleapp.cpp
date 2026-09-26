@@ -43,6 +43,7 @@
 #include "viewmanager/viewmanager.h"
 
 #include <array>
+#include <extensions/firstpersoncamera.h>
 #include <extensions/multiplayer.h>
 #include <extensions/thirdpersoncamera.h>
 #include <memory>
@@ -1452,6 +1453,7 @@ SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event)
 
 #ifdef EXTENSIONS
 	Extensions::ThirdPersonCameraExt::HandleSDLEvent(event);
+	Extensions::FirstPersonCameraExt::HandleSDLEvent(event);
 #endif
 
 	return SDL_APP_CONTINUE;
