@@ -612,20 +612,16 @@ static SDL_AppResult HandleBackButton()
 		// Nothing was written, and saying so is not the same as reporting a failure.
 		SaveGameStateForLifecycleEvent("back button");
 		saveResult = e_quitPromptNothingToSave;
-		// A returning player is not signed in until they pick their name again, and the first
-		// slot is whoever played last, the name the registration book lists first.
-		if (GameState() && GameState()->m_playerCount > 0) {
-			const LegoGameState::Username& player = GameState()->m_players[0];
-			FormatPlayerName(player.m_letters, sizeOfArray(player.m_letters), playerName);
-			menuPlayer = playerName;
-		}
 	}
 	else {
 		// Save does not propagate every serialization or close failure, so success only
 		// establishes that a save was attempted, not that the entire file was written.
 		saveResult = SaveGameStateForLifecycleEvent("back button") ? e_quitPromptSaveAttempted : e_quitPromptSaveFailed;
-		// Signing in or picking a name in the registration book always moves that player to the
-		// first slot, so while anyone is signed in the first slot is who the save was for.
+	}
+	// Signing in or picking a name in the registration book always moves that player to the first
+	// slot. So while anyone is signed in it is who the save was for, and before anyone has, it is
+	// whoever played last, the name the book lists first.
+	if (GameState() && GameState()->m_playerCount > 0) {
 		const LegoGameState::Username& player = GameState()->m_players[0];
 		FormatPlayerName(player.m_letters, sizeOfArray(player.m_letters), playerName);
 		menuPlayer = playerName;
