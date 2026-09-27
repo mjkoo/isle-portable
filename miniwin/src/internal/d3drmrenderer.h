@@ -1,5 +1,6 @@
 #pragma once
 
+#include "backdrop.h"
 #include "d3drmmesh_impl.h"
 #include "mathutils.h"
 #include "miniwin/d3drm.h"
@@ -59,20 +60,29 @@ public:
 	virtual void SetPalette(SDL_Palette* palette) {}
 	virtual bool UsesPalettedSurfaces() const { return false; }
 
-	// Backdrops, as IsBackdrop describes them, are noted while a frame is drawn and read by the
-	// next frame's viewport clear, which comes before any 2D is drawn.
-	void NoteBackdrop() { m_backdropThisFrame = true; }
-	void EndBackdropFrame()
+	void NoteBackdrop() { m_backdrop.Note(); }
+	void FinishBackdropFrame()
 	{
-		m_backdropLastFrame = m_backdropThisFrame;
-		m_backdropThisFrame = false;
+		if (m_backdrop.Finish()) {
+			for (const auto& bar : BackdropBars(
+					 m_width,
+					 m_height,
+					 m_virtualWidth,
+					 m_virtualHeight,
+					 m_viewportTransform.scale,
+					 m_viewportTransform.offsetX,
+					 m_viewportTransform.offsetY
+				 )) {
+				if (bar.w > 0 && bar.h > 0) {
+					Draw2DImage(NO_TEXTURE_ID, SDL_Rect{}, bar, {0.0f, 0.0f, 0.0f, 1.0f});
+				}
+			}
+		}
 	}
-	bool HadBackdrop() const { return m_backdropLastFrame; }
 
 protected:
 	bool m_renderTargetReady = true;
-	bool m_backdropThisFrame = false;
-	bool m_backdropLastFrame = false;
+	BackdropFrame m_backdrop;
 	int m_width, m_height;
 	int m_virtualWidth, m_virtualHeight;
 	ViewportTransform m_viewportTransform;

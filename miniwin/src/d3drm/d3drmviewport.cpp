@@ -375,17 +375,8 @@ HRESULT Direct3DRMViewportImpl::Clear()
 	uint8_t r = (m_backgroundColor >> 16) & 0xFF;
 	uint8_t g = (m_backgroundColor >> 8) & 0xFF;
 	uint8_t b = m_backgroundColor & 0xFF;
-	// The render target spans the whole window, letterboxing included, and so does the 3D scene.
-	// Behind a 4:3 backdrop only the bars would show the background, so keep them black and give
-	// the color to the game's own area alone, as a 640x480 display would show it.
-	if (m_renderer->HadBackdrop()) {
-		m_renderer->Clear(0.0f, 0.0f, 0.0f);
-		SDL_Rect area = {0, 0, (int) m_virtualWidth, (int) m_virtualHeight};
-		m_renderer->Draw2DImage(NO_TEXTURE_ID, SDL_Rect{}, area, {r / 255.0f, g / 255.0f, b / 255.0f, 1.0f});
-	}
-	else {
-		m_renderer->Clear(r / 255.0f, g / 255.0f, b / 255.0f);
-	}
+	// A backdrop masks the bars in its own frame, immediately before presentation.
+	m_renderer->Clear(r / 255.0f, g / 255.0f, b / 255.0f);
 
 	return DD_OK;
 }

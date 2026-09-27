@@ -123,7 +123,7 @@ HRESULT FrameBufferImpl::Flip(LPDIRECTDRAWSURFACE lpDDSurfaceTargetOverride, DDF
 	if (!DDRenderer) {
 		return DDERR_GENERIC;
 	}
-	DDRenderer->EndBackdropFrame();
+	DDRenderer->FinishBackdropFrame();
 	DDRenderer->Flip();
 	return DD_OK;
 }
