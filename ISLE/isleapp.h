@@ -76,7 +76,7 @@ public:
 		e_cursorMovedByMouse,
 	};
 	void RevealIdleCursor(CursorMover p_mover = e_cursorPressed);
-	void AimAtCenter(bool p_padUsed);
+	void AimAtCenter();
 	void DetectDoubleTap(const SDL_TouchFingerEvent& p_event);
 
 private:

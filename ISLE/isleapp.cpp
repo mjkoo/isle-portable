@@ -944,6 +944,12 @@ static void HandleGamepadAction(GamepadBindings::Result p_result)
 {
 	switch (p_result.m_action) {
 	case GamepadBindings::e_click:
+#ifdef EXTENSIONS
+		// The first press after a mouse or a finger lands on the crosshair too.
+		if (p_result.m_pressed && Extensions::FirstPersonCameraExt::IsLooking()) {
+			g_isle->AimAtCenter();
+		}
+#endif
 		g_isle->RevealIdleCursor();
 		g_mousedown = p_result.m_pressed ? TRUE : FALSE;
 		if (InputManager()) {
@@ -2419,7 +2425,7 @@ void IsleApp::MoveVirtualMouseViaJoystick()
 
 #ifdef EXTENSIONS
 	if (Extensions::FirstPersonCameraExt::IsLooking()) {
-		AimAtCenter(g_lastJoystickMouseX != 0 || g_lastJoystickMouseY != 0 || dpadX != 0 || dpadY != 0);
+		AimAtCenter();
 		return;
 	}
 	if (g_crosshairShown) {
@@ -2473,19 +2479,20 @@ void IsleApp::MoveVirtualMouseViaJoystick()
 	}
 }
 
-// Clicks from a gamepad land at the center of the view, where the crosshair is. The sticks and
-// D-pad look around instead of moving the cursor, but still mark the gamepad as the pointer. A
-// mouse or a finger keeps pointing wherever it is.
-void IsleApp::AimAtCenter(bool p_padUsed)
+// Clicks from a gamepad land at the center of the view, where the crosshair is. Any button or
+// stick makes the gamepad the pointer, the left stick that walks included. A mouse or a finger
+// keeps pointing wherever it is.
+void IsleApp::AimAtCenter()
 {
-	if (p_padUsed && !m_drawCursor) {
-		SDL_HideCursor();
-		m_drawCursor = TRUE;
+	if (!InputManager() ||
+		!std::holds_alternative<LegoInputManager::SDL_JoystickID_v>(InputManager()->GetLastInputMethod())) {
+		g_crosshairShown = false;
+		return;
 	}
 
 	if (!m_drawCursor) {
-		g_crosshairShown = false;
-		return;
+		SDL_HideCursor();
+		m_drawCursor = TRUE;
 	}
 
 	float centerX = g_targetWidth / 2.0f;
