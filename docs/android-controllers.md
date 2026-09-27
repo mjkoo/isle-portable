@@ -10,7 +10,9 @@ stick and D-pad move the cursor. The buttons below can be changed in Settings.
 | Back or Select | Esc |
 | Start | Open this game's menu |
 | Right trigger | Click |
-| Left and top face buttons, shoulders, left trigger, stick clicks, Guide | Nothing |
+| Left trigger | Free cursor, while first person free look is on |
+| Right stick click | Level the view, while first person free look is on |
+| Left and top face buttons, shoulders, left stick click, Guide | Nothing |
 
 On Xbox and PlayStation layouts the bottom face button is labelled A (Cross); on Nintendo
 layouts the right one is. Start opens the same menu as Android Back and the touch menu button,
@@ -21,10 +23,18 @@ one, and B or Start resumes. After touch input clears the highlight, the first A
 highlights Resume without choosing it; the next press chooses it. Releasing the button
 that opened the menu does nothing.
 
+## First person free look
+
+With **First person free look** on in Settings > Extensions, the right stick turns you and tilts
+the view instead of moving the cursor, and the view stays level on slopes and through turns. The
+cursor becomes a crosshair at the center of the screen, and clicks land on whatever it is over.
+Hold the left trigger to get the cursor back for a dashboard or anything else on screen; it starts
+at the center and the view holds still until you let go. Click the right stick to level the view.
+
 ## Changing buttons
 
 Open the game menu, choose Settings, then the Controller group. Each row is a physical button;
-choose Click, Space, Esc, Pause, Open menu or Nothing for it. Several buttons can share an
+choose Click, Space, Esc, Pause, Open menu, Free cursor, Level view or Nothing for it. Several buttons can share an
 action, and changing one row never changes another. **Confirm button** chooses which of the
 bottom and right face buttons clicks by default: the one labelled A, or always the bottom or
 the right one. A row you have set yourself keeps its own action.
@@ -55,7 +65,8 @@ north = escape
 
 Keys are `south`, `east`, `west`, `north`, `leftshoulder`, `rightshoulder`, `lefttrigger`,
 `righttrigger`, `leftstick`, `rightstick`, `back`, `start` and `guide`, named by position.
-Values are `click`, `space`, `escape`, `pause`, `menu` or `none`, in any letter case; `confirm`
+Values are `click`, `space`, `escape`, `pause`, `menu`, `free cursor`, `recenter` or `none`, in any
+letter case; `confirm`
 is `label`, `south` or `east`. A missing or unusable value keeps the default, and the game logs
 the unusable ones. `menu` does nothing outside Android. On Vita, Start has no default action
 because it is part of the system screenshot button combination; binding it brings that conflict

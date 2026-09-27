@@ -1,6 +1,6 @@
 # Android extensions
 
-Extensions are the parts of `isle-portable` that are not in the original game. All four are
+Extensions are the parts of `isle-portable` that are not in the original game. All five are
 built into the Android app and all are off until you turn them on in **Settings > Extensions**.
 They apply on the next launch, so save your settings, quit and open the game again.
 
@@ -9,6 +9,7 @@ They apply on the next launch, so save your settings, quit and open the game aga
 | Custom textures | Replaces the game's textures with `.bmp` files of the same name |
 | Custom SI files | Loads extra `.si` files alongside the game's own |
 | Third person camera | Puts the camera behind your character instead of at their eyes |
+| First person free look | Keeps the camera at their eyes, level, and free to look around |
 | Multiplayer | Joins other players through a relay server |
 
 ## Where the files go
@@ -52,6 +53,23 @@ it needs it to show other players.
 If the relay turns your session away, for instance because the room is full, the game saves and
 closes.
 
+## First person free look
+
+The game's own camera sits at your character's eyes and tilts with the ground they stand on,
+leaning through every turn. Free look keeps that camera but holds it level, and lets you look
+around: the right stick on a controller, a drag on the right half of the screen with the
+Virtual stick touch scheme, or a right-button drag with a mouse. Looking left or right turns
+your character, so you walk where you look; looking up and down tilts only the view.
+
+With a controller, clicks land on a crosshair at the center of the screen; see
+[Android controllers](android-controllers.md) for getting the cursor back. Touch and the mouse
+keep clicking where you tap or point. On the right half with Virtual stick, a tap clicks on release;
+a drag looks around without clicking or counting toward a double tap. **Invert look** turns looking up and down around.
+
+The camera goes back to the game's own for scripted scenes, the helicopter, races and the
+places with fixed views, such as the elevator. Third person has the camera while it or
+multiplayer is on, and Settings says so.
+
 ## Resetting
 
 **Reset extensions**, at the bottom of the group, turns every extension off and forgets its
@@ -69,6 +87,7 @@ texture loader = true
 si loader = false
 third person camera = true
 multiplayer = false
+first person camera = false
 
 [texture loader]
 texture path = /textures
@@ -80,6 +99,9 @@ si path = /si
 relay url = wss://relay.example
 room = lobby
 actor = pepper
+
+[first person camera]
+invert look = false
 ```
 
 Two keys under `[si loader]` have no row here, and Settings never writes either, so one you

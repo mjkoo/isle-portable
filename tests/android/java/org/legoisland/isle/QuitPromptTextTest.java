@@ -45,6 +45,11 @@ public final class QuitPromptTextTest {
         check(QuitPromptText.SAVE_ATTEMPTED, null, null, "Game paused.", "Quit");
         check(QuitPromptText.SAVE_ATTEMPTED, "", null, "Game paused.", "Quit");
         check(QuitPromptText.SAVE_NOTHING_TO_SAVE, null, null, notSignedIn, "Quit");
+        check(QuitPromptText.SAVE_NOTHING_TO_SAVE, "", null, notSignedIn, "Quit");
+        // A returning player starts every launch signed out; name them rather than imply a loss.
+        check(QuitPromptText.SAVE_NOTHING_TO_SAVE, "PEPPER", null,
+            "Game paused. To continue as PEPPER, pick that name in the registration book at the Information Center.",
+            "Quit");
         check(QuitPromptText.SAVE_FAILED, "PEPPER", null, "Your game could not be saved.", "Quit anyway");
         check(-1, null, null, notSignedIn, "Quit");
         check(99, null, null, notSignedIn, "Quit");

@@ -14,7 +14,8 @@ enum QuitPromptSaveResult {
 // The caller must therefore treat everything the game owns as having moved on when this
 // returns.
 //
-// p_playerName names whose progress the save was for, and is null when no one has signed in.
+// p_playerName names whose progress the save was for. When no one has signed in it names whoever
+// played last instead, and is null when no one ever has.
 //
 // p_abandoned is polled alongside the dialog, and answers false when it reports true. The
 // dialog cannot always answer for itself: destroying the activity takes its window down

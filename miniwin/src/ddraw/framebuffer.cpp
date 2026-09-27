@@ -1,3 +1,4 @@
+#include "backdrop.h"
 #include "ddpalette_impl.h"
 #include "ddraw_impl.h"
 #include "dummysurface_impl.h"
@@ -89,6 +90,10 @@ HRESULT FrameBufferImpl::Blt(
 	float scaleX = (float) dstRect.w / (float) srcRect.w;
 	float scaleY = (float) dstRect.h / (float) srcRect.h;
 	Uint32 textureId = DDRenderer->GetTextureId(surface->ToTexture(), true, scaleX, scaleY);
+	if (CoversGameArea(dstRect, (int) m_virtualWidth, (int) m_virtualHeight) &&
+		IsOpaqueBackdropSurface(surface->m_surface, srcRect)) {
+		DDRenderer->NoteBackdrop();
+	}
 	DDRenderer->Draw2DImage(textureId, srcRect, dstRect, {1.0f, 1.0f, 1.0f, 1.0f});
 
 	return DD_OK;
@@ -119,6 +124,7 @@ HRESULT FrameBufferImpl::Flip(LPDIRECTDRAWSURFACE lpDDSurfaceTargetOverride, DDF
 	if (!DDRenderer) {
 		return DDERR_GENERIC;
 	}
+	DDRenderer->FinishBackdropFrame();
 	DDRenderer->Flip();
 	return DD_OK;
 }

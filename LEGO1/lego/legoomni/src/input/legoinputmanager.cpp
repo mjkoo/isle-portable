@@ -1,5 +1,6 @@
 #include "legoinputmanager.h"
 
+#include "extensions/firstpersoncamera.h"
 #include "extensions/multiplayer.h"
 #include "extensions/thirdpersoncamera.h"
 #include "legocameracontroller.h"
@@ -683,6 +684,7 @@ void LegoInputManager::CancelPointerInput()
 	}
 
 	Extension<ThirdPersonCameraExt>::Call(TP::CancelPointerInput);
+	Extension<FirstPersonCameraExt>::Call(FP::CancelPointerInput);
 }
 
 TouchMovement::State LegoInputManager::GetTouchMovementState() const

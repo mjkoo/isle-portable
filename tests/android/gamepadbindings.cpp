@@ -58,10 +58,20 @@ static void DefaultsMatchTheFixedMapping()
 		for (bool eastIsA : {false, true}) {
 			for (Platform platform : c_platforms) {
 				Input in = static_cast<Input>(input);
-				// The one deliberate change: on Android, Start opens the Android menu, which no
-				// controller input could reach before.
-				bool menu = in == e_start && platform == e_platformAndroid;
-				assert(Resolve(table, in, eastIsA, platform) == (menu ? e_menu : Today(in, eastIsA, platform)));
+				// The deliberate changes: on Android, Start opens the Android menu, which no
+				// controller input could reach before, and the first-person camera's actions take
+				// two inputs that did nothing.
+				Action expected = Today(in, eastIsA, platform);
+				if (in == e_start && platform == e_platformAndroid) {
+					expected = e_menu;
+				}
+				else if (in == e_leftTrigger) {
+					expected = e_freeCursor;
+				}
+				else if (in == e_rightStick) {
+					expected = e_recenter;
+				}
+				assert(Resolve(table, in, eastIsA, platform) == expected);
 			}
 		}
 	}
@@ -249,6 +259,7 @@ static void TriggersPressOnceAcrossTheDeadZone()
 	assert(Same(pad.Trigger(c_pad, e_rightTrigger, 0, true), e_click, false));
 
 	// An unbound trigger never acts.
+	pad.SetTable(ParseMap({{"gamepad:lefttrigger", "none"}}));
 	assert(Same(pad.Trigger(c_pad, e_leftTrigger, 32767, false), e_none, true));
 	assert(Same(pad.Trigger(c_pad, e_leftTrigger, 0, false), e_none, false));
 
@@ -388,8 +399,38 @@ static void MenuOpensOnlyOnAndroid()
 	assert(Same(android.Button(c_pad, e_start, false, false), e_none, false));
 }
 
+static void FreeCursorIsHeldAndRecenterActsOnce()
+{
+	Action action = e_none;
+	assert(ParseAction("Free Cursor", action) && action == e_freeCursor);
+	assert(ParseAction("recenter", action) && action == e_recenter);
+
+	// By default the left trigger holds the free cursor for as long as it is pulled, whatever
+	// holds the click.
+	Dispatcher pad(e_platformDefault);
+	assert(Same(pad.Trigger(c_pad, e_leftTrigger, 9000, true), e_freeCursor, true));
+	assert(Same(pad.Trigger(c_pad, e_leftTrigger, 0, true), e_freeCursor, false));
+	assert(Same(pad.Trigger(c_pad, e_leftTrigger, 9000, false), e_freeCursor, true));
+	assert(Same(pad.Trigger(c_pad, e_leftTrigger, 0, false), e_freeCursor, false));
+
+	// Bound to a button, it is held the same way.
+	pad.SetTable(ParseMap({{"gamepad:north", "free cursor"}}));
+	assert(Same(pad.Button(c_pad, e_north, true, false), e_freeCursor, true));
+	assert(Same(pad.Button(c_pad, e_north, false, false), e_freeCursor, false));
+
+	// Recentering acts on the press alone.
+	assert(Same(pad.Button(c_pad, e_rightStick, true, false), e_recenter, true));
+	assert(Same(pad.Button(c_pad, e_rightStick, false, false), e_none, false));
+
+	// A cancel forgets a held free cursor; its owner has let go of it already.
+	assert(Same(pad.Button(c_pad, e_north, true, false), e_freeCursor, true));
+	pad.Cancel();
+	assert(Same(pad.Button(c_pad, e_north, false, false), e_none, false));
+}
+
 int main()
 {
+	FreeCursorIsHeldAndRecenterActsOnce();
 	MenuOpensOnlyOnAndroid();
 	DefaultsMatchTheFixedMapping();
 	KeysAreLowercaseAndDistinct();
@@ -404,4 +445,28 @@ int main()
 	VitaLeavesStartUnboundUnlessConfigured();
 	TriggersLatchIndependently();
 	EachPadKeepsItsOwnPresses();
+	// Free cursor is held until the last binding, on any controller, is released.
+	{
+		Dispatcher dispatcher(e_platformAndroid);
+		dispatcher.SetTable(ParseMap({{"gamepad:leftshoulder", "free cursor"}}));
+		dispatcher.Trigger(1, e_leftTrigger, 32767, false);
+		dispatcher.Button(1, e_leftShoulder, true, false);
+		dispatcher.Trigger(1, e_leftTrigger, 0, false);
+		assert(dispatcher.IsHeld(e_freeCursor));
+		dispatcher.Trigger(2, e_leftTrigger, 32767, false);
+		dispatcher.Button(1, e_leftShoulder, false, false);
+		assert(dispatcher.IsHeld(e_freeCursor));
+		dispatcher.Removed(1);
+		assert(dispatcher.IsHeld(e_freeCursor));
+		dispatcher.Removed(2);
+		assert(!dispatcher.IsHeld(e_freeCursor));
+		dispatcher.Trigger(1, e_leftTrigger, 32767, false);
+		dispatcher.Cancel();
+		assert(!dispatcher.IsHeld(e_freeCursor));
+		dispatcher.Trigger(1, e_leftTrigger, 32767, false);
+		assert(!dispatcher.IsHeld(e_freeCursor));
+		dispatcher.Trigger(1, e_leftTrigger, 0, false);
+		dispatcher.Trigger(1, e_leftTrigger, 32767, false);
+		assert(dispatcher.IsHeld(e_freeCursor));
+	}
 }

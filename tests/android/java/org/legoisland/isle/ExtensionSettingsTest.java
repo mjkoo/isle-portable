@@ -37,7 +37,7 @@ public final class ExtensionSettingsTest {
             assert ExtensionSettings.isExtensionKey(key) : key;
             assert !ControllerBindings.isControllerKey(key) : key;
         }
-        assert ExtensionSettings.KEYS.length == 9;
+        assert ExtensionSettings.KEYS.length == 11;
         // The two Display rows are game options, so reset does clear them.
         for (String key : new String[] {"isle:lighting model", "isle:wide view angle"}) {
             assert store.contains("\"" + key + "\"") : key;
@@ -55,6 +55,19 @@ public final class ExtensionSettingsTest {
         }
         assert !ExtensionSettings.isExtensionKey("isle:music");
         assert !ExtensionSettings.isExtensionKey("gamepad:start");
+
+        // First person gives way to third person, which multiplayer turns on.
+        Map<String, String> camera = new LinkedHashMap<>();
+        assert !ExtensionSettings.firstPersonOverridden(camera);
+        camera.put(ExtensionSettings.FIRST_PERSON_CAMERA, "true");
+        assert !ExtensionSettings.firstPersonOverridden(camera);
+        camera.put(ExtensionSettings.THIRD_PERSON_CAMERA, "true");
+        assert ExtensionSettings.firstPersonOverridden(camera);
+        camera.put(ExtensionSettings.THIRD_PERSON_CAMERA, "false");
+        camera.put(ExtensionSettings.MULTIPLAYER, "true");
+        assert ExtensionSettings.firstPersonOverridden(camera);
+        camera.put(ExtensionSettings.FIRST_PERSON_CAMERA, "false");
+        assert !ExtensionSettings.firstPersonOverridden(camera);
 
         // Multiplayer only connects with both a relay and a room, so anything less is worth warning about.
         Map<String, String> draft = new LinkedHashMap<>();

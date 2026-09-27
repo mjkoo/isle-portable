@@ -1,6 +1,7 @@
 #include "legomain.h"
 
 #include "3dmanager/lego3dmanager.h"
+#include "extensions/firstpersoncamera.h"
 #include "extensions/multiplayer.h"
 #include "extensions/siloader.h"
 #include "extensions/thirdpersoncamera.h"
@@ -361,6 +362,7 @@ MxResult LegoOmni::Create(MxOmniCreateParam& p_param)
 
 		Extension<ThirdPersonCameraExt>::Call(TP::HandleCreate);
 		Extension<MultiplayerExt>::Call(MP::HandleCreate);
+		Extension<FirstPersonCameraExt>::Call(FP::HandleCreate);
 		result = SUCCESS;
 	}
 	else {
@@ -733,6 +735,7 @@ MxLong LegoOmni::Notify(MxParam& p_param)
 // FUNCTION: LEGO1 0x1005b640
 void LegoOmni::Pause()
 {
+	Extension<FirstPersonCameraExt>::Call(FP::CancelPointerInput);
 	MxOmni::Pause();
 	SetAppCursor(e_cursorNo);
 }

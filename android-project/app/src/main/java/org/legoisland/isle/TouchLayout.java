@@ -6,7 +6,8 @@ import java.util.Locale;
 import java.util.Objects;
 
 /**
- * The size, opacity and placement of the on-screen touch buttons.
+ * The size, opacity and placement of the on-screen touch buttons, and whether the menu button is
+ * shown at all.
  *
  * A moved button is stored as its center, in fractions of the safe area: the window less its
  * system bars and display cutout. Fractions rather than pixels keep a layout usable after a
@@ -25,9 +26,10 @@ final class TouchLayout {
     static final String OPACITY_KEY = "isle:touch control opacity";
     static final String[] POSITION_KEYS = {
         "isle:touch menu position", "isle:touch escape position", "isle:touch space position"};
+    static final String SHOW_MENU_KEY = "isle:show menu button";
     /** Every key parse reads, in the order it expects their values. */
     static final String[] KEYS = {SCALE_KEY, OPACITY_KEY, POSITION_KEYS[MENU], POSITION_KEYS[ESCAPE],
-        POSITION_KEYS[SPACE]};
+        POSITION_KEYS[SPACE], SHOW_MENU_KEY};
 
     // The ranges ISLE/android/configstore.cpp accepts on write.
     static final double MIN_SCALE = 0.5, MAX_SCALE = 2, MIN_OPACITY = 0.1, MAX_OPACITY = 1;
@@ -35,15 +37,18 @@ final class TouchLayout {
     private static final int[] WIDTH_DP = {48, 64, 64};
     private static final int HEIGHT_DP = 48, MARGIN_DP = 8;
 
-    static final TouchLayout DEFAULT = new TouchLayout(1, 1, defaultPositions());
+    static final TouchLayout DEFAULT = new TouchLayout(1, 1, true, defaultPositions());
 
     final float scale, opacity;
+    /** False when the player turned the menu button off; Back and Start still open the menu. */
+    final boolean showMenu;
     // Center x and y for each button, or NaN for its default place.
     private final float[] positions;
 
-    private TouchLayout(float scale, float opacity, float[] positions) {
+    private TouchLayout(float scale, float opacity, boolean showMenu, float[] positions) {
         this.scale = scale;
         this.opacity = opacity;
+        this.showMenu = showMenu;
         this.positions = positions;
     }
 
@@ -71,7 +76,9 @@ final class TouchLayout {
             positions[2 * i] = x;
             positions[2 * i + 1] = y;
         }
-        return new TouchLayout(scale, opacity, positions);
+        // Only an explicit false hides the button: Reset removes the key, which brings it back.
+        boolean showMenu = !"false".equals(values[2 + COUNT]);
+        return new TouchLayout(scale, opacity, showMenu, positions);
     }
 
     private static float number(String text, double min, double max, float fallback) {
@@ -86,6 +93,9 @@ final class TouchLayout {
 
     boolean isDefault(int control) { return Float.isNaN(positions[2 * control]); }
 
+    /** Whether the button is on screen at all: only the menu button can be turned off. */
+    boolean shows(int control) { return control != MENU || showMenu; }
+
     /** The stored form of a button's position, or null for its default place. */
     String positionValue(int control) {
         if (isDefault(control)) return null;
@@ -97,14 +107,14 @@ final class TouchLayout {
         float[] next = positions.clone();
         next[2 * control] = clamp(x);
         next[2 * control + 1] = clamp(y);
-        return new TouchLayout(scale, opacity, next);
+        return new TouchLayout(scale, opacity, showMenu, next);
     }
 
-    TouchLayout withDefaultPositions() { return new TouchLayout(scale, opacity, defaultPositions()); }
+    TouchLayout withDefaultPositions() { return new TouchLayout(scale, opacity, showMenu, defaultPositions()); }
 
-    /** These positions with another layout's size and opacity. */
+    /** These positions with another layout's size, opacity and menu button setting. */
     TouchLayout withAppearanceOf(TouchLayout other) {
-        return new TouchLayout(other.scale, other.opacity, positions);
+        return new TouchLayout(other.scale, other.opacity, other.showMenu, positions);
     }
 
     /** Adds each position key whose stored form differs from original's, with its new value. */
@@ -131,10 +141,13 @@ final class TouchLayout {
         int left, top;
         if (isDefault(control)) {
             // Menu in the top-right corner, then Esc and Space to its left, each a margin apart.
-            // The margins do not scale, so larger buttons stay tucked into the corner.
+            // A hidden menu leaves no gap, so Esc takes the corner. The margins do not scale, so
+            // larger buttons stay tucked into the corner.
             int margin = (int) (MARGIN_DP * density + 0.5f);
             int right = safeRight - margin;
-            for (int i = MENU; i < control; i++) right -= width(i, density, scale) + margin;
+            for (int i = MENU; i < control; i++) {
+                if (shows(i)) right -= width(i, density, scale) + margin;
+            }
             left = right - width;
             top = safeTop + margin;
         } else {

@@ -3,11 +3,16 @@
 
 namespace Extensions
 {
+class FirstPersonCameraExt;
 class MultiplayerExt;
 class ThirdPersonCameraExt;
 namespace Common
 {
 class CharacterCloner;
+}
+namespace FirstPersonCamera
+{
+class Controller;
 }
 namespace ThirdPersonCamera
 {

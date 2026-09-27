@@ -61,7 +61,7 @@ public final class SettingsActivity extends AppCompatActivity {
     private static final String[] RESTORE_TYPES = {"application/zip", "application/x-zip-compressed", "application/octet-stream"};
     /** Touch rows, hidden where DeviceSupport says there are no touch controls to configure. */
     private static final List<String> TOUCH_KEYS = Arrays.asList("isle:touch scheme", "isle:show touch controls",
-        "isle:touch button scale", "isle:touch control opacity");
+        "isle:show menu button", "isle:touch button scale", "isle:touch control opacity");
 
     /** How a row is edited: a choice, or a typed number or word. */
     private enum Kind { LIST, NUMBER, TEXT }
@@ -103,9 +103,10 @@ public final class SettingsActivity extends AppCompatActivity {
     // The UI's complete INI mapping. Engine defaults remain in native configuration loading.
     private static final Control[] CONTROLS = withExtensions(withController(withGraphics(new Control[] {
         new Control("Input", "isle:touch scheme", "Touch scheme",
-            new String[] {"Virtual mouse", "Arrow-key regions", "Virtual stick", "Disabled"},
+            new String[] {"Direct touch", "Arrow-key regions", "Virtual stick", "Disabled"},
             new String[] {"0", "1", "2", "-1"}),
         new Control("Input", "isle:show touch controls", "Show touch controls", BOOL_LABELS, BOOL_VALUES),
+        new Control("Input", "isle:show menu button", "Show menu button", BOOL_LABELS, BOOL_VALUES),
         new Control("Input", "isle:touch button scale", "Touch button size",
             new String[] {"50%", "75%", "100%", "125%", "150%", "200%"},
             new String[] {"0.5", "0.75", "1", "1.25", "1.5", "2"}),
@@ -142,6 +143,10 @@ public final class SettingsActivity extends AppCompatActivity {
         controls.add(new Control("Extensions", ExtensionSettings.SI_PATH, "SI folder",
             new String[0], new String[0]));
         controls.add(new Control("Extensions", ExtensionSettings.THIRD_PERSON_CAMERA, "Third person camera",
+            BOOL_LABELS, BOOL_VALUES));
+        controls.add(new Control("Extensions", ExtensionSettings.FIRST_PERSON_CAMERA, "First person free look",
+            BOOL_LABELS, BOOL_VALUES));
+        controls.add(new Control("Extensions", ExtensionSettings.INVERT_LOOK, "Invert look",
             BOOL_LABELS, BOOL_VALUES));
         controls.add(new Control("Extensions", ExtensionSettings.MULTIPLAYER, "Multiplayer",
             BOOL_LABELS, BOOL_VALUES));
@@ -583,7 +588,7 @@ public final class SettingsActivity extends AppCompatActivity {
             if (result == SettingsModel.State.SAVED) {
                 setResult(RESULT_OK);
                 Toast.makeText(this, DeviceSupport.hasTouchControls(this)
-                    ? "Settings saved. Touch scheme, Show touch controls, button size, opacity and controller buttons apply when you resume. Other changes apply on the next game launch."
+                    ? "Settings saved. Touch scheme, Show touch controls, Show menu button, button size, opacity and controller buttons apply when you resume. Other changes apply on the next game launch."
                     : "Settings saved. Controller buttons apply when you resume. Other changes apply on the next game launch.",
                     Toast.LENGTH_LONG).show();
                 finish();
@@ -691,7 +696,7 @@ public final class SettingsActivity extends AppCompatActivity {
             setPreferenceScreen(screen);
             Preference notice = new Preference(requireContext());
             notice.setTitle("Save settings, then resume");
-            notice.setSummary((touch ? "Touch scheme, Show touch controls, Touch button size, Touch control opacity and controller buttons"
+            notice.setSummary((touch ? "Touch scheme, Show touch controls, Show menu button, Touch button size, Touch control opacity and controller buttons"
                 : "Controller buttons") + " apply when you resume the game. Other changes apply on the next game launch. Cancel leaves your settings unchanged.");
             notice.setSelectable(false);
             notice.setIconSpaceReserved(false);
@@ -823,6 +828,14 @@ public final class SettingsActivity extends AppCompatActivity {
                     forced.setSelectable(false);
                     forced.setIconSpaceReserved(false);
                     category.addPreference(forced);
+                }
+                if (ExtensionSettings.FIRST_PERSON_CAMERA.equals(control.key)) {
+                    Preference overridden = new Preference(requireContext());
+                    overridden.setKey("first-person-overridden");
+                    overridden.setSummary(ExtensionSettings.OVERRIDDEN_FIRST_PERSON);
+                    overridden.setSelectable(false);
+                    overridden.setIconSpaceReserved(false);
+                    category.addPreference(overridden);
                 }
             }
             Preference menuWarning = new Preference(requireContext());
@@ -966,6 +979,8 @@ public final class SettingsActivity extends AppCompatActivity {
             findPreference("multiplayer-warning").setVisible(ExtensionSettings.multiplayerIncomplete(model.draft));
             findPreference("third-person-forced")
                 .setVisible("true".equals(model.draft.get(ExtensionSettings.MULTIPLAYER)));
+            findPreference("first-person-overridden")
+                .setVisible(ExtensionSettings.firstPersonOverridden(model.draft));
             updating = false;
             getPreferenceScreen().setEnabled(model.loaded && idle);
         }

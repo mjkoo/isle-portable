@@ -113,18 +113,21 @@ The releases page carries one APK per CPU architecture plus a universal one; see
 
 The Android app launches directly into the game. Tap the menu button, in the upper-right
 corner by default, or use Android's Back button or gesture, to open Resume / Settings / Quit.
-The menu names the signed-in player, or says that nothing is saved until someone signs in at the
-Information Center; the game saves nothing before then. Quit reads **Quit anyway** when the
-menu-opening save attempt reports failure. Backgrounding the app can attempt another
-save while the menu is open, and shutdown attempts one more without checking its result.
-Reopen the menu to retry the reported save; no message guarantees that a file was written.
+The menu names the signed-in player. Every launch starts signed out, as the original game does:
+pick your name in the registration book at the Information Center to load your progress. Until
+then the menu names the last player and says how to continue, or, before anyone has ever signed
+in, that nothing is saved yet; the game saves nothing before someone signs in. Quit reads
+**Quit anyway** when the menu-opening save attempt reports failure. Backgrounding the app can
+attempt another save while the menu is open, and shutdown attempts one more without checking
+its result. Reopen the menu to retry the reported save; no message guarantees that a file was
+written.
 See [Android saves](docs/android-saves.md) for save timing and transfers.
 
-Settings exposes touch schemes, touch button size and opacity, cursor sensitivity, haptics,
-WASD, audio, render resolution, available renderers, filtering, graphics quality, controller
-buttons and extensions. Choose **Save**: touch scheme, Show touch controls, button size,
-opacity and controller buttons apply when you resume, and other changes apply after quitting
-and launching the game again.
+Settings exposes touch schemes, the menu button, touch button size and opacity, cursor
+sensitivity, haptics, WASD, audio, render resolution, available renderers, filtering,
+graphics quality, controller buttons and extensions. Choose **Save**: touch scheme, Show
+touch controls, Show menu button, button size, opacity and controller buttons apply when you
+resume, and other changes apply after quitting and launching the game again.
 **Cancel** discards edits. **Reset these settings** restores defaults for these controls when
 saved; it keeps game paths, saves, touch button positions, controller buttons and extension
 configuration. **Input > Edit touch layout** moves the menu,
@@ -184,12 +187,14 @@ picker, the first launch says where to copy the game files with adb. See
 [Android TV](docs/android-tv.md).
 
 **Extensions** turns on the parts that are not in the original game: custom textures, extra SI
-files, a third person camera and multiplayer. All are off by default and apply on the next
-launch. The texture folder and the SI folder name a place inside the game files, so Settings
-lists the folders it finds there rather than asking for a path; add your own to the folder you
-select in Replace game files. Multiplayer connects to the relay server and room you name and
-turns the third person camera on. **Reset extensions** turns them all off, and Reset these
-settings leaves them alone. See [Android extensions](docs/android-extensions.md).
+files, a third person camera, first person free look and multiplayer. All are off by default and
+apply on the next launch. The texture folder and the SI folder name a place inside the game
+files, so Settings lists the folders it finds there rather than asking for a path; add your own
+to the folder you select in Replace game files. Free look keeps the camera at the character's
+eyes but level, and lets the right stick or a drag look around, with a crosshair for controller
+clicks; third person takes over from it. Multiplayer connects to the relay server and room you
+name and turns the third person camera on. **Reset extensions** turns them all off, and Reset
+these settings leaves them alone. See [Android extensions](docs/android-extensions.md).
 
 **About**, at the end of Settings, shows the version, credits isle-portable and the
 decompilation this build is based on, and links to the license, the source of this build and the

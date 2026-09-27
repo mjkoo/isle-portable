@@ -3,6 +3,7 @@
 #include "isleapp.h"
 
 #include "3dmanager/lego3dmanager.h"
+#include "crosshair.h"
 #include "cursoridle.h"
 #include "decomp.h"
 #include "gamepadbindings.h"
@@ -43,6 +44,7 @@
 #include "viewmanager/viewmanager.h"
 
 #include <array>
+#include <extensions/firstpersoncamera.h>
 #include <extensions/multiplayer.h>
 #include <extensions/thirdpersoncamera.h>
 #include <memory>
@@ -175,6 +177,8 @@ static CursorIdle g_cursorIdle;
 // which reads that to choose its own cursors, never sees one go missing.
 static const unsigned char g_blankCursorBits[1] = {0};
 static const CursorBitmap g_blankCursor = {1, 1, g_blankCursorBits, g_blankCursorBits};
+// While the first-person camera looks, a gamepad's cursor waits at the center as a crosshair.
+static bool g_crosshairShown = false;
 
 // STRING: ISLE 0x4101dc
 #define WINDOW_TITLE "LEGO®"
@@ -607,7 +611,7 @@ static SDL_AppResult HandleBackButton()
 	// is cheap and idempotent, so paying it on a cancelled press is the better trade.
 	QuitPromptSaveResult saveResult;
 	char playerName[sizeOfArray(LegoGameState::Username::m_letters) + 1];
-	const char* savedFor = nullptr;
+	const char* menuPlayer = nullptr;
 	if (!GameStateIsSaveable()) {
 		// Nothing was written, and saying so is not the same as reporting a failure.
 		SaveGameStateForLifecycleEvent("back button");
@@ -617,18 +621,21 @@ static SDL_AppResult HandleBackButton()
 		// Save does not propagate every serialization or close failure, so success only
 		// establishes that a save was attempted, not that the entire file was written.
 		saveResult = SaveGameStateForLifecycleEvent("back button") ? e_quitPromptSaveAttempted : e_quitPromptSaveFailed;
-		// Signing in or picking a name in the registration book always moves that player to the
-		// first slot, so while anyone is signed in the first slot is who the save was for.
+	}
+	// Signing in or picking a name in the registration book always moves that player to the first
+	// slot. So while anyone is signed in it is who the save was for, and before anyone has, it is
+	// whoever played last, the name the book lists first.
+	if (GameState() && GameState()->m_playerCount > 0) {
 		const LegoGameState::Username& player = GameState()->m_players[0];
 		FormatPlayerName(player.m_letters, sizeOfArray(player.m_letters), playerName);
-		savedFor = playerName;
+		menuPlayer = playerName;
 	}
 
 	g_confirmingQuit = true;
 	CancelInputForQuitPrompt();
 	// Capture before pumping or opening Settings: lifecycle saves may run after either.
 	Android_CaptureSaveExport(g_isle->GetSavePath(), saveResult);
-	bool quit = Android_ConfirmQuit(GameAbandoned, saveResult, savedFor);
+	bool quit = Android_ConfirmQuit(GameAbandoned, saveResult, menuPlayer);
 	Android_ClearSaveExport();
 	// SDL may already have removed input into a dispatch batch before entering this callback.
 	// Flushing cannot reach that batch; reject its old events when dispatch resumes as well.
@@ -937,6 +944,12 @@ static void HandleGamepadAction(GamepadBindings::Result p_result)
 {
 	switch (p_result.m_action) {
 	case GamepadBindings::e_click:
+#ifdef EXTENSIONS
+		// The first press after a mouse or a finger lands on the crosshair too.
+		if (p_result.m_pressed && Extensions::FirstPersonCameraExt::IsLooking()) {
+			g_isle->AimAtCenter();
+		}
+#endif
 		g_isle->RevealIdleCursor();
 		g_mousedown = p_result.m_pressed ? TRUE : FALSE;
 		if (InputManager()) {
@@ -967,6 +980,14 @@ static void HandleGamepadAction(GamepadBindings::Result p_result)
 #ifdef ANDROID
 	case GamepadBindings::e_menu:
 		Android_RequestMenu();
+		break;
+#endif
+#ifdef EXTENSIONS
+	case GamepadBindings::e_freeCursor:
+		Extensions::FirstPersonCameraExt::SetFreeCursor(g_gamepad.IsHeld(GamepadBindings::e_freeCursor));
+		break;
+	case GamepadBindings::e_recenter:
+		Extensions::FirstPersonCameraExt::Recenter();
 		break;
 #endif
 	default:
@@ -1089,6 +1110,49 @@ SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event)
 	}
 #endif
 
+#ifdef EXTENSIONS
+	// Look owns its gestures before they can alter shared click or drag state.
+	if (Extensions::FirstPersonCameraExt::HandleSDLEvent(event)) {
+		g_isle->SetDrawCursor(FALSE);
+		g_isle->LeaveCrosshair();
+		if (VideoManager()) {
+			VideoManager()->SetCursorBitmap(nullptr);
+		}
+		return SDL_APP_CONTINUE;
+	}
+	if (event->type == SDL_EVENT_FINGER_DOWN || event->type == SDL_EVENT_FINGER_MOTION ||
+		event->type == SDL_EVENT_FINGER_UP || event->type == SDL_EVENT_FINGER_CANCELED) {
+		auto touch = Extensions::FirstPersonCameraExt::HandleTouchInput(
+			event,
+			g_isle->GetTouchScheme() == LegoInputManager::e_gamepad
+		);
+		if (touch.disposition != Extensions::FirstPersonCamera::TouchDisposition::Pass) {
+			SDL_HideCursor();
+			g_isle->SetDrawCursor(FALSE);
+			g_isle->LeaveCrosshair();
+			if (VideoManager()) {
+				VideoManager()->SetCursorBitmap(nullptr);
+			}
+			if (touch.disposition == Extensions::FirstPersonCamera::TouchDisposition::Tap && InputManager()) {
+				float x = touch.x * g_targetWidth, y = touch.y * g_targetHeight;
+				InputManager()
+					->QueueEvent(c_notificationButtonDown, LegoEventNotificationParam::c_lButtonState, x, y, 0);
+				InputManager()->QueueEvent(c_notificationButtonUp, 0, x, y, 0);
+				auto tap = event->tfinger;
+				tap.x = touch.x;
+				tap.y = touch.y;
+				g_isle->DetectDoubleTap(tap);
+			}
+			else if (event->type == SDL_EVENT_FINGER_UP || event->type == SDL_EVENT_FINGER_CANCELED) {
+				auto canceled = event->tfinger;
+				canceled.type = SDL_EVENT_FINGER_CANCELED;
+				g_isle->DetectDoubleTap(canceled);
+			}
+			return SDL_APP_CONTINUE;
+		}
+	}
+#endif
+
 	switch (event->type) {
 	case SDL_EVENT_WINDOW_FOCUS_GAINED:
 		if (!g_isle->GetActiveInBackground()) {
@@ -1161,6 +1225,9 @@ SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event)
 		break;
 	case SDL_EVENT_GAMEPAD_REMOVED:
 		g_gamepad.Removed(event->gdevice.which);
+#ifdef EXTENSIONS
+		Extensions::FirstPersonCameraExt::SetFreeCursor(g_gamepad.IsHeld(GamepadBindings::e_freeCursor));
+#endif
 		if (InputManager()) {
 			InputManager()->RemoveJoystick(event->jdevice.which);
 		}
@@ -2154,8 +2221,9 @@ void IsleApp::SetupCursor(Cursor p_cursor)
 	}
 
 	if (g_isle->GetDrawCursor()) {
-		// A cursor hidden for being idle picks up the new shape when it is next revealed.
-		if (!g_cursorIdle.IsHidden()) {
+		// A cursor hidden for being idle, or standing in as the crosshair, picks up the new shape
+		// when it is next shown.
+		if (!g_cursorIdle.IsHidden() && !g_crosshairShown) {
 			VideoManager()->SetCursorBitmap(m_cursorCurrentBitmap);
 		}
 	}
@@ -2400,6 +2468,14 @@ void IsleApp::MoveVirtualMouseViaJoystick()
 	}
 #endif
 
+#ifdef EXTENSIONS
+	if (Extensions::FirstPersonCameraExt::IsLooking()) {
+		AimAtCenter();
+		return;
+	}
+	g_isle->LeaveCrosshair();
+#endif
+
 	// Use joystick axis if non-zero, else fall back to dpad
 	float moveX = ((g_lastJoystickMouseX != 0) ? g_lastJoystickMouseX : dpadX) * frames;
 	float moveY = ((g_lastJoystickMouseY != 0) ? g_lastJoystickMouseY : dpadY) * frames;
@@ -2441,11 +2517,68 @@ void IsleApp::MoveVirtualMouseViaJoystick()
 	}
 }
 
+// Clicks from a gamepad land at the center of the view, where the crosshair is. Any button or
+// stick makes the gamepad the pointer, the left stick that walks included. A mouse or a finger
+// keeps pointing wherever it is.
+void IsleApp::AimAtCenter()
+{
+	if (!InputManager() ||
+		!std::holds_alternative<LegoInputManager::SDL_JoystickID_v>(InputManager()->GetLastInputMethod())) {
+		LeaveCrosshair();
+		return;
+	}
+
+	bool needsBitmap = !g_crosshairShown || !m_drawCursor;
+	if (!m_drawCursor) {
+		SDL_HideCursor();
+		m_drawCursor = TRUE;
+	}
+
+	float centerX = g_targetWidth / 2.0f;
+	float centerY = g_targetHeight / 2.0f;
+	if (g_lastMouseX != centerX || g_lastMouseY != centerY) {
+		g_lastMouseX = centerX;
+		g_lastMouseY = centerY;
+		if (InputManager()) {
+			InputManager()->QueueEvent(
+				c_notificationMouseMove,
+				g_mousedown ? LegoEventNotificationParam::c_lButtonState : 0,
+				g_lastMouseX,
+				g_lastMouseY,
+				0
+			);
+		}
+	}
+
+	if (VideoManager()) {
+		g_crosshairShown = true;
+		if (needsBitmap) {
+			VideoManager()->SetCursorBitmap(&crosshair_cursor);
+		}
+		VideoManager()->MoveCursor((MxS32) centerX - c_crosshairCenter, (MxS32) centerY - c_crosshairCenter);
+	}
+}
+
+void IsleApp::LeaveCrosshair()
+{
+	if (!g_crosshairShown) {
+		return;
+	}
+	g_crosshairShown = false;
+	g_cursorIdle.Moved(SDL_GetTicksNS(), true);
+	if (VideoManager()) {
+		VideoManager()->SetCursorBitmap(m_drawCursor ? m_cursorCurrentBitmap : nullptr);
+		if (m_drawCursor) {
+			VideoManager()->MoveCursor(Min((MxS32) g_lastMouseX, 639), Min((MxS32) g_lastMouseY, 479));
+		}
+	}
+}
+
 void IsleApp::RevealIdleCursor(CursorMover p_mover)
 {
 	Uint64 now = SDL_GetTicksNS();
 	bool wasHidden = p_mover == e_cursorPressed ? g_cursorIdle.Pressed(now) : g_cursorIdle.Moved(now, false);
-	if (wasHidden && m_drawCursor && VideoManager()) {
+	if (wasHidden && m_drawCursor && !g_crosshairShown && VideoManager()) {
 		VideoManager()->SetCursorBitmap(m_cursorCurrentBitmap);
 	}
 }
@@ -2462,6 +2595,10 @@ void IsleApp::DetectDoubleTap(const SDL_TouchFingerEvent& p_event)
 	const MxU32 doubleTapMs = 500;
 	const float doubleTapDist = 0.001;
 	static LastTap lastTap = {0, {0, 0}};
+	if (p_event.type == SDL_EVENT_FINGER_CANCELED) {
+		lastTap = {0, {0, 0}};
+		return;
+	}
 
 	LastTap currentTap = {p_event.timestamp, {p_event.x, p_event.y}};
 	if (SDL_NS_TO_MS(currentTap.first - lastTap.first) < doubleTapMs &&

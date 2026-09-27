@@ -1,5 +1,6 @@
 #pragma once
 
+#include "backdrop.h"
 #include "d3drmmesh_impl.h"
 #include "mathutils.h"
 #include "miniwin/d3drm.h"
@@ -59,8 +60,29 @@ public:
 	virtual void SetPalette(SDL_Palette* palette) {}
 	virtual bool UsesPalettedSurfaces() const { return false; }
 
+	void NoteBackdrop() { m_backdrop.Note(); }
+	void FinishBackdropFrame()
+	{
+		if (m_backdrop.Finish()) {
+			for (const auto& bar : BackdropBars(
+					 m_width,
+					 m_height,
+					 m_virtualWidth,
+					 m_virtualHeight,
+					 m_viewportTransform.scale,
+					 m_viewportTransform.offsetX,
+					 m_viewportTransform.offsetY
+				 )) {
+				if (bar.w > 0 && bar.h > 0) {
+					Draw2DImage(NO_TEXTURE_ID, SDL_Rect{}, bar, {0.0f, 0.0f, 0.0f, 1.0f});
+				}
+			}
+		}
+	}
+
 protected:
 	bool m_renderTargetReady = true;
+	BackdropFrame m_backdrop;
 	int m_width, m_height;
 	int m_virtualWidth, m_virtualHeight;
 	ViewportTransform m_viewportTransform;

@@ -32,7 +32,9 @@ enum Action {
 	e_space,
 	e_escape,
 	e_pause,
-	e_menu // Opens the Android menu; does nothing on other platforms.
+	e_menu,       // Opens the Android menu; does nothing on other platforms.
+	e_freeCursor, // Held, gives the right stick back to the cursor while the first-person camera looks.
+	e_recenter    // Levels the first-person camera's view.
 };
 
 // Which of South and East clicks by default: the one labelled A, or a fixed choice.
@@ -106,7 +108,7 @@ inline bool Matches(const char* p_value, const char* p_name)
 
 inline bool ParseAction(const char* p_value, Action& p_action)
 {
-	static const char* const names[] = {"none", "click", "space", "escape", "pause", "menu"};
+	static const char* const names[] = {"none", "click", "space", "escape", "pause", "menu", "free cursor", "recenter"};
 	for (int i = 0; i < (int) (sizeof(names) / sizeof(names[0])); i++) {
 		if (Matches(p_value, names[i])) {
 			p_action = static_cast<Action>(i);
@@ -161,6 +163,10 @@ inline Action Resolve(const Table& p_table, Input p_input, bool p_eastIsA, Platf
 	}
 	case e_rightTrigger:
 		return e_click;
+	case e_leftTrigger:
+		return e_freeCursor;
+	case e_rightStick:
+		return e_recenter;
 	case e_back:
 		return e_escape;
 	case e_start:
@@ -247,9 +253,9 @@ public:
 			result.m_pressed = true;
 		}
 		else {
-			// Only a click is held; key actions act once, on the press.
-			if (held == e_click) {
-				result.m_action = e_click;
+			// Only a click and the free cursor are held; key actions act once, on the press.
+			if (held == e_click || held == e_freeCursor) {
+				result.m_action = held;
 			}
 			held = e_none;
 		}
@@ -276,8 +282,8 @@ public:
 			result.m_pressed = true;
 		}
 		else {
-			if (held == e_click && p_clickDown) {
-				result.m_action = e_click;
+			if ((held == e_click && p_clickDown) || held == e_freeCursor) {
+				result.m_action = held;
 			}
 			held = e_none;
 		}
@@ -298,6 +304,18 @@ public:
 				held = e_none;
 			}
 		}
+	}
+
+	bool IsHeld(Action p_action) const
+	{
+		for (const auto& pad : m_pads) {
+			for (Action held : pad.second.m_held) {
+				if (held == p_action) {
+					return true;
+				}
+			}
+		}
+		return false;
 	}
 
 private:

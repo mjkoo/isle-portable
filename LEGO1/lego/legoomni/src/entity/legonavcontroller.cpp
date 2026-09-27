@@ -2,6 +2,7 @@
 
 #include "3dmanager/lego3dmanager.h"
 #include "act3.h"
+#include "extensions/firstpersoncamera.h"
 #include "extensions/thirdpersoncamera.h"
 #include "infocenter.h"
 #include "legoanimationmanager.h"
@@ -350,6 +351,8 @@ MxBool LegoNavController::CalculateNewPosDir(
 	if (ProcessKeyboardInput() == FAILURE) {
 		ProcessJoystickInput(rotatedY);
 	}
+
+	Extension<FirstPersonCameraExt>::Call(FP::HandleNavTurn, this);
 
 	if (Extension<
 			ThirdPersonCameraExt>::Call(TP::HandleNavOverride, this, p_curPos, p_curDir, p_newPos, p_newDir, deltaTime)
