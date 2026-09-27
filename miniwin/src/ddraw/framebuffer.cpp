@@ -90,7 +90,8 @@ HRESULT FrameBufferImpl::Blt(
 	float scaleX = (float) dstRect.w / (float) srcRect.w;
 	float scaleY = (float) dstRect.h / (float) srcRect.h;
 	Uint32 textureId = DDRenderer->GetTextureId(surface->ToTexture(), true, scaleX, scaleY);
-	if (IsBackdrop(dstRect, (int) m_virtualWidth, (int) m_virtualHeight, (dwFlags & DDBLT_KEYSRC) == DDBLT_KEYSRC)) {
+	if (CoversGameArea(dstRect, (int) m_virtualWidth, (int) m_virtualHeight) &&
+		IsOpaqueBackdropSurface(surface->m_surface, srcRect)) {
 		DDRenderer->NoteBackdrop();
 	}
 	DDRenderer->Draw2DImage(textureId, srcRect, dstRect, {1.0f, 1.0f, 1.0f, 1.0f});

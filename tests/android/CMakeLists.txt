@@ -135,6 +135,8 @@ add_test(NAME miniwin_backdrop COMMAND backdrop)
 # SDL3, such as the desktop build's, and is skipped without one.
 find_library(SDL3_LIBRARY NAMES SDL3 HINTS ../../build/_deps/sdl3-build NO_DEFAULT_PATH)
 if(SDL3_LIBRARY)
+  target_link_libraries(backdrop PRIVATE "${SDL3_LIBRARY}")
+  target_compile_definitions(backdrop PRIVATE ISLE_TEST_SDL_SURFACES)
   add_executable(gamepadlabels gamepadlabels.cpp)
   target_compile_features(gamepadlabels PRIVATE cxx_std_17)
   target_compile_options(gamepadlabels PRIVATE -Wall -Wextra -Werror -UNDEBUG)
