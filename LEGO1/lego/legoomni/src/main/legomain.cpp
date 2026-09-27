@@ -735,6 +735,7 @@ MxLong LegoOmni::Notify(MxParam& p_param)
 // FUNCTION: LEGO1 0x1005b640
 void LegoOmni::Pause()
 {
+	Extension<FirstPersonCameraExt>::Call(FP::CancelPointerInput);
 	MxOmni::Pause();
 	SetAppCursor(e_cursorNo);
 }

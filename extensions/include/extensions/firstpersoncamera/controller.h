@@ -1,6 +1,6 @@
 #pragma once
 
-#include "extensions/firstpersoncamera/look.h"
+#include "extensions/firstpersoncamera/input.h"
 
 #include <SDL3/SDL_events.h>
 #include <SDL3/SDL_stdinc.h>
@@ -26,16 +26,16 @@ public:
 	// collected, through the same one-shot rotation a key nudge uses.
 	void TurnActor(LegoNavController* p_nav);
 
-	void HandleSDLEvent(SDL_Event* p_event);
+	bool HandleSDLEvent(SDL_Event* p_event);
 
-	// Returns whether the finger is the camera's, so the game's own touch handling skips it.
-	bool HandleTouch(SDL_Event* p_event, bool p_stickScheme);
+	// Arbitrate taps and look drags before the app queues pointer notifications.
+	TouchResult HandleTouch(SDL_Event* p_event, bool p_stickScheme);
 
 	// Drop every held input without acting on it, as for the pause menu.
 	void CancelInput();
 
-	bool IsLookActive() const { return m_active; }
-	bool IsLooking() const { return m_active && !m_freeCursor; }
+	bool IsLookActive() const { return m_active && CanLookNow() && SameSituation(); }
+	bool IsLooking() const { return IsLookActive() && !m_freeCursor; }
 	void SetFreeCursor(bool p_held);
 	void Recenter() { m_look.Recenter(); }
 
@@ -53,18 +53,14 @@ private:
 	LegoWorld* m_activeWorld = nullptr;
 	Uint64 m_lastTick = 0;
 
-	Sint16 m_stickX = 0;
-	Sint16 m_stickY = 0;
+	LookSticks m_sticks;
+	TouchLook m_touch;
+	bool m_focused = true;
+	MouseLookGesture m_mouse;
 
-	bool m_rightButtonHeld = false;
 	SDL_WindowID m_relativeWindow = 0;
 	float m_savedMouseX = 0.0f;
 	float m_savedMouseY = 0.0f;
-
-	bool m_fingerHeld = false;
-	SDL_FingerID m_finger = 0;
-	float m_fingerX = 0.0f;
-	float m_fingerY = 0.0f;
 };
 
 } // namespace FirstPersonCamera

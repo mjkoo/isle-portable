@@ -984,7 +984,7 @@ static void HandleGamepadAction(GamepadBindings::Result p_result)
 #endif
 #ifdef EXTENSIONS
 	case GamepadBindings::e_freeCursor:
-		Extensions::FirstPersonCameraExt::SetFreeCursor(p_result.m_pressed);
+		Extensions::FirstPersonCameraExt::SetFreeCursor(g_gamepad.IsHeld(GamepadBindings::e_freeCursor));
 		break;
 	case GamepadBindings::e_recenter:
 		Extensions::FirstPersonCameraExt::Recenter();
@@ -1110,6 +1110,49 @@ SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event)
 	}
 #endif
 
+#ifdef EXTENSIONS
+	// Look owns its gestures before they can alter shared click or drag state.
+	if (Extensions::FirstPersonCameraExt::HandleSDLEvent(event)) {
+		g_isle->SetDrawCursor(FALSE);
+		g_isle->LeaveCrosshair();
+		if (VideoManager()) {
+			VideoManager()->SetCursorBitmap(nullptr);
+		}
+		return SDL_APP_CONTINUE;
+	}
+	if (event->type == SDL_EVENT_FINGER_DOWN || event->type == SDL_EVENT_FINGER_MOTION ||
+		event->type == SDL_EVENT_FINGER_UP || event->type == SDL_EVENT_FINGER_CANCELED) {
+		auto touch = Extensions::FirstPersonCameraExt::HandleTouchInput(
+			event,
+			g_isle->GetTouchScheme() == LegoInputManager::e_gamepad
+		);
+		if (touch.disposition != Extensions::FirstPersonCamera::TouchDisposition::Pass) {
+			SDL_HideCursor();
+			g_isle->SetDrawCursor(FALSE);
+			g_isle->LeaveCrosshair();
+			if (VideoManager()) {
+				VideoManager()->SetCursorBitmap(nullptr);
+			}
+			if (touch.disposition == Extensions::FirstPersonCamera::TouchDisposition::Tap && InputManager()) {
+				float x = touch.x * g_targetWidth, y = touch.y * g_targetHeight;
+				InputManager()
+					->QueueEvent(c_notificationButtonDown, LegoEventNotificationParam::c_lButtonState, x, y, 0);
+				InputManager()->QueueEvent(c_notificationButtonUp, 0, x, y, 0);
+				auto tap = event->tfinger;
+				tap.x = touch.x;
+				tap.y = touch.y;
+				g_isle->DetectDoubleTap(tap);
+			}
+			else if (event->type == SDL_EVENT_FINGER_UP || event->type == SDL_EVENT_FINGER_CANCELED) {
+				auto canceled = event->tfinger;
+				canceled.type = SDL_EVENT_FINGER_CANCELED;
+				g_isle->DetectDoubleTap(canceled);
+			}
+			return SDL_APP_CONTINUE;
+		}
+	}
+#endif
+
 	switch (event->type) {
 	case SDL_EVENT_WINDOW_FOCUS_GAINED:
 		if (!g_isle->GetActiveInBackground()) {
@@ -1182,6 +1225,9 @@ SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event)
 		break;
 	case SDL_EVENT_GAMEPAD_REMOVED:
 		g_gamepad.Removed(event->gdevice.which);
+#ifdef EXTENSIONS
+		Extensions::FirstPersonCameraExt::SetFreeCursor(g_gamepad.IsHeld(GamepadBindings::e_freeCursor));
+#endif
 		if (InputManager()) {
 			InputManager()->RemoveJoystick(event->jdevice.which);
 		}
@@ -1470,7 +1516,6 @@ SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event)
 
 #ifdef EXTENSIONS
 	Extensions::ThirdPersonCameraExt::HandleSDLEvent(event);
-	Extensions::FirstPersonCameraExt::HandleSDLEvent(event);
 #endif
 
 	return SDL_APP_CONTINUE;
@@ -2428,14 +2473,7 @@ void IsleApp::MoveVirtualMouseViaJoystick()
 		AimAtCenter();
 		return;
 	}
-	if (g_crosshairShown) {
-		// Looking has stopped or the free cursor is held: the cursor carries on from the center.
-		g_crosshairShown = false;
-		if (m_drawCursor && VideoManager()) {
-			VideoManager()->SetCursorBitmap(m_cursorCurrentBitmap);
-			VideoManager()->MoveCursor(Min((MxS32) g_lastMouseX, 639), Min((MxS32) g_lastMouseY, 479));
-		}
-	}
+	g_isle->LeaveCrosshair();
 #endif
 
 	// Use joystick axis if non-zero, else fall back to dpad
@@ -2486,10 +2524,11 @@ void IsleApp::AimAtCenter()
 {
 	if (!InputManager() ||
 		!std::holds_alternative<LegoInputManager::SDL_JoystickID_v>(InputManager()->GetLastInputMethod())) {
-		g_crosshairShown = false;
+		LeaveCrosshair();
 		return;
 	}
 
+	bool needsBitmap = !g_crosshairShown || !m_drawCursor;
 	if (!m_drawCursor) {
 		SDL_HideCursor();
 		m_drawCursor = TRUE;
@@ -2511,10 +2550,27 @@ void IsleApp::AimAtCenter()
 		}
 	}
 
-	if (!g_crosshairShown && VideoManager()) {
+	if (VideoManager()) {
 		g_crosshairShown = true;
-		VideoManager()->SetCursorBitmap(&crosshair_cursor);
+		if (needsBitmap) {
+			VideoManager()->SetCursorBitmap(&crosshair_cursor);
+		}
 		VideoManager()->MoveCursor((MxS32) centerX - c_crosshairCenter, (MxS32) centerY - c_crosshairCenter);
+	}
+}
+
+void IsleApp::LeaveCrosshair()
+{
+	if (!g_crosshairShown) {
+		return;
+	}
+	g_crosshairShown = false;
+	g_cursorIdle.Moved(SDL_GetTicksNS(), true);
+	if (VideoManager()) {
+		VideoManager()->SetCursorBitmap(m_drawCursor ? m_cursorCurrentBitmap : nullptr);
+		if (m_drawCursor) {
+			VideoManager()->MoveCursor(Min((MxS32) g_lastMouseX, 639), Min((MxS32) g_lastMouseY, 479));
+		}
 	}
 }
 
@@ -2539,6 +2595,10 @@ void IsleApp::DetectDoubleTap(const SDL_TouchFingerEvent& p_event)
 	const MxU32 doubleTapMs = 500;
 	const float doubleTapDist = 0.001;
 	static LastTap lastTap = {0, {0, 0}};
+	if (p_event.type == SDL_EVENT_FINGER_CANCELED) {
+		lastTap = {0, {0, 0}};
+		return;
+	}
 
 	LastTap currentTap = {p_event.timestamp, {p_event.x, p_event.y}};
 	if (SDL_NS_TO_MS(currentTap.first - lastTap.first) < doubleTapMs &&

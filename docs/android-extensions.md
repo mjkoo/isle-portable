@@ -50,6 +50,9 @@ as, from the game's own list.
 Multiplayer turns the third person camera on whatever the Third person camera row says, since
 it needs it to show other players.
 
+If the relay turns your session away, for instance because the room is full, the game saves and
+closes.
+
 ## First person free look
 
 The game's own camera sits at your character's eyes and tilts with the ground they stand on,
@@ -60,14 +63,12 @@ your character, so you walk where you look; looking up and down tilts only the v
 
 With a controller, clicks land on a crosshair at the center of the screen; see
 [Android controllers](android-controllers.md) for getting the cursor back. Touch and the mouse
-keep clicking where you tap or point. **Invert look** turns looking up and down around.
+keep clicking where you tap or point. On the right half with Virtual stick, a tap clicks on release;
+a drag looks around without clicking or counting toward a double tap. **Invert look** turns looking up and down around.
 
 The camera goes back to the game's own for scripted scenes, the helicopter, races and the
 places with fixed views, such as the elevator. Third person has the camera while it or
 multiplayer is on, and Settings says so.
-
-If the relay turns your session away, for instance because the room is full, the game saves and
-closes.
 
 ## Resetting
 

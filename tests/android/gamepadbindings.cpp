@@ -445,4 +445,28 @@ int main()
 	VitaLeavesStartUnboundUnlessConfigured();
 	TriggersLatchIndependently();
 	EachPadKeepsItsOwnPresses();
+	// Free cursor is held until the last binding, on any controller, is released.
+	{
+		Dispatcher dispatcher(e_platformAndroid);
+		dispatcher.SetTable(ParseMap({{"gamepad:leftshoulder", "free cursor"}}));
+		dispatcher.Trigger(1, e_leftTrigger, 32767, false);
+		dispatcher.Button(1, e_leftShoulder, true, false);
+		dispatcher.Trigger(1, e_leftTrigger, 0, false);
+		assert(dispatcher.IsHeld(e_freeCursor));
+		dispatcher.Trigger(2, e_leftTrigger, 32767, false);
+		dispatcher.Button(1, e_leftShoulder, false, false);
+		assert(dispatcher.IsHeld(e_freeCursor));
+		dispatcher.Removed(1);
+		assert(dispatcher.IsHeld(e_freeCursor));
+		dispatcher.Removed(2);
+		assert(!dispatcher.IsHeld(e_freeCursor));
+		dispatcher.Trigger(1, e_leftTrigger, 32767, false);
+		dispatcher.Cancel();
+		assert(!dispatcher.IsHeld(e_freeCursor));
+		dispatcher.Trigger(1, e_leftTrigger, 32767, false);
+		assert(!dispatcher.IsHeld(e_freeCursor));
+		dispatcher.Trigger(1, e_leftTrigger, 0, false);
+		dispatcher.Trigger(1, e_leftTrigger, 32767, false);
+		assert(dispatcher.IsHeld(e_freeCursor));
+	}
 }

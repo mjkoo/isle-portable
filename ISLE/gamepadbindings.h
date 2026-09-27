@@ -306,6 +306,18 @@ public:
 		}
 	}
 
+	bool IsHeld(Action p_action) const
+	{
+		for (const auto& pad : m_pads) {
+			for (Action held : pad.second.m_held) {
+				if (held == p_action) {
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+
 private:
 	static bool Pulled(Sint16 p_value) { return p_value < -8000 || p_value > 8000; }
 

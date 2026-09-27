@@ -11,6 +11,7 @@
 #include "mxgeometry/mxgeometry3d.h"
 #include "roi/legoroi.h"
 
+#include <SDL3/SDL_log.h>
 #include <SDL3/SDL_mouse.h>
 #include <SDL3/SDL_timer.h>
 
@@ -19,11 +20,11 @@ using namespace Extensions::FirstPersonCamera;
 // The eye the game puts on every actor it hands the camera to.
 static const float c_eyeHeight = 1.25f;
 
-// A finger that lands on this side of the screen looks; the other side keeps the virtual stick.
-static const float c_touchLookZoneX = 0.5f;
-
 bool Controller::CanLookNow() const
 {
+	if (!m_focused || !Lego() || Lego()->IsPaused()) {
+		return false;
+	}
 	LegoPathActor* actor = UserActor();
 	LegoWorld* world = CurrentWorld();
 	if (!actor || !actor->GetROI() || !world || !world->GetCameraController()) {
@@ -55,7 +56,7 @@ void Controller::Tick()
 	bool canLook = CanLookNow();
 	if (canLook != m_active) {
 		if (!canLook) {
-			ReleaseMouse();
+			CancelInput();
 			RestoreVanillaEye();
 		}
 		m_look.Reset();
@@ -65,6 +66,7 @@ void Controller::Tick()
 	}
 	else if (m_active && !SameSituation()) {
 		// A new actor or world took over between ticks; each starts looking straight ahead.
+		CancelInput();
 		m_look.Reset();
 		m_activeActor = UserActor();
 		m_activeWorld = CurrentWorld();
@@ -75,9 +77,9 @@ void Controller::Tick()
 	}
 
 	if (!m_freeCursor) {
-		m_look.Turn(StickRate(m_stickX) * c_stickYawDegreesPerSecond * deltaTime);
+		m_look.Turn(m_sticks.X() * c_stickYawDegreesPerSecond * deltaTime);
 		// Stick up is negative.
-		m_look.Tilt(-StickRate(m_stickY) * c_stickPitchRadiansPerSecond * deltaTime);
+		m_look.Tilt(-m_sticks.Y() * c_stickPitchRadiansPerSecond * deltaTime);
 	}
 
 	ApplyEye();
@@ -130,7 +132,7 @@ void Controller::RestoreVanillaEye()
 void Controller::TurnActor(LegoNavController* p_nav)
 {
 	float yaw = m_look.TakeYaw();
-	if (!m_active || yaw == 0.0f) {
+	if (!IsLookActive() || yaw == 0.0f) {
 		return;
 	}
 
@@ -138,93 +140,84 @@ void Controller::TurnActor(LegoNavController* p_nav)
 	p_nav->m_keyPressed = TRUE;
 }
 
-void Controller::HandleSDLEvent(SDL_Event* p_event)
+bool Controller::HandleSDLEvent(SDL_Event* p_event)
 {
+	if (p_event->type == SDL_EVENT_WINDOW_FOCUS_LOST) {
+		m_focused = false;
+		CancelInput();
+	}
+	else if (p_event->type == SDL_EVENT_WINDOW_FOCUS_GAINED) {
+		m_focused = true;
+	}
+	if (!CanLookNow() || !SameSituation()) {
+		CancelInput();
+	}
+
 	switch (p_event->type) {
 	case SDL_EVENT_GAMEPAD_AXIS_MOTION:
-		if (p_event->gaxis.axis == SDL_GAMEPAD_AXIS_RIGHTX) {
-			m_stickX = p_event->gaxis.value;
-		}
-		else if (p_event->gaxis.axis == SDL_GAMEPAD_AXIS_RIGHTY) {
-			m_stickY = p_event->gaxis.value;
+		if (CanLookNow()) {
+			m_sticks
+				.Axis(p_event->gaxis.which, static_cast<SDL_GamepadAxis>(p_event->gaxis.axis), p_event->gaxis.value);
 		}
 		break;
-
 	case SDL_EVENT_GAMEPAD_REMOVED:
-		m_stickX = m_stickY = 0;
+		m_sticks.Remove(p_event->gdevice.which);
 		break;
-
 	case SDL_EVENT_MOUSE_BUTTON_DOWN:
 	case SDL_EVENT_MOUSE_BUTTON_UP:
 		if (p_event->button.which == SDL_TOUCH_MOUSEID || p_event->button.button != SDL_BUTTON_RIGHT) {
 			break;
 		}
 		if (!p_event->button.down) {
+			bool consumed = m_mouse.End();
 			ReleaseMouse();
+			return consumed;
 		}
-		else if (m_active) {
+		if (IsLookActive()) {
+			m_mouse.Begin(false);
 			SDL_Window* window = SDL_GetWindowFromID(p_event->button.windowID);
 			if (window) {
 				SDL_GetMouseState(&m_savedMouseX, &m_savedMouseY);
-				SDL_SetWindowRelativeMouseMode(window, true);
-				m_relativeWindow = p_event->button.windowID;
+				if (SDL_SetWindowRelativeMouseMode(window, true)) {
+					m_relativeWindow = p_event->button.windowID;
+					m_mouse.Begin(true);
+				}
+				else {
+					SDL_Log("Could not capture first-person mouse look: %s", SDL_GetError());
+				}
 			}
-			m_rightButtonHeld = true;
+			return true;
 		}
 		break;
-
 	case SDL_EVENT_MOUSE_MOTION:
-		if (m_rightButtonHeld && m_active && p_event->motion.which != SDL_TOUCH_MOUSEID) {
-			m_look.Turn(p_event->motion.xrel * c_mouseYawDegreesPerPixel);
-			m_look.Tilt(-p_event->motion.yrel * c_mousePitchRadiansPerPixel);
+		if (m_mouse.OwnsMotion() && p_event->motion.which != SDL_TOUCH_MOUSEID) {
+			if (m_mouse.CanLook() && IsLookActive()) {
+				m_look.Turn(p_event->motion.xrel * c_mouseYawDegreesPerPixel);
+				m_look.Tilt(-p_event->motion.yrel * c_mousePitchRadiansPerPixel);
+			}
+			return true;
 		}
 		break;
 	}
+	return false;
 }
 
-bool Controller::HandleTouch(SDL_Event* p_event, bool p_stickScheme)
+TouchResult Controller::HandleTouch(SDL_Event* p_event, bool p_stickScheme)
 {
-	const SDL_TouchFingerEvent& finger = p_event->tfinger;
-
-	switch (p_event->type) {
-	case SDL_EVENT_FINGER_DOWN:
-		if (!m_active || !p_stickScheme || m_fingerHeld || finger.x < c_touchLookZoneX) {
-			return false;
-		}
-		m_fingerHeld = true;
-		m_finger = finger.fingerID;
-		m_fingerX = finger.x;
-		m_fingerY = finger.y;
-		return true;
-
-	case SDL_EVENT_FINGER_MOTION:
-		if (!m_fingerHeld || finger.fingerID != m_finger) {
-			return false;
-		}
-		if (m_active) {
-			m_look.Turn((finger.x - m_fingerX) * c_touchYawDegreesPerUnit);
-			m_look.Tilt(-(finger.y - m_fingerY) * c_touchPitchRadiansPerUnit);
-		}
-		m_fingerX = finger.x;
-		m_fingerY = finger.y;
-		return true;
-
-	case SDL_EVENT_FINGER_UP:
-	case SDL_EVENT_FINGER_CANCELED:
-		if (!m_fingerHeld || finger.fingerID != m_finger) {
-			return false;
-		}
-		m_fingerHeld = false;
-		return true;
+	if (!IsLookActive()) {
+		m_touch.Cancel();
 	}
-
-	return false;
+	auto result = m_touch.Handle(p_event->tfinger, IsLookActive() && p_stickScheme);
+	m_look.Turn(result.dx * c_touchYawDegreesPerUnit);
+	m_look.Tilt(-result.dy * c_touchPitchRadiansPerUnit);
+	return result;
 }
 
 void Controller::CancelInput()
 {
-	m_stickX = m_stickY = 0;
-	m_fingerHeld = false;
+	m_sticks.Cancel();
+	m_touch.Cancel();
+	m_lastTick = 0;
 	m_freeCursor = false;
 	ReleaseMouse();
 	m_look.TakeYaw();
@@ -237,7 +230,7 @@ void Controller::SetFreeCursor(bool p_held)
 
 void Controller::ReleaseMouse()
 {
-	m_rightButtonHeld = false;
+	m_mouse.Cancel();
 	if (!m_relativeWindow) {
 		return;
 	}
@@ -245,7 +238,7 @@ void Controller::ReleaseMouse()
 	SDL_Window* window = SDL_GetWindowFromID(m_relativeWindow);
 	m_relativeWindow = 0;
 	if (window && SDL_GetWindowRelativeMouseMode(window)) {
-		SDL_SetWindowRelativeMouseMode(window, false);
 		SDL_WarpMouseInWindow(window, m_savedMouseX, m_savedMouseY);
+		SDL_SetWindowRelativeMouseMode(window, false);
 	}
 }

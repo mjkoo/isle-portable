@@ -72,9 +72,10 @@ void FirstPersonCameraExt::HandleNavTurn(LegoNavController* p_nav)
 	}
 }
 
-MxBool FirstPersonCameraExt::HandleTouchInput(SDL_Event* p_event, MxBool p_stickScheme)
+FirstPersonCamera::TouchResult FirstPersonCameraExt::HandleTouchInput(SDL_Event* p_event, bool p_stickScheme)
 {
-	return s_controller && s_controller->HandleTouch(p_event, p_stickScheme);
+	return enabled && s_controller ? s_controller->HandleTouch(p_event, p_stickScheme)
+								   : FirstPersonCamera::TouchResult{};
 }
 
 void FirstPersonCameraExt::CancelPointerInput()
@@ -84,21 +85,9 @@ void FirstPersonCameraExt::CancelPointerInput()
 	}
 }
 
-void FirstPersonCameraExt::OnSDLEvent(SDL_Event* p_event)
+bool FirstPersonCameraExt::HandleSDLEvent(SDL_Event* p_event)
 {
-	if (s_controller) {
-		s_controller->HandleSDLEvent(p_event);
-	}
-}
-
-MxBool FirstPersonCameraExt::IsLookActive()
-{
-	return s_controller && s_controller->IsLookActive();
-}
-
-void FirstPersonCameraExt::HandleSDLEvent(SDL_Event* p_event)
-{
-	Extension<FirstPersonCameraExt>::Call(FP::HandleSDLEvent, p_event);
+	return enabled && s_controller && s_controller->HandleSDLEvent(p_event);
 }
 
 bool FirstPersonCameraExt::IsLooking()
