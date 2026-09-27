@@ -352,8 +352,7 @@ MxBool LegoNavController::CalculateNewPosDir(
 		ProcessJoystickInput(rotatedY);
 	}
 
-	Extension<
-		FirstPersonCameraExt>::Call(FP::HandleNavOverride, this, p_curPos, p_curDir, p_newPos, p_newDir, deltaTime);
+	Extension<FirstPersonCameraExt>::Call(FP::HandleNavTurn, this);
 
 	if (Extension<
 			ThirdPersonCameraExt>::Call(TP::HandleNavOverride, this, p_curPos, p_curDir, p_newPos, p_newDir, deltaTime)

@@ -65,21 +65,11 @@ void FirstPersonCameraExt::HandleCreate()
 	}
 }
 
-MxBool FirstPersonCameraExt::HandleNavOverride(
-	LegoNavController* p_nav,
-	const Vector3& p_curPos,
-	const Vector3& p_curDir,
-	Vector3& p_newPos,
-	Vector3& p_newDir,
-	float p_deltaTime
-)
+void FirstPersonCameraExt::HandleNavTurn(LegoNavController* p_nav)
 {
 	if (s_controller) {
 		s_controller->TurnActor(p_nav);
 	}
-
-	// The game still moves the actor itself.
-	return FALSE;
 }
 
 MxBool FirstPersonCameraExt::HandleTouchInput(SDL_Event* p_event, MxBool p_stickScheme)
@@ -103,7 +93,7 @@ void FirstPersonCameraExt::OnSDLEvent(SDL_Event* p_event)
 
 MxBool FirstPersonCameraExt::IsLookActive()
 {
-	return s_controller && s_controller->IsActive();
+	return s_controller && s_controller->IsLookActive();
 }
 
 void FirstPersonCameraExt::HandleSDLEvent(SDL_Event* p_event)

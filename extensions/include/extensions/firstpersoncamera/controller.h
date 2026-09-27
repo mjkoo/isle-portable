@@ -6,6 +6,8 @@
 #include <SDL3/SDL_stdinc.h>
 
 class LegoNavController;
+class LegoPathActor;
+class LegoWorld;
 
 namespace Extensions
 {
@@ -32,7 +34,7 @@ public:
 	// Drop every held input without acting on it, as for the pause menu.
 	void CancelInput();
 
-	bool IsActive() const { return m_active; }
+	bool IsLookActive() const { return m_active; }
 	bool IsLooking() const { return m_active && !m_freeCursor; }
 	void SetFreeCursor(bool p_held);
 	void Recenter() { m_look.Recenter(); }
@@ -47,8 +49,8 @@ private:
 	Look m_look;
 	bool m_active = false;
 	bool m_freeCursor = false;
-	const void* m_activeActor = nullptr;
-	const void* m_activeWorld = nullptr;
+	LegoPathActor* m_activeActor = nullptr;
+	LegoWorld* m_activeWorld = nullptr;
 	Uint64 m_lastTick = 0;
 
 	Sint16 m_stickX = 0;
