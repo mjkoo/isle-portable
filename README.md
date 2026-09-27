@@ -187,12 +187,14 @@ picker, the first launch says where to copy the game files with adb. See
 [Android TV](docs/android-tv.md).
 
 **Extensions** turns on the parts that are not in the original game: custom textures, extra SI
-files, a third person camera and multiplayer. All are off by default and apply on the next
-launch. The texture folder and the SI folder name a place inside the game files, so Settings
-lists the folders it finds there rather than asking for a path; add your own to the folder you
-select in Replace game files. Multiplayer connects to the relay server and room you name and
-turns the third person camera on. **Reset extensions** turns them all off, and Reset these
-settings leaves them alone. See [Android extensions](docs/android-extensions.md).
+files, a third person camera, first person free look and multiplayer. All are off by default and
+apply on the next launch. The texture folder and the SI folder name a place inside the game
+files, so Settings lists the folders it finds there rather than asking for a path; add your own
+to the folder you select in Replace game files. Free look keeps the camera at the character's
+eyes but level, and lets the right stick or a drag look around, with a crosshair for controller
+clicks; third person takes over from it. Multiplayer connects to the relay server and room you
+name and turns the third person camera on. **Reset extensions** turns them all off, and Reset
+these settings leaves them alone. See [Android extensions](docs/android-extensions.md).
 
 **About**, at the end of Settings, shows the version, credits isle-portable and the
 decompilation this build is based on, and links to the license, the source of this build and the
