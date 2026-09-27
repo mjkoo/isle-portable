@@ -59,8 +59,20 @@ public:
 	virtual void SetPalette(SDL_Palette* palette) {}
 	virtual bool UsesPalettedSurfaces() const { return false; }
 
+	// Backdrops, as IsBackdrop describes them, are noted while a frame is drawn and read by the
+	// next frame's viewport clear, which comes before any 2D is drawn.
+	void NoteBackdrop() { m_backdropThisFrame = true; }
+	void EndBackdropFrame()
+	{
+		m_backdropLastFrame = m_backdropThisFrame;
+		m_backdropThisFrame = false;
+	}
+	bool HadBackdrop() const { return m_backdropLastFrame; }
+
 protected:
 	bool m_renderTargetReady = true;
+	bool m_backdropThisFrame = false;
+	bool m_backdropLastFrame = false;
 	int m_width, m_height;
 	int m_virtualWidth, m_virtualHeight;
 	ViewportTransform m_viewportTransform;

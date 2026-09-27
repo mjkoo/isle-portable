@@ -125,6 +125,12 @@ target_compile_options(firstpersonlook PRIVATE -Wall -Wextra -Werror -UNDEBUG)
 target_include_directories(firstpersonlook PRIVATE ../../extensions/include)
 add_test(NAME first_person_look COMMAND firstpersonlook)
 
+add_executable(backdrop backdrop.cpp)
+target_compile_features(backdrop PRIVATE cxx_std_17)
+target_compile_options(backdrop PRIVATE -Wall -Wextra -Werror -UNDEBUG)
+target_include_directories(backdrop PRIVATE ../../miniwin/src/internal "${SDL3_INCLUDE_DIR}")
+add_test(NAME miniwin_backdrop COMMAND backdrop)
+
 # Checks the face-button labels the default Click relies on against SDL itself. It needs a built
 # SDL3, such as the desktop build's, and is skipped without one.
 find_library(SDL3_LIBRARY NAMES SDL3 HINTS ../../build/_deps/sdl3-build NO_DEFAULT_PATH)
